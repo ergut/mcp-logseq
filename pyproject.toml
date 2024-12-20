@@ -1,0 +1,26 @@
+[project]
+name = "mcp-logseq"
+version = "0.1.0"
+description = "MCP server to work with LogSeq via its API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.1.0",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.3",
+]
+
+[[project.authors]]
+name = "Salih Ergüt"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.389",
+]
+
+[project.scripts]
+mcp-logseq = "mcp_logseq:main"
