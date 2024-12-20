@@ -53,9 +53,34 @@ class LogSeq():
                 timeout=self.timeout
             )
             logger.debug(f"Response status: {response.status_code}")
-            logger.debug(f"Response content: {response.text}")
+            logger.debug(f"Response text: {response.text}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
             logger.error(f"Error creating page: {str(e)}")
+            raise
+
+    def list_pages(self) -> Any:
+        url = self.get_base_url()
+        logger.info("Listing all pages")
+        
+        payload = {
+            "method": "logseq.Editor.getAllPages"
+        }
+        logger.debug(f"Request payload: {payload}")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json=payload,
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            logger.debug(f"Response status: {response.status_code}")
+            logger.debug(f"Response text: {response.text}")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error listing pages: {str(e)}")
             raise

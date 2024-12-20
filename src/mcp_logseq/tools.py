@@ -80,7 +80,65 @@ class ListPagesToolHandler(ToolHandler):
             description="Lists all pages in a LogSeq graph.",
             inputSchema={
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "include_journals": {
+                        "type": "boolean",
+                        "description": "Whether to include journal/daily notes in the list",
+                        "default": False
+                    }
+                },
                 "required": []
             }
         )
+    
+    def run_tool(self, args: dict) -> list[TextContent]:
+        logger.info("Listing pages")
+        include_journals = args.get("include_journals", False)
+        
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            logger.info("Created LogSeq client")
+            
+            result = api.list_pages()
+            logger.debug(f"Raw API response: {result}")
+            
+            # Format pages for display
+            pages_info = []
+            for page in result:
+                # Skip if it's a journal page and we don't want to include those
+                is_journal = page.get('journal?', False)
+                if is_journal and not include_journals:
+                    continue
+                
+                # Get page information
+                name = page.get('originalName') or page.get('name', '<unknown>')
+                tags = page.get('tags', [])
+                properties = page.get('properties', {})
+                
+                # Build page info string
+                info_parts = [f"- {name}"]
+                if tags:
+                    info_parts.append(f"(tags: {', '.join(tags)})")
+                if properties:
+                    props = [f"{k}: {v}" for k, v in properties.items()]
+                    info_parts.append(f"[{', '.join(props)}]")
+                if is_journal:
+                    info_parts.append("[journal]")
+                    
+                pages_info.append(" ".join(info_parts))
+            
+            # Sort alphabetically by page name
+            pages_info.sort()
+            
+            # Build response
+            count_msg = f"\nTotal pages: {len(pages_info)}"
+            journal_msg = " (excluding journal pages)" if not include_journals else " (including journal pages)"
+            
+            response = "LogSeq Pages:\n\n" + "\n".join(pages_info) + count_msg + journal_msg
+            
+            logger.info(f"Found {len(pages_info)} pages")
+            return [TextContent(type="text", text=response)]
+            
+        except Exception as e:
+            logger.error(f"Failed to list pages: {str(e)}")
+            raise
