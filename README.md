@@ -2,6 +2,8 @@
 
 MCP server to interact with LogSeq via its API.
 
+<a href="https://glama.ai/mcp/servers/obfu4x8dc1"><img width="380" height="200" src="https://glama.ai/mcp/servers/obfu4x8dc1/badge" alt="server for LogSeq MCP server" /></a>
+
 ## Components
 
 ### Tools
