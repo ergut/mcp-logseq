@@ -1,0 +1,21 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - logseqApiToken
+    properties:
+      logseqApiToken:
+        type: string
+        description: The API token for the LogSeq server.
+      logseqApiUrl:
+        type: string
+        default: http://localhost:12315
+        description: The URL for the LogSeq server.
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => ({command: 'mcp-logseq', args: [], env: {LOGSEQ_API_TOKEN: config.logseqApiToken, LOGSEQ_API_URL: config.logseqApiUrl}})
