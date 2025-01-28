@@ -1,4 +1,5 @@
 # MCP server for LogSeq
+[![smithery badge](https://smithery.ai/badge/mcp-logseq)](https://smithery.ai/server/mcp-logseq)
 
 MCP server to interact with LogSeq via its API.
 
