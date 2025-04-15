@@ -112,8 +112,8 @@ class ListPagesToolHandler(ToolHandler):
                 
                 # Get page information
                 name = page.get('originalName') or page.get('name', '<unknown>')
-                tags = page.get('tags', [])
                 properties = page.get('properties', {})
+                tags = properties.get('tags', [])
                 
                 # Build page info string
                 info_parts = [f"- {name}"]
