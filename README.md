@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ergut-mcp-logseq-server-badge.png)](https://mseep.ai/app/ergut-mcp-logseq-server)
+
 # MCP server for LogSeq
 
 MCP server to interact with LogSeq via its API.
