@@ -8,79 +8,149 @@ class LogSeq():
     def __init__(
             self, 
             api_key: str,
+            protocol: str = 'http',
             host: str = "127.0.0.1",
             port: int = 12315,
             verify_ssl: bool = False,
         ):
         self.api_key = api_key
+        self.protocol = protocol
         self.host = host
         self.port = port
         self.verify_ssl = verify_ssl
         self.timeout = (3, 6)
-        logger.debug(f"LogSeq client initialized with host={host}, port={port}")
 
     def get_base_url(self) -> str:
-        url = f'http://{self.host}:{self.port}/api'
-        logger.debug(f"Base URL: {url}")
-        return url
+        return f'{self.protocol}://{self.host}:{self.port}/api'
     
     def _get_headers(self) -> dict:
         return {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json'
+            'Authorization': f'Bearer {self.api_key}'
         }
 
-    def create_page(self, title: str, content: str) -> Any:
+    def create_page(self, title: str, content: str = "") -> Any:
+        """Create a new LogSeq page with specified title and content."""
         url = self.get_base_url()
         logger.info(f"Creating page '{title}'")
         
-        payload = {
-            "method": "logseq.Editor.insertBlock",
-            "args": [
-                title,
-                content,
-                {"isPageBlock": True}
-            ]
-        }
-        logger.debug(f"Request payload: {payload}")
-
         try:
+            # Step 1: Create the page
             response = requests.post(
                 url,
                 headers=self._get_headers(),
-                json=payload,
+                json={
+                    "method": "logseq.Editor.createPage",
+                    "args": [title, {}, {"createFirstBlock": True}]
+                },
                 verify=self.verify_ssl,
                 timeout=self.timeout
             )
-            logger.debug(f"Response status: {response.status_code}")
-            logger.debug(f"Response text: {response.text}")
             response.raise_for_status()
-            return response.json()
+            page_result = response.json()
+            
+            # Step 2: Add content if provided
+            if content and content.strip():
+                response = requests.post(
+                    url,
+                    headers=self._get_headers(),
+                    json={
+                        "method": "logseq.Editor.appendBlockInPage",
+                        "args": [title, content]
+                    },
+                    verify=self.verify_ssl,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+            
+            return page_result
+
         except Exception as e:
             logger.error(f"Error creating page: {str(e)}")
             raise
-
+            
     def list_pages(self) -> Any:
+        """List all pages in the LogSeq graph."""
         url = self.get_base_url()
-        logger.info("Listing all pages")
+        logger.info("Listing pages")
         
-        payload = {
-            "method": "logseq.Editor.getAllPages"
-        }
-        logger.debug(f"Request payload: {payload}")
-
         try:
             response = requests.post(
                 url,
                 headers=self._get_headers(),
-                json=payload,
+                json={
+                    "method": "logseq.Editor.getAllPages",
+                    "args": []
+                },
                 verify=self.verify_ssl,
                 timeout=self.timeout
             )
-            logger.debug(f"Response status: {response.status_code}")
-            logger.debug(f"Response text: {response.text}")
             response.raise_for_status()
             return response.json()
+
         except Exception as e:
             logger.error(f"Error listing pages: {str(e)}")
+            raise
+    
+    def get_page_content(self, page_name: str) -> Any:
+        """Get content of a LogSeq page including metadata and block content."""
+        url = self.get_base_url()
+        logger.info(f"Getting content for page '{page_name}'")
+        
+        try:
+            # Step 1: Get page metadata (includes UUID)
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPage",
+                    "args": [page_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            page_info = response.json()
+            
+            if not page_info:
+                logger.error(f"Page '{page_name}' not found")
+                return None
+                
+            # Step 2: Get page blocks using the page name
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPageBlocksTree",
+                    "args": [page_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            blocks = response.json()
+            
+            # Step 3: Get page properties
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPageProperties",
+                    "args": [page_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            properties = response.json() or {}
+            
+            return {
+                "page": {
+                    **page_info,
+                    "properties": properties
+                },
+                "blocks": blocks or []
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting page content: {str(e)}")
             raise

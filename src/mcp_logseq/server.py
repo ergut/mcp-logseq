@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 from collections.abc import Sequence
 from typing import Any
 import os
@@ -12,24 +13,31 @@ from mcp.types import (
     EmbeddedResource,
 )
 
-# Configure logging FIRST
+# Configure logging to stderr with more verbose output
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
 )
 logger = logging.getLogger("mcp-logseq")
+
+# Add a file handler to keep logs
+file_handler = logging.FileHandler('mcp_logseq.log')
+file_handler.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
 
 load_dotenv()
 
 from . import tools
 
-# Load environment variables
+# Load environment variables with more verbose logging
 api_token = os.getenv("LOGSEQ_API_TOKEN")
 if not api_token:
     logger.error("LOGSEQ_API_TOKEN not found in environment")
     raise ValueError("LOGSEQ_API_TOKEN environment variable required")
 else:
     logger.info("Found LOGSEQ_API_TOKEN in environment")
+    logger.debug("API token validation successful")
 
 api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
 logger.info(f"Using API URL: {api_url}")
@@ -41,24 +49,31 @@ def add_tool_handler(tool_class: tools.ToolHandler):
     global tool_handlers
     logger.debug(f"Registering tool handler: {tool_class.name}")
     tool_handlers[tool_class.name] = tool_class
+    logger.info(f"Successfully registered tool handler: {tool_class.name}")
 
 def get_tool_handler(name: str) -> tools.ToolHandler | None:
     logger.debug(f"Looking for tool handler: {name}")
-    if name not in tool_handlers:
+    handler = tool_handlers.get(name)
+    if handler is None:
         logger.warning(f"Tool handler not found: {name}")
-        return None
-    
-    return tool_handlers[name]
+    else:
+        logger.debug(f"Found tool handler: {name}")
+    return handler
 
 # Register all tool handlers
+logger.info("Registering tool handlers...")
 add_tool_handler(tools.CreatePageToolHandler())
 add_tool_handler(tools.ListPagesToolHandler())
+add_tool_handler(tools.GetPageContentToolHandler())
+logger.info("Tool handlers registration complete")
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools."""
     logger.debug("Listing tools")
-    return [th.get_tool_description() for th in tool_handlers.values()]
+    tools_list = [th.get_tool_description() for th in tool_handlers.values()]
+    logger.debug(f"Found {len(tools_list)} tools")
+    return tools_list
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
@@ -76,17 +91,19 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
 
     try:
         logger.debug(f"Running tool {name}")
-        return tool_handler.run_tool(arguments)
+        result = tool_handler.run_tool(arguments)
+        logger.debug(f"Tool result: {result}")
+        return result
     except Exception as e:
-        logger.error(f"Error running tool: {str(e)}")
-        raise RuntimeError(f"Caught Exception. Error: {str(e)}")
+        logger.error(f"Error running tool: {str(e)}", exc_info=True)
+        raise RuntimeError(f"Error: {str(e)}")
 
 async def main():
     logger.info("Starting LogSeq MCP server")
-    # Import here to avoid issues with event loops
     from mcp.server.stdio import stdio_server
 
     async with stdio_server() as (read_stream, write_stream):
+        logger.info("Initializing server...")
         await app.run(
             read_stream,
             write_stream,

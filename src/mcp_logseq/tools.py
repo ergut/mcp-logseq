@@ -47,25 +47,17 @@ class CreatePageToolHandler(ToolHandler):
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
-        logger.info(f"Creating page with args: {args}")
-        
         if "title" not in args or "content" not in args:
-            logger.error("Missing required arguments")
             raise RuntimeError("title and content arguments required")
 
         try:
             api = logseq.LogSeq(api_key=api_key)
-            result = api.create_page(args["title"], args["content"])
+            api.create_page(args["title"], args["content"])
             
-            logger.info("Successfully created page")
-            logger.debug(f"API response: {result}")
-
-            return [
-                TextContent(
-                    type="text",
-                    text=f"Successfully created page '{args['title']}'"
-                )
-            ]
+            return [TextContent(
+                type="text",
+                text=f"Successfully created page '{args['title']}'"
+            )]
         except Exception as e:
             logger.error(f"Failed to create page: {str(e)}")
             raise
@@ -92,15 +84,11 @@ class ListPagesToolHandler(ToolHandler):
         )
     
     def run_tool(self, args: dict) -> list[TextContent]:
-        logger.info("Listing pages")
         include_journals = args.get("include_journals", False)
         
         try:
             api = logseq.LogSeq(api_key=api_key)
-            logger.info("Created LogSeq client")
-            
             result = api.list_pages()
-            logger.debug(f"Raw API response: {result}")
             
             # Format pages for display
             pages_info = []
@@ -112,16 +100,9 @@ class ListPagesToolHandler(ToolHandler):
                 
                 # Get page information
                 name = page.get('originalName') or page.get('name', '<unknown>')
-                tags = page.get('tags', [])
-                properties = page.get('properties', {})
                 
                 # Build page info string
                 info_parts = [f"- {name}"]
-                if tags:
-                    info_parts.append(f"(tags: {', '.join(tags)})")
-                if properties:
-                    props = [f"{k}: {v}" for k, v in properties.items()]
-                    info_parts.append(f"[{', '.join(props)}]")
                 if is_journal:
                     info_parts.append("[journal]")
                     
@@ -136,9 +117,97 @@ class ListPagesToolHandler(ToolHandler):
             
             response = "LogSeq Pages:\n\n" + "\n".join(pages_info) + count_msg + journal_msg
             
-            logger.info(f"Found {len(pages_info)} pages")
             return [TextContent(type="text", text=response)]
             
         except Exception as e:
             logger.error(f"Failed to list pages: {str(e)}")
+            raise
+
+class GetPageContentToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("get_page_content")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Get the content of a specific page from LogSeq.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page_name": {
+                        "type": "string",
+                        "description": "Name of the page to retrieve"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "Output format (text or json)",
+                        "enum": ["text", "json"],
+                        "default": "text"
+                    }
+                },
+                "required": ["page_name"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Get and format LogSeq page content."""
+        logger.info(f"Getting page content with args: {args}")
+        
+        if "page_name" not in args:
+            raise RuntimeError("page_name argument required")
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.get_page_content(args["page_name"])
+            
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"Page '{args['page_name']}' not found."
+                )]
+
+            # Handle JSON format request
+            if args.get("format") == "json":
+                return [TextContent(
+                    type="text",
+                    text=str(result)
+                )]
+
+            # Format as readable text
+            content_parts = []
+            
+            # Get page info and blocks from the result structure
+            page_info = result.get("page", {})
+            blocks = result.get("blocks", [])
+            
+            # Title
+            title = page_info.get("originalName", args["page_name"])
+            content_parts.append(f"# {title}\n")
+            
+            # Properties
+            properties = page_info.get("properties", {})
+            if properties:
+                content_parts.append("Properties:")
+                for key, value in properties.items():
+                    content_parts.append(f"- {key}: {value}")
+                content_parts.append("")
+            
+            # Blocks content
+            if blocks:
+                content_parts.append("Content:")
+                for block in blocks:
+                    if isinstance(block, dict) and block.get("content"):
+                        content_parts.append(f"- {block['content']}")
+                    elif isinstance(block, str) and block.strip():
+                        content_parts.append(f"- {block}")
+            else:
+                content_parts.append("No content blocks found.")
+            
+            return [TextContent(
+                type="text",
+                text="\n".join(content_parts)
+            )]
+
+        except Exception as e:
+            logger.error(f"Failed to get page content: {str(e)}")
             raise

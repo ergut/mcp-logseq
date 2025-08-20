@@ -14,15 +14,15 @@
 - ✅ List Pages (`list_pages`)
   - List all pages in the graph
   - Filter journal/daily notes
-  - Display page metadata (tags, properties)
   - Alphabetical sorting
+- ✅ Get Page Content (`get_page_content`)
+  - Retrieve content of a specific page
+  - Support for JSON and text output formats
+  - Multi-step retrieval (page metadata + blocks + properties)
 
 ## Planned Features
 
 ### High Priority
-- 🔲 Get Page Content (`get_page_content`)
-  - Retrieve content of a specific page
-  - Support for JSON metadata format
 - 🔲 Search functionality (`search`)
   - Full-text search across pages
   - Support for tags and properties filtering
@@ -53,8 +53,8 @@
   - Manage template library
 
 ## Technical Improvements
-- 🔲 Better error handling for API responses
-- 🔲 Comprehensive logging for debugging
+- ✅ Better error handling for API responses
+- ✅ Comprehensive logging for debugging
 - 🔲 Unit tests for core functionality
 - 🔲 Integration tests with LogSeq
 - 🔲 Documentation
