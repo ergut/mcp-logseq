@@ -65,6 +65,7 @@ logger.info("Registering tool handlers...")
 add_tool_handler(tools.CreatePageToolHandler())
 add_tool_handler(tools.ListPagesToolHandler())
 add_tool_handler(tools.GetPageContentToolHandler())
+add_tool_handler(tools.DeletePageToolHandler())
 logger.info("Tool handlers registration complete")
 
 @app.list_tools()

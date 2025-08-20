@@ -154,3 +154,28 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error getting page content: {str(e)}")
             raise
+    
+    def delete_page(self, page_name: str) -> Any:
+        """Delete a LogSeq page by name."""
+        url = self.get_base_url()
+        logger.info(f"Deleting page '{page_name}'")
+        
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.deletePage",
+                    "args": [page_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Successfully deleted page '{page_name}'")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error deleting page '{page_name}': {str(e)}")
+            raise

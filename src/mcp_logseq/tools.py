@@ -211,3 +211,39 @@ class GetPageContentToolHandler(ToolHandler):
         except Exception as e:
             logger.error(f"Failed to get page content: {str(e)}")
             raise
+
+class DeletePageToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("delete_page")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Delete a page from LogSeq.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page_name": {
+                        "type": "string",
+                        "description": "Name of the page to delete"
+                    }
+                },
+                "required": ["page_name"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "page_name" not in args:
+            raise RuntimeError("page_name argument required")
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.delete_page(args["page_name"])
+            
+            return [TextContent(
+                type="text",
+                text=f"Successfully deleted page '{args['page_name']}'"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to delete page: {str(e)}")
+            raise
