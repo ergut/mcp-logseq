@@ -267,3 +267,88 @@ class DeletePageToolHandler(ToolHandler):
                 type="text",
                 text=f"❌ Failed to delete page '{args['page_name']}': {str(e)}"
             )]
+
+class UpdatePageToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("update_page")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Update a page in LogSeq with new content and/or properties.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page_name": {
+                        "type": "string",
+                        "description": "Name of the page to update"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content to append to the page (optional)"
+                    },
+                    "properties": {
+                        "type": "object",
+                        "description": "Page properties to update (optional)",
+                        "additionalProperties": True
+                    }
+                },
+                "required": ["page_name"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "page_name" not in args:
+            raise RuntimeError("page_name argument required")
+
+        page_name = args["page_name"]
+        content = args.get("content")
+        properties = args.get("properties")
+        
+        # Validate that at least one update is provided
+        if not content and not properties:
+            return [TextContent(
+                type="text",
+                text="❌ Error: Either 'content' or 'properties' must be provided for update"
+            )]
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.update_page(page_name, content=content, properties=properties)
+            
+            # Build detailed success message
+            success_msg = f"✅ Successfully updated page '{page_name}'"
+            
+            # Show what was updated
+            updates = result.get("updates", [])
+            update_details = []
+            
+            for update_type, update_result in updates:
+                if update_type == "properties":
+                    update_details.append("📝 Properties updated")
+                elif update_type == "properties_fallback":
+                    update_details.append("📝 Properties updated (via fallback method)")
+                elif update_type == "content":
+                    update_details.append("📄 Content appended")
+            
+            if update_details:
+                success_msg += f"\n{chr(10).join(update_details)}"
+            
+            success_msg += f"\n🔄 Page '{page_name}' has been updated in LogSeq"
+            
+            return [TextContent(
+                type="text",
+                text=success_msg
+            )]
+        except ValueError as e:
+            # Handle validation errors (page not found) gracefully
+            return [TextContent(
+                type="text", 
+                text=f"❌ Error: {str(e)}"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to update page: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to update page '{page_name}': {str(e)}"
+            )]

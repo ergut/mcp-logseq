@@ -189,3 +189,83 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error deleting page '{page_name}': {str(e)}")
             raise
+    
+    def update_page(self, page_name: str, content: str = None, properties: dict = None) -> Any:
+        """Update a LogSeq page with new content and/or properties."""
+        url = self.get_base_url()
+        logger.info(f"Updating page '{page_name}'")
+        
+        try:
+            # Pre-update validation: verify page exists
+            existing_pages = self.list_pages()
+            page_names = [p.get("originalName") or p.get("name") for p in existing_pages if p.get("originalName") or p.get("name")]
+            
+            if page_name not in page_names:
+                raise ValueError(f"Page '{page_name}' does not exist")
+            
+            results = []
+            
+            # Update properties if provided
+            if properties:
+                logger.debug(f"Updating properties for page '{page_name}': {properties}")
+                try:
+                    response = requests.post(
+                        url,
+                        headers=self._get_headers(),
+                        json={
+                            "method": "logseq.Editor.updatePage",
+                            "args": [page_name, properties]
+                        },
+                        verify=self.verify_ssl,
+                        timeout=self.timeout
+                    )
+                    response.raise_for_status()
+                    prop_result = response.json()
+                    results.append(("properties", prop_result))
+                except Exception as e:
+                    logger.warning(f"Failed to update properties with updatePage, trying setPageProperties: {str(e)}")
+                    # Fallback to setPageProperties
+                    response = requests.post(
+                        url,
+                        headers=self._get_headers(),
+                        json={
+                            "method": "logseq.Editor.setPageProperties",
+                            "args": [page_name, properties]
+                        },
+                        verify=self.verify_ssl,
+                        timeout=self.timeout
+                    )
+                    response.raise_for_status()
+                    prop_result = response.json()
+                    results.append(("properties_fallback", prop_result))
+            
+            # Update content if provided
+            if content is not None:
+                logger.debug(f"Updating content for page '{page_name}'")
+                # Strategy: Get existing blocks and update them, or add new content
+                # For now, we'll use appendBlockInPage to add new content
+                # TODO: In future, implement block-level updates for more sophisticated content management
+                
+                response = requests.post(
+                    url,
+                    headers=self._get_headers(),
+                    json={
+                        "method": "logseq.Editor.appendBlockInPage",
+                        "args": [page_name, content]
+                    },
+                    verify=self.verify_ssl,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                content_result = response.json()
+                results.append(("content", content_result))
+            
+            logger.info(f"Successfully updated page '{page_name}'")
+            return {"updates": results, "page": page_name}
+
+        except ValueError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            logger.error(f"Error updating page '{page_name}': {str(e)}")
+            raise
