@@ -161,6 +161,13 @@ class LogSeq():
         logger.info(f"Deleting page '{page_name}'")
         
         try:
+            # Pre-delete validation: verify page exists
+            existing_pages = self.list_pages()
+            page_names = [p.get("originalName") or p.get("name") for p in existing_pages if p.get("originalName") or p.get("name")]
+            
+            if page_name not in page_names:
+                raise ValueError(f"Page '{page_name}' does not exist")
+            
             response = requests.post(
                 url,
                 headers=self._get_headers(),
@@ -176,6 +183,9 @@ class LogSeq():
             logger.info(f"Successfully deleted page '{page_name}'")
             return result
 
+        except ValueError:
+            # Re-raise validation errors as-is
+            raise
         except Exception as e:
             logger.error(f"Error deleting page '{page_name}': {str(e)}")
             raise

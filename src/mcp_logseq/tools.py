@@ -240,10 +240,30 @@ class DeletePageToolHandler(ToolHandler):
             api = logseq.LogSeq(api_key=api_key)
             result = api.delete_page(args["page_name"])
             
+            # Build detailed success message
+            page_name = args["page_name"]
+            success_msg = f"✅ Successfully deleted page '{page_name}'"
+            
+            # Add any additional info from the API result if available
+            if result and isinstance(result, dict):
+                if result.get("success"):
+                    success_msg += f"\n📋 Status: {result.get('message', 'Deletion confirmed')}"
+            
+            success_msg += f"\n🗑️  Page '{page_name}' has been permanently removed from LogSeq"
+            
             return [TextContent(
                 type="text",
-                text=f"Successfully deleted page '{args['page_name']}'"
+                text=success_msg
+            )]
+        except ValueError as e:
+            # Handle validation errors (page not found) gracefully
+            return [TextContent(
+                type="text", 
+                text=f"❌ Error: {str(e)}"
             )]
         except Exception as e:
             logger.error(f"Failed to delete page: {str(e)}")
-            raise
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to delete page '{args['page_name']}': {str(e)}"
+            )]
