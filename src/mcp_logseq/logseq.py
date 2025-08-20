@@ -154,6 +154,32 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error getting page content: {str(e)}")
             raise
+
+    def search_content(self, query: str, options: dict = None) -> Any:
+        """Search for content across LogSeq pages and blocks."""
+        url = self.get_base_url()
+        logger.info(f"Searching for '{query}'")
+        
+        # Default search options
+        search_options = options or {}
+        
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.search",
+                    "args": [query, search_options]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            return response.json()
+            
+        except Exception as e:
+            logger.error(f"Error searching content: {str(e)}")
+            raise
     
     def delete_page(self, page_name: str) -> Any:
         """Delete a LogSeq page by name."""

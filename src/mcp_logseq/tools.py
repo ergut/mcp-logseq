@@ -352,3 +352,137 @@ class UpdatePageToolHandler(ToolHandler):
                 type="text",
                 text=f"❌ Failed to update page '{page_name}': {str(e)}"
             )]
+
+class SearchToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("search")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Search for content across LogSeq pages, blocks, and files",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query text"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return",
+                        "default": 20
+                    },
+                    "include_blocks": {
+                        "type": "boolean",
+                        "description": "Include block content results",
+                        "default": True
+                    },
+                    "include_pages": {
+                        "type": "boolean", 
+                        "description": "Include page name results",
+                        "default": True
+                    },
+                    "include_files": {
+                        "type": "boolean",
+                        "description": "Include file name results", 
+                        "default": False
+                    }
+                },
+                "required": ["query"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Execute search and format results."""
+        logger.info(f"Searching with args: {args}")
+        
+        if "query" not in args:
+            raise RuntimeError("query argument required")
+
+        query = args["query"]
+        limit = args.get("limit", 20)
+        include_blocks = args.get("include_blocks", True)
+        include_pages = args.get("include_pages", True)
+        include_files = args.get("include_files", False)
+
+        try:
+            # Prepare search options
+            search_options = {"limit": limit}
+            
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.search_content(query, search_options)
+            
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"No search results found for '{query}'"
+                )]
+
+            # Format results
+            content_parts = []
+            content_parts.append(f"# Search Results for '{query}'\n")
+            
+            # Block results
+            if include_blocks and result.get("blocks"):
+                blocks = result["blocks"]
+                content_parts.append(f"## 📄 Content Blocks ({len(blocks)} found)")
+                for i, block in enumerate(blocks[:limit]):
+                    # LogSeq returns blocks with 'block/content' key
+                    content = block.get("block/content", "").strip()
+                    if content:
+                        # Truncate long content
+                        if len(content) > 150:
+                            content = content[:150] + "..."
+                        content_parts.append(f"{i+1}. {content}")
+                content_parts.append("")
+
+            # Page snippet results  
+            if include_blocks and result.get("pages-content"):
+                snippets = result["pages-content"]
+                content_parts.append(f"## 📝 Page Snippets ({len(snippets)} found)")
+                for i, snippet in enumerate(snippets[:limit]):
+                    # LogSeq returns snippets with 'block/snippet' key  
+                    snippet_text = snippet.get("block/snippet", "").strip()
+                    if snippet_text:
+                        # Clean up snippet text
+                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace("$<pfts_2lqh$", "")
+                        if len(snippet_text) > 200:
+                            snippet_text = snippet_text[:200] + "..."
+                        content_parts.append(f"{i+1}. {snippet_text}")
+                content_parts.append("")
+
+            # Page name results
+            if include_pages and result.get("pages"):
+                pages = result["pages"]
+                content_parts.append(f"## 📑 Matching Pages ({len(pages)} found)")
+                for page in pages:
+                    content_parts.append(f"- {page}")
+                content_parts.append("")
+
+            # File results
+            if include_files and result.get("files"):
+                files = result["files"]
+                content_parts.append(f"## 📁 Matching Files ({len(files)} found)")
+                for file_path in files:
+                    content_parts.append(f"- {file_path}")
+                content_parts.append("")
+
+            # Pagination info
+            if result.get("has-more?"):
+                content_parts.append("📌 *More results available - increase limit to see more*")
+
+            # Summary
+            total_results = len(result.get("blocks", [])) + len(result.get("pages", [])) + len(result.get("files", []))
+            content_parts.append(f"\n**Total results found: {total_results}**")
+
+            response_text = "\n".join(content_parts)
+            
+            return [TextContent(type="text", text=response_text)]
+            
+        except Exception as e:
+            logger.error(f"Failed to search: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Search failed: {str(e)}"
+            )]

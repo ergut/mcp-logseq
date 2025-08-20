@@ -31,14 +31,15 @@
   - Support for appending content to existing pages
   - Page properties management with fallback methods
   - Flexible usage: content-only, properties-only, or both
+- ✅ Search functionality (`search`)
+  - Native LogSeq search integration via HTTP API
+  - Full-text search across blocks, pages, and files
+  - Configurable result filtering and limits
+  - Rich result formatting with snippets and pagination
 
 ## Planned Features
 
 ### High Priority
-- 🔲 Search functionality (`search`)
-  - Full-text search across pages
-  - Support for tags and properties filtering
-  - Note: Expensive operation requiring page-by-page content retrieval
 
 ### Medium Priority
 - 🔲 Block Level Operations
