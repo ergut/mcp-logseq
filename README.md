@@ -1,34 +1,61 @@
-# MCP server for LogSeq
+<div align="center">
+  <img src="assets/images/logo.png" alt="MCP LogSeq" width="200" height="200">
+  <h1>MCP server for LogSeq</h1>
+  <p>MCP server to interact with LogSeq via its API. Enables Claude to read, create, and manage LogSeq pages through a comprehensive set of tools.</p>
+</div>
 
-MCP server to interact with LogSeq via its API. Enables Claude to read, create, and manage LogSeq pages through a comprehensive set of tools.
+## ✨ What You Can Do
 
-## Prerequisites
+Transform your LogSeq knowledge base into an AI-powered workspace! This MCP server enables Claude to seamlessly interact with your LogSeq graphs.
 
-### LogSeq Setup
-1. **Install LogSeq** if not already installed
-2. **Enable HTTP APIs server** in LogSeq:
-   - Go to Settings → Features
-   - Check "Enable HTTP APIs server"
-3. **Start the API server**:
-   - Look for the API button (🔌) in the main LogSeq interface
-   - Click it to open the API control panel
-   - Click "Start server" to start the HTTP API server at `http://localhost:12315`
-4. **Generate API token**:
-   - In the API control panel, click "Authorization tokens"
-   - Create a new token (e.g., name it "logseq" or "claude")
-   - Copy the generated token for use in configuration
+### 🎯 Real-World Examples
 
-### System Requirements
-- [uv](https://docs.astral.sh/uv/) Python package manager
-- LogSeq running with HTTP API enabled
-- An MCP client (instructions provided for Claude Code and Claude Desktop)
+**📊 Intelligent Knowledge Management**
+```
+"Analyze all my project notes from the past month and create a status summary"
+"Find pages mentioning 'machine learning' and create a study roadmap"
+"Search for incomplete tasks across all my pages"
+```
 
-## Installation
+**📝 Automated Content Creation**
+```
+"Create a new page called 'Today's Standup' with my meeting notes"
+"Add today's progress update to my existing project timeline page"  
+"Create a weekly review page from my recent notes"
+```
 
-**No package installation required!** This MCP server uses uv's `--with` feature to automatically fetch and run the package. Just add the configuration below to your MCP client:
+**🔍 Smart Research & Analysis** 
+```
+"Compare my notes on React vs Vue and highlight key differences"
+"Find all references to 'customer feedback' and summarize themes"
+"Create a knowledge map connecting related topics across pages"
+```
 
-### Claude Code
+**🤝 Meeting & Documentation Workflow**
+```
+"Read my meeting notes and create individual task pages for each action item"
+"Get my journal entries from this week and create a summary page"
+"Search for 'Q4 planning' and organize all related content into a new overview page"
+```
 
+### 💡 Key Benefits
+- **Zero Context Switching**: Claude works directly with your LogSeq data
+- **Preserve Your Workflow**: No need to export or copy content manually  
+- **Intelligent Organization**: AI-powered page creation, linking, and search
+- **Enhanced Productivity**: Automate repetitive knowledge work
+
+---
+
+## 🚀 Quick Start
+
+### Step 1: Enable LogSeq API
+1. **Settings** → **Features** → Check "Enable HTTP APIs server"
+2. Click the **API button (🔌)** in LogSeq → **"Start server"**
+3. **Generate API token**: API panel → "Authorization tokens" → Create new
+
+### Step 2: Add to Claude (No Installation Required!)
+
+#### Claude Code
 ```bash
 claude mcp add mcp-logseq \
   --env LOGSEQ_API_TOKEN=your_token_here \
@@ -36,13 +63,8 @@ claude mcp add mcp-logseq \
   -- uv run --with mcp-logseq mcp-logseq
 ```
 
-### Claude Desktop
-
-1. **Open Claude Desktop configuration**:
-   - **macOS**: Claude Desktop → Settings → Developer → "Edit Config"
-   - **Windows**: Navigate to `%APPDATA%\Claude\claude_desktop_config.json`
-
-2. **Add server configuration**:
+#### Claude Desktop
+Add to your config file (`Settings → Developer → Edit Config`):
 ```json
 {
   "mcpServers": {
@@ -58,149 +80,138 @@ claude mcp add mcp-logseq \
 }
 ```
 
-3. **Restart Claude Desktop** for changes to take effect
-
-### Other MCP Clients
-
-For other MCP clients, you can use either approach:
-
-**Option 1 - Direct command** (if globally installed):
+### Step 3: Start Using!
 ```
-mcp-logseq
+"Please help me organize my LogSeq notes. Show me what pages I have."
 ```
 
-**Option 2 - Via uv** (recommended):
-```
-uv run --with mcp-logseq mcp-logseq
-```
+---
 
-**Environment variables needed**:
-- `LOGSEQ_API_TOKEN`: Your LogSeq API token  
-- `LOGSEQ_API_URL`: LogSeq server URL (default: `http://localhost:12315`)
+## 🛠️ Available Tools
 
-### Installation Verification
+The server provides 6 comprehensive tools:
 
-#### Test LogSeq API connectivity
-```bash
-uv run --with mcp-logseq python -c "
-from mcp_logseq.logseq import LogSeq
-api = LogSeq(api_key='your_token')
-result = api.list_pages()
-print(f'Connected! Found {len(result)} pages')
-"
-```
+| Tool | Purpose | Example Use |
+|------|---------|-------------|
+| **`list_pages`** | Browse your graph | "Show me all my pages" |
+| **`get_page_content`** | Read page content | "Get my project notes" |
+| **`create_page`** | Add new pages | "Create a meeting notes page" |  
+| **`update_page`** | Modify existing pages | "Update my task list" |
+| **`delete_page`** | Remove pages | "Delete the old draft page" |
+| **`search`** | Find content across graph | "Search for 'productivity tips'" |
 
-#### Verify MCP server registration
-```bash
-# For Claude Code
-claude mcp list
+---
 
-# Should show mcp-logseq in the list
-```
+## ⚙️ Prerequisites
 
-#### Test with MCP Inspector (for debugging)
-```bash
-npx @modelcontextprotocol/inspector uv run --with mcp-logseq mcp-logseq
-```
+### LogSeq Setup
+- **LogSeq installed** and running
+- **HTTP APIs server enabled** (Settings → Features)
+- **API server started** (🔌 button → "Start server")  
+- **API token generated** (API panel → Authorization tokens)
 
-## Tools
+### System Requirements
+- **[uv](https://docs.astral.sh/uv/)** Python package manager
+- **MCP-compatible client** (Claude Code, Claude Desktop, etc.)
 
-The server implements 6 tools to interact with LogSeq:
+---
 
-- **create_page**: Create a new page with content
-- **list_pages**: List all pages in the current graph (with journal filtering)
-- **get_page_content**: Retrieve content of a specific page (text or JSON format)
-- **delete_page**: Remove a page from the graph
-- **update_page**: Update existing page content and/or properties
-- **search**: Search for content across pages, blocks, and files
-
-### Example prompts
-
-It's good to first instruct Claude to use LogSeq. Then it will always call the tool.
-
-Example prompts:
-- Get the contents of my latest meeting notes and summarize them
-- Search for all pages where Project X is mentioned and explain the context
-- Create a new page with today's meeting notes
-- Update the project status page with the latest updates
-
-## Configuration
+## 🔧 Configuration
 
 ### Environment Variables
+- **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
+- **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
 
-- **LOGSEQ_API_TOKEN** (required): Bearer token from LogSeq API control panel → Authorization tokens
-- **LOGSEQ_API_URL** (optional): LogSeq server URL (default: `http://localhost:12315`)
-
-### Alternative Configuration Methods
+### Alternative Setup Methods
 
 #### Using .env file
-Create a `.env` file in the project directory:
-```
+```bash
+# .env
 LOGSEQ_API_TOKEN=your_token_here
 LOGSEQ_API_URL=http://localhost:12315
 ```
 
-#### Using system environment variables
+#### System environment variables
 ```bash
 export LOGSEQ_API_TOKEN=your_token_here
 export LOGSEQ_API_URL=http://localhost:12315
 ```
 
-## Troubleshooting
+---
+
+## 🔍 Verification & Testing
+
+### Test LogSeq Connection
+```bash
+uv run --with mcp-logseq python -c "
+from mcp_logseq.logseq import LogSeq
+api = LogSeq(api_key='your_token')
+print(f'Connected! Found {len(api.list_pages())} pages')
+"
+```
+
+### Verify MCP Registration
+```bash
+claude mcp list  # Should show mcp-logseq
+```
+
+### Debug with MCP Inspector
+```bash
+npx @modelcontextprotocol/inspector uv run --with mcp-logseq mcp-logseq
+```
+
+---
+
+## 🐛 Troubleshooting
 
 ### Common Issues
 
 #### "LOGSEQ_API_TOKEN environment variable required"
-- Ensure LogSeq HTTP API is enabled in Settings → Features
-- Start the API server using the API button (🔌) in LogSeq's main interface
-- Generate and copy the API token from "Authorization tokens" in the API control panel
-- Verify token is correctly set in your configuration
+- ✅ Enable HTTP APIs in **Settings → Features**
+- ✅ Click **🔌 button** → **"Start server"** in LogSeq
+- ✅ Generate token in **API panel → Authorization tokens**
+- ✅ Verify token in your configuration
 
-#### Connection errors to LogSeq
-- Confirm LogSeq is running
-- Check that HTTP API server is enabled in Settings → Features
-- **Important**: Make sure the API server is actually started (click "Start server" in the API control panel)
-- Verify the server is running on port 12315
-- Test connectivity with the verification command above
+#### "spawn uv ENOENT" (Claude Desktop)
+Claude Desktop can't find `uv`. Use the full path:
 
-#### MCP server not found in Claude Code
-- Run `claude mcp list` to check if server is registered
-- Verify the command and arguments in your configuration
-- Check that `uv` is installed: [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+```bash
+which uv  # Find your uv location
+```
 
-#### "spawn uv ENOENT" error in Claude Desktop
-This error means Claude Desktop cannot find the `uv` command. Claude Desktop may have a limited PATH environment.
-
-**Solution**: Use the full path to uv in your configuration:
-
-1. Find your uv location: `which uv` 
-2. Update your Claude Desktop config to use the full path:
-
+Update config with full path:
 ```json
 {
   "mcpServers": {
     "mcp-logseq": {
-      "command": "/Users/yourusername/.local/bin/uv",
+      "command": "/Users/username/.local/bin/uv",
       "args": ["run", "--with", "mcp-logseq", "mcp-logseq"],
-      "env": {
-        "LOGSEQ_API_TOKEN": "your_token_here",
-        "LOGSEQ_API_URL": "http://localhost:12315"
-      }
+      "env": { "LOGSEQ_API_TOKEN": "your_token_here" }
     }
   }
 }
 ```
 
-Common uv locations:
-- **uv installed via curl**: `~/.local/bin/uv`
-- **uv installed via homebrew**: `/opt/homebrew/bin/uv`
-- **uv installed via pip**: Check with `which uv`
+**Common uv locations:**
+- Curl install: `~/.local/bin/uv`
+- Homebrew: `/opt/homebrew/bin/uv` 
+- Pip install: Check with `which uv`
 
-#### Empty or missing page content
-- Some LogSeq versions may not support all API methods
-- Check LogSeq logs for API errors
-- Verify page names match exactly (case-sensitive)
+#### Connection Issues
+- ✅ Confirm LogSeq is running
+- ✅ Verify API server is **started** (not just enabled)
+- ✅ Check port 12315 is accessible
+- ✅ Test with verification command above
 
-## Development
+---
 
-For local development, testing, and contributing to this project, see [DEVELOPMENT.md](DEVELOPMENT.md).
+## 👩‍💻 Development
+
+For local development, testing, and contributing, see **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+
+---
+
+<div align="center">
+  <p><strong>Ready to supercharge your LogSeq workflow with AI?</strong></p>
+  <p>⭐ <strong>Star this repo</strong> if you find it helpful!</p>
+</div>
