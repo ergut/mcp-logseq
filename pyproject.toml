@@ -1,6 +1,6 @@
 [project]
 name = "mcp-logseq"
-version = "1.0.0"
+version = "1.0.1"
 description = "MCP server to work with LogSeq via the local HTTP server"
 readme = "README.md"
 requires-python = ">=3.11"
