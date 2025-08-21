@@ -11,3 +11,6 @@ wheels/
 .env
 .git
 uv.lock
+
+# Local files
+*.local*
