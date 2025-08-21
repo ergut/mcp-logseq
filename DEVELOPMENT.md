@@ -42,7 +42,7 @@ LOGSEQ_API_URL=http://localhost:12315
 claude mcp add mcp-logseq-dev \
   --env LOGSEQ_API_TOKEN=your_token_here \
   --env LOGSEQ_API_URL=http://localhost:12315 \
-  -- uv run --directory /path/to/mcp-logseq python -c "from mcp_logseq import main; main()"
+  -- uv run --directory /path/to/mcp-logseq mcp-logseq
 ```
 
 #### For Claude Desktop (Development)
@@ -55,9 +55,7 @@ claude mcp add mcp-logseq-dev \
         "run", 
         "--directory", 
         "/path/to/mcp-logseq",
-        "python", 
-        "-c", 
-        "from mcp_logseq import main; main()"
+        "mcp-logseq"
       ],
       "env": {
         "LOGSEQ_API_TOKEN": "your_token_here",
@@ -105,8 +103,7 @@ The best way to debug MCP servers is using the MCP Inspector:
 ```bash
 # Debug local development version
 npx @modelcontextprotocol/inspector \
-  uv run --directory /path/to/mcp-logseq \
-  python -c "from mcp_logseq import main; main()"
+  uv run --directory /path/to/mcp-logseq mcp-logseq
 ```
 
 ### Direct Testing
@@ -137,7 +134,8 @@ print('Success!')
 The server uses comprehensive logging. Check the log file:
 
 ```bash
-tail -f mcp_logseq.log
+# Log file is now stored in user cache directory
+tail -f ~/.cache/mcp-logseq/mcp_logseq.log
 ```
 
 ## Project Structure

@@ -19,44 +19,36 @@ MCP server to interact with LogSeq via its API. Enables Claude to read, create, 
    - Copy the generated token for use in configuration
 
 ### System Requirements
-- Python 3.11 or higher
+- [uv](https://docs.astral.sh/uv/) Python package manager
 - LogSeq running with HTTP API enabled
 - An MCP client (instructions provided for Claude Code and Claude Desktop)
 
 ## Installation
 
-This MCP server works with any MCP-compatible client. Below are setup instructions for the most common clients:
+**No package installation required!** This MCP server uses uv's `--with` feature to automatically fetch and run the package. Just add the configuration below to your MCP client:
 
 ### Claude Code
 
 ```bash
-# Install the package
-pip install mcp-logseq
-
-# Add to Claude Code
 claude mcp add mcp-logseq \
   --env LOGSEQ_API_TOKEN=your_token_here \
   --env LOGSEQ_API_URL=http://localhost:12315 \
-  -- mcp-logseq
+  -- uv run --with mcp-logseq mcp-logseq
 ```
 
 ### Claude Desktop
 
-1. **Install the package**:
-```bash
-pip install mcp-logseq
-```
-
-2. **Open Claude Desktop configuration**:
+1. **Open Claude Desktop configuration**:
    - **macOS**: Claude Desktop → Settings → Developer → "Edit Config"
    - **Windows**: Navigate to `%APPDATA%\Claude\claude_desktop_config.json`
 
-3. **Add server configuration**:
+2. **Add server configuration**:
 ```json
 {
   "mcpServers": {
     "mcp-logseq": {
-      "command": "mcp-logseq",
+      "command": "uv",
+      "args": ["run", "--with", "mcp-logseq", "mcp-logseq"],
       "env": {
         "LOGSEQ_API_TOKEN": "your_token_here",
         "LOGSEQ_API_URL": "http://localhost:12315"
@@ -66,19 +58,31 @@ pip install mcp-logseq
 }
 ```
 
-4. **Restart Claude Desktop** for changes to take effect
+3. **Restart Claude Desktop** for changes to take effect
 
 ### Other MCP Clients
 
-For other MCP clients, use the server command `mcp-logseq` with these environment variables:
-- `LOGSEQ_API_TOKEN`: Your LogSeq API token
+For other MCP clients, you can use either approach:
+
+**Option 1 - Direct command** (if globally installed):
+```
+mcp-logseq
+```
+
+**Option 2 - Via uv** (recommended):
+```
+uv run --with mcp-logseq mcp-logseq
+```
+
+**Environment variables needed**:
+- `LOGSEQ_API_TOKEN`: Your LogSeq API token  
 - `LOGSEQ_API_URL`: LogSeq server URL (default: `http://localhost:12315`)
 
 ### Installation Verification
 
 #### Test LogSeq API connectivity
 ```bash
-python -c "
+uv run --with mcp-logseq python -c "
 from mcp_logseq.logseq import LogSeq
 api = LogSeq(api_key='your_token')
 result = api.list_pages()
@@ -96,7 +100,7 @@ claude mcp list
 
 #### Test with MCP Inspector (for debugging)
 ```bash
-npx @modelcontextprotocol/inspector mcp-logseq
+npx @modelcontextprotocol/inspector uv run --with mcp-logseq mcp-logseq
 ```
 
 ## Tools
@@ -162,7 +166,35 @@ export LOGSEQ_API_URL=http://localhost:12315
 #### MCP server not found in Claude Code
 - Run `claude mcp list` to check if server is registered
 - Verify the command and arguments in your configuration
-- Check that `uv` and Python dependencies are properly installed
+- Check that `uv` is installed: [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+#### "spawn uv ENOENT" error in Claude Desktop
+This error means Claude Desktop cannot find the `uv` command. Claude Desktop may have a limited PATH environment.
+
+**Solution**: Use the full path to uv in your configuration:
+
+1. Find your uv location: `which uv` 
+2. Update your Claude Desktop config to use the full path:
+
+```json
+{
+  "mcpServers": {
+    "mcp-logseq": {
+      "command": "/Users/yourusername/.local/bin/uv",
+      "args": ["run", "--with", "mcp-logseq", "mcp-logseq"],
+      "env": {
+        "LOGSEQ_API_TOKEN": "your_token_here",
+        "LOGSEQ_API_URL": "http://localhost:12315"
+      }
+    }
+  }
+}
+```
+
+Common uv locations:
+- **uv installed via curl**: `~/.local/bin/uv`
+- **uv installed via homebrew**: `/opt/homebrew/bin/uv`
+- **uv installed via pip**: Check with `which uv`
 
 #### Empty or missing page content
 - Some LogSeq versions may not support all API methods

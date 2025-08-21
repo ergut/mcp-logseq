@@ -21,10 +21,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mcp-logseq")
 
-# Add a file handler to keep logs
-file_handler = logging.FileHandler('mcp_logseq.log')
-file_handler.setLevel(logging.DEBUG)
-logger.addHandler(file_handler)
+# Add a file handler to keep logs (in user's home directory to avoid permission issues)
+import tempfile
+log_dir = os.path.expanduser('~/.cache/mcp-logseq')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'mcp_logseq.log')
+try:
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.debug(f"Logging to: {log_file}")
+except Exception as e:
+    # If file logging fails, continue without it
+    logger.warning(f"Could not setup file logging: {e}")
+    pass
 
 load_dotenv()
 
