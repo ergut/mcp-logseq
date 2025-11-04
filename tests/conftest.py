@@ -8,7 +8,8 @@ from mcp_logseq.tools import (
     GetPageContentToolHandler,
     DeletePageToolHandler,
     UpdatePageToolHandler,
-    SearchToolHandler
+    SearchToolHandler,
+    InsertNestedBlockToolHandler
 )
 
 @pytest.fixture
@@ -76,6 +77,12 @@ def mock_logseq_responses():
             ],
             "files": [],
             "has-more?": False
+        },
+        "insert_block_success": {
+            "uuid": "block-child-uuid-123",
+            "content": "Child block content",
+            "parent": "parent-block-uuid-456",
+            "properties": {}
         }
     }
 
@@ -88,7 +95,8 @@ def tool_handlers():
         "get_page_content": GetPageContentToolHandler(),
         "delete_page": DeletePageToolHandler(), 
         "update_page": UpdatePageToolHandler(),
-        "search": SearchToolHandler()
+        "search": SearchToolHandler(),
+        "insert_nested_block": InsertNestedBlockToolHandler()
     }
 
 @pytest.fixture

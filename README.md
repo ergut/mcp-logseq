@@ -89,16 +89,17 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🛠️ Available Tools
 
-The server provides 6 comprehensive tools:
+The server provides 7 comprehensive tools:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
 | **`list_pages`** | Browse your graph | "Show me all my pages" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
-| **`create_page`** | Add new pages | "Create a meeting notes page" |  
+| **`create_page`** | Add new pages | "Create a meeting notes page" |
 | **`update_page`** | Modify existing pages | "Update my task list" |
 | **`delete_page`** | Remove pages | "Delete the old draft page" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
+| **`insert_nested_block`** | Create hierarchical block structures | "Add a child block under this task" |
 
 ---
 

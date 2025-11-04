@@ -295,3 +295,42 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error updating page '{page_name}': {str(e)}")
             raise
+
+    def insert_block_as_child(
+        self,
+        parent_block_uuid: str,
+        content: str,
+        properties: dict = None,
+        sibling: bool = False
+    ) -> Any:
+        """Insert a new block as a child of an existing block, enabling nested block structures."""
+        url = self.get_base_url()
+        logger.info(f"Inserting block as {'sibling' if sibling else 'child'} of {parent_block_uuid}")
+
+        try:
+            options = {
+                "sibling": sibling
+            }
+
+            if properties:
+                options["properties"] = properties
+
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.insertBlock",
+                    "args": [parent_block_uuid, content, options]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            logger.info(f"Successfully inserted block under {parent_block_uuid}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error inserting nested block: {str(e)}")
+            raise

@@ -36,6 +36,11 @@
   - Full-text search across blocks, pages, and files
   - Configurable result filtering and limits
   - Rich result formatting with snippets and pagination
+- ✅ Insert Nested Block (`insert_nested_block`)
+  - Create hierarchical block structures
+  - Insert blocks as children or siblings
+  - Support for block properties (markers, tags, etc.)
+  - Enable complex nested note-taking workflows
 
 ## Planned Features
 
