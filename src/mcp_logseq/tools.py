@@ -486,3 +486,270 @@ class SearchToolHandler(ToolHandler):
                 type="text",
                 text=f"❌ Search failed: {str(e)}"
             )]
+
+
+class GetPagesFromNamespaceToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("get_pages_from_namespace")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Get all pages within a namespace hierarchy (flat list). Use this to discover subpages of a parent page.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "namespace": {
+                        "type": "string",
+                        "description": "The namespace to query (e.g., 'Customer', 'Projects/2024')"
+                    }
+                },
+                "required": ["namespace"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "namespace" not in args:
+            raise RuntimeError("namespace argument required")
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.get_pages_from_namespace(args["namespace"])
+
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"No pages found in namespace '{args['namespace']}'"
+                )]
+
+            # Format pages for display
+            pages_info = []
+            for page in result:
+                name = page.get('originalName') or page.get('name', '<unknown>')
+                pages_info.append(f"- {name}")
+
+            pages_info.sort()
+
+            response = f"Pages in namespace '{args['namespace']}':\n\n"
+            response += "\n".join(pages_info)
+            response += f"\n\nTotal: {len(pages_info)} pages"
+
+            return [TextContent(type="text", text=response)]
+
+        except Exception as e:
+            logger.error(f"Failed to get pages from namespace: {str(e)}")
+            raise
+
+
+class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("get_pages_tree_from_namespace")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Get pages within a namespace as a hierarchical tree structure. Useful for understanding the full page hierarchy.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "namespace": {
+                        "type": "string",
+                        "description": "The root namespace to build tree from (e.g., 'Projects')"
+                    }
+                },
+                "required": ["namespace"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "namespace" not in args:
+            raise RuntimeError("namespace argument required")
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.get_pages_tree_from_namespace(args["namespace"])
+
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"No pages found in namespace '{args['namespace']}'"
+                )]
+
+            # Format as tree structure
+            def format_tree(pages, prefix="", is_last_list=None):
+                if is_last_list is None:
+                    is_last_list = []
+                lines = []
+                for i, page in enumerate(pages):
+                    is_last = i == len(pages) - 1
+                    name = page.get('originalName') or page.get('name', '<unknown>')
+
+                    # Build the prefix for this line
+                    if prefix == "":
+                        lines.append(name)
+                    else:
+                        connector = "└── " if is_last else "├── "
+                        lines.append(f"{prefix}{connector}{name}")
+
+                    # Handle children if present
+                    children = page.get('children', [])
+                    if children:
+                        # Build prefix for children
+                        if prefix == "":
+                            child_prefix = ""
+                        else:
+                            child_prefix = prefix + ("    " if is_last else "│   ")
+                        lines.extend(format_tree(children, child_prefix, is_last_list + [is_last]))
+                return lines
+
+            tree_lines = format_tree(result)
+
+            response = f"Page tree for namespace '{args['namespace']}':\n\n"
+            response += "\n".join(tree_lines)
+
+            return [TextContent(type="text", text=response)]
+
+        except Exception as e:
+            logger.error(f"Failed to get pages tree: {str(e)}")
+            raise
+
+
+class RenamePageToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("rename_page")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Rename an existing page. All references throughout the graph will be automatically updated.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "old_name": {
+                        "type": "string",
+                        "description": "Current name of the page"
+                    },
+                    "new_name": {
+                        "type": "string",
+                        "description": "New name for the page"
+                    }
+                },
+                "required": ["old_name", "new_name"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "old_name" not in args or "new_name" not in args:
+            raise RuntimeError("old_name and new_name arguments required")
+
+        old_name = args["old_name"]
+        new_name = args["new_name"]
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            api.rename_page(old_name, new_name)
+
+            return [TextContent(
+                type="text",
+                text=f"Successfully renamed page '{old_name}' to '{new_name}'\n"
+                     f"All references in the graph have been updated."
+            )]
+        except ValueError as e:
+            return [TextContent(
+                type="text",
+                text=f"Error: {str(e)}"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to rename page: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to rename page: {str(e)}"
+            )]
+
+
+class GetPageBacklinksToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("get_page_backlinks")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Get all pages and blocks that link to a specific page (backlinks/linked references).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page_name": {
+                        "type": "string",
+                        "description": "Name of the page to find backlinks for"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "description": "Whether to include the content of referencing blocks",
+                        "default": True
+                    }
+                },
+                "required": ["page_name"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "page_name" not in args:
+            raise RuntimeError("page_name argument required")
+
+        page_name = args["page_name"]
+        include_content = args.get("include_content", True)
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.get_page_linked_references(page_name)
+
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"No backlinks found for page '{page_name}'"
+                )]
+
+            # Format results
+            # API returns: [[PageEntity, [BlockEntity, ...]], ...]
+            content_parts = []
+            content_parts.append(f"# Backlinks for '{page_name}'\n")
+
+            total_refs = 0
+
+            for item in result:
+                if not isinstance(item, list) or len(item) < 2:
+                    continue
+
+                page_info, blocks = item[0], item[1]
+
+                # Get page name
+                ref_page_name = page_info.get('originalName') or page_info.get('name', '<unknown>')
+                block_count = len(blocks) if blocks else 0
+                total_refs += block_count
+
+                content_parts.append(f"**{ref_page_name}** ({block_count} reference{'s' if block_count != 1 else ''})")
+
+                # Include block content if requested
+                if include_content and blocks:
+                    for block in blocks:
+                        block_content = block.get('content', '').strip()
+                        if block_content:
+                            # Truncate long content
+                            if len(block_content) > 150:
+                                block_content = block_content[:150] + "..."
+                            content_parts.append(f"  - {block_content}")
+
+                content_parts.append("")
+
+            # Summary
+            page_count = len(result)
+            content_parts.append(f"---\n**Total: {page_count} page{'s' if page_count != 1 else ''}, {total_refs} reference{'s' if total_refs != 1 else ''}**")
+
+            return [TextContent(type="text", text="\n".join(content_parts))]
+
+        except Exception as e:
+            logger.error(f"Failed to get backlinks: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to get backlinks: {str(e)}"
+            )]

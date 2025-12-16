@@ -7,7 +7,11 @@ from mcp_logseq.tools import (
     GetPageContentToolHandler,
     DeletePageToolHandler,
     UpdatePageToolHandler,
-    SearchToolHandler
+    SearchToolHandler,
+    GetPagesFromNamespaceToolHandler,
+    GetPagesTreeFromNamespaceToolHandler,
+    RenamePageToolHandler,
+    GetPageBacklinksToolHandler
 )
 
 class TestCreatePageToolHandler:
@@ -388,3 +392,320 @@ class TestSearchToolHandler:
         
         # Verify API was called with correct options
         mock_api.search_content.assert_called_once_with("test", {"limit": 5})
+
+
+class TestGetPagesFromNamespaceToolHandler:
+    """Test cases for GetPagesFromNamespaceToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = GetPagesFromNamespaceToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "get_pages_from_namespace"
+        assert "namespace" in tool.description.lower()
+        assert "namespace" in tool.inputSchema["properties"]
+        assert "namespace" in tool.inputSchema["required"]
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful namespace pages retrieval."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_pages_from_namespace.return_value = [
+            {"originalName": "Customer/InsideOut"},
+            {"originalName": "Customer/Orienteme"}
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPagesFromNamespaceToolHandler()
+        result = handler.run_tool({"namespace": "Customer"})
+
+        # Verify API was called correctly
+        mock_api.get_pages_from_namespace.assert_called_once_with("Customer")
+
+        # Verify result
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        assert "Customer/InsideOut" in text
+        assert "Customer/Orienteme" in text
+        assert "Total: 2 pages" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_empty_namespace(self, mock_logseq_class):
+        """Test namespace with no pages."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_pages_from_namespace.return_value = []
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPagesFromNamespaceToolHandler()
+        result = handler.run_tool({"namespace": "EmptyNamespace"})
+
+        # Verify result
+        text = result[0].text
+        assert "No pages found in namespace 'EmptyNamespace'" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    def test_run_tool_missing_args(self):
+        """Test tool with missing namespace argument."""
+        handler = GetPagesFromNamespaceToolHandler()
+
+        with pytest.raises(RuntimeError, match="namespace argument required"):
+            handler.run_tool({})
+
+
+class TestGetPagesTreeFromNamespaceToolHandler:
+    """Test cases for GetPagesTreeFromNamespaceToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = GetPagesTreeFromNamespaceToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "get_pages_tree_from_namespace"
+        assert "tree" in tool.description.lower()
+        assert "namespace" in tool.inputSchema["properties"]
+        assert "namespace" in tool.inputSchema["required"]
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful namespace tree retrieval."""
+        # Setup mock with hierarchical data
+        mock_api = Mock()
+        mock_api.get_pages_tree_from_namespace.return_value = [
+            {
+                "originalName": "Projects/2024",
+                "children": [
+                    {"originalName": "Projects/2024/ClientA", "children": []},
+                    {"originalName": "Projects/2024/ClientB", "children": []}
+                ]
+            },
+            {
+                "originalName": "Projects/Archive",
+                "children": []
+            }
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPagesTreeFromNamespaceToolHandler()
+        result = handler.run_tool({"namespace": "Projects"})
+
+        # Verify API was called correctly
+        mock_api.get_pages_tree_from_namespace.assert_called_once_with("Projects")
+
+        # Verify result
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        assert "Projects/2024" in text
+        assert "Projects/2024/ClientA" in text
+        assert "Projects/2024/ClientB" in text
+        assert "Projects/Archive" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_empty_namespace(self, mock_logseq_class):
+        """Test namespace tree with no pages."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_pages_tree_from_namespace.return_value = []
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPagesTreeFromNamespaceToolHandler()
+        result = handler.run_tool({"namespace": "EmptyNamespace"})
+
+        # Verify result
+        text = result[0].text
+        assert "No pages found in namespace 'EmptyNamespace'" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    def test_run_tool_missing_args(self):
+        """Test tool with missing namespace argument."""
+        handler = GetPagesTreeFromNamespaceToolHandler()
+
+        with pytest.raises(RuntimeError, match="namespace argument required"):
+            handler.run_tool({})
+
+
+class TestRenamePageToolHandler:
+    """Test cases for RenamePageToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = RenamePageToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "rename_page"
+        assert "rename" in tool.description.lower()
+        assert "old_name" in tool.inputSchema["properties"]
+        assert "new_name" in tool.inputSchema["properties"]
+        assert "old_name" in tool.inputSchema["required"]
+        assert "new_name" in tool.inputSchema["required"]
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful page rename."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.rename_page.return_value = None
+        mock_logseq_class.return_value = mock_api
+
+        handler = RenamePageToolHandler()
+        result = handler.run_tool({"old_name": "OldPage", "new_name": "NewPage"})
+
+        # Verify API was called correctly
+        mock_api.rename_page.assert_called_once_with("OldPage", "NewPage")
+
+        # Verify result
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        assert "Successfully renamed" in text
+        assert "OldPage" in text
+        assert "NewPage" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_source_not_found(self, mock_logseq_class):
+        """Test rename with non-existent source page."""
+        # Setup mock to raise ValueError
+        mock_api = Mock()
+        mock_api.rename_page.side_effect = ValueError("Page 'NonExistent' does not exist")
+        mock_logseq_class.return_value = mock_api
+
+        handler = RenamePageToolHandler()
+        result = handler.run_tool({"old_name": "NonExistent", "new_name": "NewPage"})
+
+        # Verify error message
+        text = result[0].text
+        assert "does not exist" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_target_exists(self, mock_logseq_class):
+        """Test rename to existing page name."""
+        # Setup mock to raise ValueError
+        mock_api = Mock()
+        mock_api.rename_page.side_effect = ValueError("Page 'ExistingPage' already exists")
+        mock_logseq_class.return_value = mock_api
+
+        handler = RenamePageToolHandler()
+        result = handler.run_tool({"old_name": "OldPage", "new_name": "ExistingPage"})
+
+        # Verify error message
+        text = result[0].text
+        assert "already exists" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    def test_run_tool_missing_args(self):
+        """Test tool with missing arguments."""
+        handler = RenamePageToolHandler()
+
+        with pytest.raises(RuntimeError, match="old_name and new_name arguments required"):
+            handler.run_tool({"old_name": "OnlyOld"})
+
+
+class TestGetPageBacklinksToolHandler:
+    """Test cases for GetPageBacklinksToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = GetPageBacklinksToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "get_page_backlinks"
+        assert "backlink" in tool.description.lower()
+        assert "page_name" in tool.inputSchema["properties"]
+        assert "include_content" in tool.inputSchema["properties"]
+        assert "page_name" in tool.inputSchema["required"]
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful backlinks retrieval."""
+        # Setup mock with backlinks data
+        mock_api = Mock()
+        mock_api.get_page_linked_references.return_value = [
+            [
+                {"originalName": "Dec 15th, 2024"},
+                [
+                    {"content": "session [[Customer/Orienteme]]"},
+                    {"content": "followup with [[Customer/Orienteme]] team"}
+                ]
+            ],
+            [
+                {"originalName": "Projects/AI Consulting"},
+                [
+                    {"content": "Active client: [[Customer/Orienteme]]"}
+                ]
+            ]
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageBacklinksToolHandler()
+        result = handler.run_tool({"page_name": "Customer/Orienteme"})
+
+        # Verify API was called correctly
+        mock_api.get_page_linked_references.assert_called_once_with("Customer/Orienteme")
+
+        # Verify result
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        assert "Dec 15th, 2024" in text
+        assert "Projects/AI Consulting" in text
+        assert "2 references" in text
+        assert "1 reference" in text
+        assert "Total: 2 pages, 3 references" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_no_backlinks(self, mock_logseq_class):
+        """Test page with no backlinks."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_page_linked_references.return_value = []
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageBacklinksToolHandler()
+        result = handler.run_tool({"page_name": "OrphanPage"})
+
+        # Verify result
+        text = result[0].text
+        assert "No backlinks found for page 'OrphanPage'" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_without_content(self, mock_logseq_class):
+        """Test backlinks without including block content."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_page_linked_references.return_value = [
+            [
+                {"originalName": "Source Page"},
+                [{"content": "Reference to [[Target]]"}]
+            ]
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageBacklinksToolHandler()
+        result = handler.run_tool({"page_name": "Target", "include_content": False})
+
+        # Verify result shows page but not detailed content
+        text = result[0].text
+        assert "Source Page" in text
+        assert "1 reference" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    def test_run_tool_missing_args(self):
+        """Test tool with missing page_name argument."""
+        handler = GetPageBacklinksToolHandler()
+
+        with pytest.raises(RuntimeError, match="page_name argument required"):
+            handler.run_tool({})

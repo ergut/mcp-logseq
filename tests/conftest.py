@@ -4,11 +4,15 @@ from unittest.mock import Mock, patch
 from mcp_logseq.logseq import LogSeq
 from mcp_logseq.tools import (
     CreatePageToolHandler,
-    ListPagesToolHandler, 
+    ListPagesToolHandler,
     GetPageContentToolHandler,
     DeletePageToolHandler,
     UpdatePageToolHandler,
-    SearchToolHandler
+    SearchToolHandler,
+    GetPagesFromNamespaceToolHandler,
+    GetPagesTreeFromNamespaceToolHandler,
+    RenamePageToolHandler,
+    GetPageBacklinksToolHandler
 )
 
 @pytest.fixture
@@ -76,7 +80,70 @@ def mock_logseq_responses():
             ],
             "files": [],
             "has-more?": False
-        }
+        },
+        "get_pages_from_namespace_success": [
+            {
+                "id": "page-1",
+                "name": "customer/insideout",
+                "originalName": "Customer/InsideOut"
+            },
+            {
+                "id": "page-2",
+                "name": "customer/orienteme",
+                "originalName": "Customer/Orienteme"
+            }
+        ],
+        "get_pages_tree_from_namespace_success": [
+            {
+                "id": "page-1",
+                "name": "projects/2024",
+                "originalName": "Projects/2024",
+                "children": [
+                    {
+                        "id": "page-2",
+                        "name": "projects/2024/clienta",
+                        "originalName": "Projects/2024/ClientA",
+                        "children": []
+                    },
+                    {
+                        "id": "page-3",
+                        "name": "projects/2024/clientb",
+                        "originalName": "Projects/2024/ClientB",
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "id": "page-4",
+                "name": "projects/archive",
+                "originalName": "Projects/Archive",
+                "children": []
+            }
+        ],
+        "rename_page_success": None,
+        "get_page_linked_references_success": [
+            [
+                {
+                    "id": "page-1",
+                    "name": "dec 15th, 2024",
+                    "originalName": "Dec 15th, 2024"
+                },
+                [
+                    {"content": "session [[Customer/Orienteme]]"},
+                    {"content": "followup with [[Customer/Orienteme]] team"}
+                ]
+            ],
+            [
+                {
+                    "id": "page-2",
+                    "name": "projects/ai consulting",
+                    "originalName": "Projects/AI Consulting"
+                },
+                [
+                    {"content": "Active client: [[Customer/Orienteme]]"}
+                ]
+            ]
+        ]
     }
 
 @pytest.fixture
@@ -86,9 +153,13 @@ def tool_handlers():
         "create_page": CreatePageToolHandler(),
         "list_pages": ListPagesToolHandler(),
         "get_page_content": GetPageContentToolHandler(),
-        "delete_page": DeletePageToolHandler(), 
+        "delete_page": DeletePageToolHandler(),
         "update_page": UpdatePageToolHandler(),
-        "search": SearchToolHandler()
+        "search": SearchToolHandler(),
+        "get_pages_from_namespace": GetPagesFromNamespaceToolHandler(),
+        "get_pages_tree_from_namespace": GetPagesTreeFromNamespaceToolHandler(),
+        "rename_page": RenamePageToolHandler(),
+        "get_page_backlinks": GetPageBacklinksToolHandler()
     }
 
 @pytest.fixture
