@@ -486,3 +486,244 @@ class SearchToolHandler(ToolHandler):
                 type="text",
                 text=f"❌ Search failed: {str(e)}"
             )]
+
+
+class QueryToolHandler(ToolHandler):
+    """Execute Logseq DSL queries to search pages and blocks."""
+
+    def __init__(self):
+        super().__init__("query")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Execute a Logseq DSL query to search pages and blocks. Supports property queries, tag queries, task queries, and logical combinations. See https://docs.logseq.com/#/page/queries for query syntax.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Logseq DSL query string (e.g., '(page-property status active)', '(and (task todo) (page [[Project]]))')"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return",
+                        "default": 100
+                    },
+                    "result_type": {
+                        "type": "string",
+                        "description": "Filter results by type",
+                        "enum": ["all", "pages_only", "blocks_only"],
+                        "default": "all"
+                    }
+                },
+                "required": ["query"]
+            }
+        )
+
+    def _is_page(self, item: dict) -> bool:
+        """Detect if a result item is a page based on available fields."""
+        if not isinstance(item, dict):
+            return False
+        # Pages typically have originalName or name without block-specific fields
+        has_page_fields = bool(item.get("originalName") or item.get("name"))
+        has_block_content = bool(item.get("content") or item.get("block/content"))
+        return has_page_fields and not has_block_content
+
+    def _is_block(self, item: dict) -> bool:
+        """Detect if a result item is a block based on available fields."""
+        if not isinstance(item, dict):
+            return False
+        return bool(item.get("content") or item.get("block/content"))
+
+    def _format_item(self, item: dict, index: int) -> str:
+        """Format a single result item with type indicator."""
+        if not isinstance(item, dict):
+            return f"{index}. {item}"
+
+        if self._is_page(item):
+            name = item.get("originalName") or item.get("name", "<unknown>")
+            # Get properties if available
+            props = item.get("propertiesTextValues", {}) or item.get("properties", {})
+            props_str = ", ".join(f"{k}: {v}" for k, v in props.items()) if props else ""
+            if props_str:
+                return f"{index}. 📄 **{name}** ({props_str})"
+            return f"{index}. 📄 **{name}**"
+        elif self._is_block(item):
+            content = item.get("content") or item.get("block/content", "")
+            # Truncate long content
+            if len(content) > 100:
+                content = content[:100] + "..."
+            return f"{index}. 📝 {content}"
+        else:
+            # Unknown type - just show what we have
+            name = item.get("originalName") or item.get("name") or str(item)[:50]
+            return f"{index}. {name}"
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Execute DSL query and format results."""
+        if "query" not in args:
+            raise RuntimeError("query argument required")
+
+        query = args["query"]
+        limit = args.get("limit", 100)
+        result_type = args.get("result_type", "all")
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.query_dsl(query)
+
+            if not result:
+                return [TextContent(
+                    type="text",
+                    text=f"No results found for query: `{query}`"
+                )]
+
+            # Filter by result_type if specified
+            filtered_results = []
+            for item in result:
+                if result_type == "pages_only" and not self._is_page(item):
+                    continue
+                if result_type == "blocks_only" and not self._is_block(item):
+                    continue
+                filtered_results.append(item)
+
+            if not filtered_results:
+                filter_msg = f" (filtered to {result_type})" if result_type != "all" else ""
+                return [TextContent(
+                    type="text",
+                    text=f"No results found for query: `{query}`{filter_msg}"
+                )]
+
+            # Apply limit
+            limited_results = filtered_results[:limit]
+
+            # Format results
+            content_parts = []
+            content_parts.append(f"# Query Results\n")
+            content_parts.append(f"**Query:** `{query}`\n")
+
+            for i, item in enumerate(limited_results, 1):
+                content_parts.append(self._format_item(item, i))
+
+            # Summary
+            content_parts.append(f"\n---")
+            if len(filtered_results) > limit:
+                content_parts.append(f"**Showing {limit} of {len(filtered_results)} results** (increase limit to see more)")
+            else:
+                content_parts.append(f"**Total: {len(limited_results)} results**")
+
+            return [TextContent(type="text", text="\n".join(content_parts))]
+
+        except Exception as e:
+            logger.error(f"Query failed: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Query failed: {str(e)}\n\nMake sure the query syntax is valid. See https://docs.logseq.com/#/page/queries"
+            )]
+
+
+class FindPagesByPropertyToolHandler(ToolHandler):
+    """Find pages by property name and optional value."""
+
+    def __init__(self):
+        super().__init__("find_pages_by_property")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Find all pages that have a specific property, optionally filtered by value. Simpler alternative to the full query DSL.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "property_name": {
+                        "type": "string",
+                        "description": "Name of the property to search for (e.g., 'status', 'type', 'service')"
+                    },
+                    "property_value": {
+                        "type": "string",
+                        "description": "Optional: specific value to match. If omitted, returns all pages that have this property."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return",
+                        "default": 100
+                    }
+                },
+                "required": ["property_name"]
+            }
+        )
+
+    def _escape_value(self, value: str) -> str:
+        """Escape special characters in property values for DSL query."""
+        # Escape double quotes
+        return value.replace('"', '\\"')
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Find pages by property and format results."""
+        if "property_name" not in args:
+            raise RuntimeError("property_name argument required")
+
+        property_name = args["property_name"]
+        property_value = args.get("property_value")
+        limit = args.get("limit", 100)
+
+        # Build the DSL query
+        if property_value:
+            escaped_value = self._escape_value(property_value)
+            query = f'(page-property {property_name} "{escaped_value}")'
+        else:
+            query = f'(page-property {property_name})'
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.query_dsl(query)
+
+            if not result:
+                if property_value:
+                    msg = f"No pages found with property '{property_name} = {property_value}'"
+                else:
+                    msg = f"No pages found with property '{property_name}'"
+                return [TextContent(type="text", text=msg)]
+
+            # Apply limit
+            limited_results = result[:limit]
+
+            # Format results
+            content_parts = []
+
+            if property_value:
+                content_parts.append(f"# Pages with '{property_name} = {property_value}'\n")
+            else:
+                content_parts.append(f"# Pages with property '{property_name}'\n")
+
+            for item in limited_results:
+                if isinstance(item, dict):
+                    name = item.get("originalName") or item.get("name", "<unknown>")
+                    props = item.get("propertiesTextValues", {}) or item.get("properties", {})
+
+                    # Show the property value if we searched without a specific value
+                    if not property_value and property_name in props:
+                        content_parts.append(f"- **{name}** ({property_name}: {props[property_name]})")
+                    elif not property_value and property_name.lower() in props:
+                        content_parts.append(f"- **{name}** ({property_name}: {props[property_name.lower()]})")
+                    else:
+                        content_parts.append(f"- **{name}**")
+                else:
+                    content_parts.append(f"- {item}")
+
+            # Summary
+            content_parts.append(f"\n---")
+            if len(result) > limit:
+                content_parts.append(f"**Showing {limit} of {len(result)} pages** (increase limit to see more)")
+            else:
+                content_parts.append(f"**Total: {len(limited_results)} pages**")
+
+            return [TextContent(type="text", text="\n".join(content_parts))]
+
+        except Exception as e:
+            logger.error(f"Property search failed: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Search failed: {str(e)}"
+            )]

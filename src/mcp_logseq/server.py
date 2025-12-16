@@ -78,6 +78,8 @@ add_tool_handler(tools.GetPageContentToolHandler())
 add_tool_handler(tools.DeletePageToolHandler())
 add_tool_handler(tools.UpdatePageToolHandler())
 add_tool_handler(tools.SearchToolHandler())
+add_tool_handler(tools.QueryToolHandler())
+add_tool_handler(tools.FindPagesByPropertyToolHandler())
 logger.info("Tool handlers registration complete")
 
 @app.list_tools()

@@ -295,3 +295,33 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error updating page '{page_name}': {str(e)}")
             raise
+
+    def query_dsl(self, query: str) -> Any:
+        """Execute a Logseq DSL query to search pages and blocks.
+
+        Args:
+            query: Logseq DSL query string (e.g., '(page-property status active)')
+
+        Returns:
+            List of matching pages/blocks from the query
+        """
+        url = self.get_base_url()
+        logger.info(f"Executing DSL query: {query}")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.DB.q",
+                    "args": [query]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Error executing DSL query: {str(e)}")
+            raise
