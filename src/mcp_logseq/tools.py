@@ -203,6 +203,60 @@ class GetPageContentToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("get_page_content")
 
+    @staticmethod
+    def _format_block_tree(
+        block: dict, indent_level: int = 0, max_depth: int = -1
+    ) -> list[str]:
+        """
+        Recursively format a block and its children with proper indentation.
+
+        Args:
+            block: Block dict with 'content', 'children', and optional 'properties', 'marker'
+            indent_level: Current indentation level (0-based)
+            max_depth: Maximum depth to recurse (-1 for unlimited)
+
+        Returns:
+            List of formatted lines for this block and its children
+        """
+        lines = []
+
+        # Get block content
+        content = block.get("content", "").strip()
+        if not content:
+            return lines
+
+        # Build the formatted line with indentation
+        indent = "  " * indent_level
+        line = f"{indent}- {content}"
+
+        # Add block-level properties inline if they exist
+        properties = block.get("properties", {})
+        if properties:
+            # Format properties as inline tags/attributes
+            prop_parts = []
+            for key, value in properties.items():
+                if key == "tags" and isinstance(value, list):
+                    # Format tags as #tag
+                    prop_parts.extend([f"#{tag}" for tag in value])
+                else:
+                    # Format other properties as key::value
+                    prop_parts.append(f"{key}::{value}")
+            if prop_parts:
+                line += " " + " ".join(prop_parts)
+
+        lines.append(line)
+
+        # Process children if we haven't hit the depth limit
+        children = block.get("children", [])
+        if children and (max_depth == -1 or indent_level < max_depth):
+            for child in children:
+                child_lines = GetPageContentToolHandler._format_block_tree(
+                    child, indent_level + 1, max_depth
+                )
+                lines.extend(child_lines)
+
+        return lines
+
     def get_tool_description(self):
         return Tool(
             name=self.name,
@@ -219,6 +273,11 @@ class GetPageContentToolHandler(ToolHandler):
                         "description": "Output format (text or json)",
                         "enum": ["text", "json"],
                         "default": "text",
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum nesting depth to display (default: -1 for unlimited)",
+                        "default": -1,
                     },
                 },
                 "required": ["page_name"],
@@ -266,12 +325,14 @@ class GetPageContentToolHandler(ToolHandler):
                     content_parts.append(f"- {key}: {value}")
                 content_parts.append("")
 
-            # Blocks content
+            # Blocks content - use recursive formatter
+            max_depth = args.get("max_depth", -1)
             if blocks:
                 content_parts.append("Content:")
                 for block in blocks:
-                    if isinstance(block, dict) and block.get("content"):
-                        content_parts.append(f"- {block['content']}")
+                    if isinstance(block, dict):
+                        block_lines = self._format_block_tree(block, 0, max_depth)
+                        content_parts.extend(block_lines)
                     elif isinstance(block, str) and block.strip():
                         content_parts.append(f"- {block}")
             else:

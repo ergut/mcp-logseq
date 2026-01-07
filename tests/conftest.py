@@ -61,6 +61,63 @@ def mock_logseq_responses():
                 "properties": {"tags": ["test", "example"], "priority": "high"},
             }
         ],
+        "get_page_blocks_nested": [
+            {
+                "id": "block-1",
+                "content": "DONE Parent task",
+                "marker": "DONE",
+                "properties": {"priority": "high"},
+                "children": [
+                    {
+                        "id": "block-1-1",
+                        "content": "Child task 1",
+                        "properties": {},
+                        "children": [],
+                    },
+                    {
+                        "id": "block-1-2",
+                        "content": "TODO Child task 2",
+                        "marker": "TODO",
+                        "properties": {"tags": ["urgent"]},
+                        "children": [
+                            {
+                                "id": "block-1-2-1",
+                                "content": "Grandchild detail",
+                                "properties": {},
+                                "children": [],
+                            }
+                        ],
+                    },
+                ],
+            }
+        ],
+        "get_page_blocks_multiple_siblings": [
+            {
+                "id": "block-1",
+                "content": "Parent with multiple children",
+                "properties": {},
+                "children": [
+                    {
+                        "id": "block-1-1",
+                        "content": "First child",
+                        "properties": {},
+                        "children": [],
+                    },
+                    {
+                        "id": "block-1-2",
+                        "content": "Second child",
+                        "properties": {},
+                        "children": [],
+                    },
+                    {
+                        "id": "block-1-3",
+                        "content": "Third child",
+                        "properties": {},
+                        "children": [],
+                    },
+                ],
+            }
+        ],
         "search_success": {
             "blocks": [{"block/content": "Search result content"}],
             "pages": ["Matching Page"],

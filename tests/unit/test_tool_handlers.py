@@ -265,6 +265,156 @@ class TestGetPageContentToolHandler:
         # Verify result
         assert "Page 'Non-existent' not found" in result[0].text
 
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_nested_blocks_text_format(
+        self, mock_logseq_class, mock_logseq_responses
+    ):
+        """Test page content retrieval with nested blocks (2 levels)."""
+        # Setup mock with nested blocks
+        mock_api = Mock()
+        mock_api.get_page_content.return_value = {
+            "page": {"originalName": "Test Page", "properties": {}},
+            "blocks": mock_logseq_responses["get_page_blocks_nested"],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageContentToolHandler()
+        result = handler.run_tool({"page_name": "Test Page", "format": "text"})
+
+        # Verify result
+        text = result[0].text
+        assert "# Test Page" in text
+        assert "- DONE Parent task" in text
+        assert "  - Child task 1" in text  # Indented with 2 spaces
+        assert "  - TODO Child task 2" in text  # Indented with 2 spaces
+        assert "    - Grandchild detail" in text  # Indented with 4 spaces
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_deep_nesting_text_format(
+        self, mock_logseq_class, mock_logseq_responses
+    ):
+        """Test page content with deep nesting (3+ levels)."""
+        # Setup mock - use the nested data which has 3 levels
+        mock_api = Mock()
+        mock_api.get_page_content.return_value = {
+            "page": {"originalName": "Test Page", "properties": {}},
+            "blocks": mock_logseq_responses["get_page_blocks_nested"],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageContentToolHandler()
+        result = handler.run_tool({"page_name": "Test Page", "format": "text"})
+
+        # Verify all 3 levels appear
+        text = result[0].text
+        lines = text.split("\n")
+
+        # Find the lines with our content
+        parent_line = [l for l in lines if "DONE Parent task" in l][0]
+        child_line = [l for l in lines if "TODO Child task 2" in l][0]
+        grandchild_line = [l for l in lines if "Grandchild detail" in l][0]
+
+        # Verify indentation levels (count leading spaces before '-')
+        assert parent_line.startswith("- DONE Parent task")  # 0 spaces
+        assert child_line.startswith("  - TODO Child task 2")  # 2 spaces
+        assert grandchild_line.startswith("    - Grandchild detail")  # 4 spaces
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_with_max_depth_limit(
+        self, mock_logseq_class, mock_logseq_responses
+    ):
+        """Test max_depth parameter limits nesting display."""
+        # Setup mock with 3-level nesting
+        mock_api = Mock()
+        mock_api.get_page_content.return_value = {
+            "page": {"originalName": "Test Page", "properties": {}},
+            "blocks": mock_logseq_responses["get_page_blocks_nested"],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageContentToolHandler()
+        # Set max_depth to 1 (show parent + immediate children only)
+        result = handler.run_tool(
+            {"page_name": "Test Page", "format": "text", "max_depth": 1}
+        )
+
+        text = result[0].text
+
+        # Verify parent and children appear
+        assert "- DONE Parent task" in text
+        assert "  - Child task 1" in text
+        assert "  - TODO Child task 2" in text
+
+        # Verify grandchild does NOT appear
+        assert "Grandchild detail" not in text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_with_markers_and_properties(
+        self, mock_logseq_class, mock_logseq_responses
+    ):
+        """Test that markers and properties are preserved and formatted inline."""
+        # Setup mock
+        mock_api = Mock()
+        mock_api.get_page_content.return_value = {
+            "page": {"originalName": "Test Page", "properties": {}},
+            "blocks": mock_logseq_responses["get_page_blocks_nested"],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageContentToolHandler()
+        result = handler.run_tool({"page_name": "Test Page", "format": "text"})
+
+        text = result[0].text
+
+        # Verify markers are preserved in content
+        assert "DONE Parent task" in text
+        assert "TODO Child task 2" in text
+
+        # Verify properties are formatted inline
+        assert "priority::high" in text  # Parent's property
+        assert "#urgent" in text  # Child's tag property
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_multiple_children_same_level(
+        self, mock_logseq_class, mock_logseq_responses
+    ):
+        """Test that multiple sibling blocks at the same level are formatted correctly."""
+        # Setup mock with multiple siblings
+        mock_api = Mock()
+        mock_api.get_page_content.return_value = {
+            "page": {"originalName": "Test Page", "properties": {}},
+            "blocks": mock_logseq_responses["get_page_blocks_multiple_siblings"],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageContentToolHandler()
+        result = handler.run_tool({"page_name": "Test Page", "format": "text"})
+
+        text = result[0].text
+        lines = text.split("\n")
+
+        # Find all child lines
+        child_lines = [
+            l for l in lines if l.strip().startswith("- ") and "child" in l.lower()
+        ]
+
+        # Should have parent + 3 children = 4 lines with "child" in them
+        assert len(child_lines) >= 4
+
+        # Verify all children have same indentation (2 spaces)
+        first_child = [l for l in lines if "First child" in l][0]
+        second_child = [l for l in lines if "Second child" in l][0]
+        third_child = [l for l in lines if "Third child" in l][0]
+
+        assert first_child.startswith("  - First child")
+        assert second_child.startswith("  - Second child")
+        assert third_child.startswith("  - Third child")
+
 
 class TestDeletePageToolHandler:
     """Test cases for DeletePageToolHandler."""
