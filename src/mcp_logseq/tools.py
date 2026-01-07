@@ -1,5 +1,6 @@
 import os
 import logging
+import yaml
 from typing import Any
 from . import logseq
 from . import parser
@@ -313,22 +314,19 @@ class GetPageContentToolHandler(ToolHandler):
             page_info = result.get("page", {})
             blocks = result.get("blocks", [])
 
-            # Title
-            title = page_info.get("originalName", args["page_name"])
-            content_parts.append(f"# {title}\n")
-
-            # Properties
+            # Properties as YAML frontmatter (if they exist)
             properties = page_info.get("properties", {})
             if properties:
-                content_parts.append("Properties:")
-                for key, value in properties.items():
-                    content_parts.append(f"- {key}: {value}")
-                content_parts.append("")
+                yaml_content = yaml.dump(
+                    properties, default_flow_style=False, allow_unicode=True
+                ).strip()
+                content_parts.append("---")
+                content_parts.append(yaml_content)
+                content_parts.append("---")
 
             # Blocks content - use recursive formatter
             max_depth = args.get("max_depth", -1)
             if blocks:
-                content_parts.append("Content:")
                 for block in blocks:
                     if isinstance(block, dict):
                         block_lines = self._format_block_tree(block, 0, max_depth)
@@ -336,7 +334,8 @@ class GetPageContentToolHandler(ToolHandler):
                     elif isinstance(block, str) and block.strip():
                         content_parts.append(f"- {block}")
             else:
-                content_parts.append("No content blocks found.")
+                # Empty page - return single dash
+                content_parts.append("-")
 
             return [TextContent(type="text", text="\n".join(content_parts))]
 

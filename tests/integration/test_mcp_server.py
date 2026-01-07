@@ -146,7 +146,7 @@ class TestMCPServerIntegration:
         # Verify result structure
         assert len(result) == 1
         text = result[0].text
-        assert "# Test Page" in text
+        assert "---" in text  # YAML frontmatter delimiter
         assert "priority: high" in text
         assert "Test content" in text
 

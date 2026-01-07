@@ -228,8 +228,9 @@ class TestGetPageContentToolHandler:
         assert len(result) == 1
         text = result[0].text
 
-        assert "# Test Page" in text
-        assert "tags: ['test']" in text
+        # Check for YAML frontmatter
+        assert "---" in text
+        assert "tags:" in text
         assert "priority: high" in text
         assert "Block 1 content" in text
         assert "Block 2 content" in text
@@ -284,7 +285,6 @@ class TestGetPageContentToolHandler:
 
         # Verify result
         text = result[0].text
-        assert "# Test Page" in text
         assert "- DONE Parent task" in text
         assert "  - Child task 1" in text  # Indented with 2 spaces
         assert "  - TODO Child task 2" in text  # Indented with 2 spaces
