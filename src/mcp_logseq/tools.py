@@ -227,24 +227,10 @@ class GetPageContentToolHandler(ToolHandler):
             return lines
 
         # Build the formatted line with indentation
+        # Note: Properties are already included in the content by Logseq,
+        # so we don't need to add them separately from block.properties
         indent = "  " * indent_level
         line = f"{indent}- {content}"
-
-        # Add block-level properties inline if they exist
-        properties = block.get("properties", {})
-        if properties:
-            # Format properties as inline tags/attributes
-            prop_parts = []
-            for key, value in properties.items():
-                if key == "tags" and isinstance(value, list):
-                    # Format tags as #tag
-                    prop_parts.extend([f"#{tag}" for tag in value])
-                else:
-                    # Format other properties as key::value
-                    prop_parts.append(f"{key}::{value}")
-            if prop_parts:
-                line += " " + " ".join(prop_parts)
-
         lines.append(line)
 
         # Process children if we haven't hit the depth limit

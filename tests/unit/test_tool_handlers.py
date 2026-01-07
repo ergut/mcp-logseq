@@ -356,12 +356,41 @@ class TestGetPageContentToolHandler:
     def test_run_tool_with_markers_and_properties(
         self, mock_logseq_class, mock_logseq_responses
     ):
-        """Test that markers and properties are preserved and formatted inline."""
-        # Setup mock
+        """Test that markers and properties are preserved in content as returned by Logseq."""
+        # Setup mock - properties are already in content (as Logseq returns them)
         mock_api = Mock()
         mock_api.get_page_content.return_value = {
             "page": {"originalName": "Test Page", "properties": {}},
-            "blocks": mock_logseq_responses["get_page_blocks_nested"],
+            "blocks": [
+                {
+                    "id": "block-1",
+                    "content": "DONE Parent task\npriority:: high",  # Properties in content
+                    "marker": "DONE",
+                    "properties": {"priority": "high"},
+                    "children": [
+                        {
+                            "id": "block-1-1",
+                            "content": "Child task 1",
+                            "properties": {},
+                            "children": [],
+                        },
+                        {
+                            "id": "block-1-2",
+                            "content": "TODO Child task 2\ntags:: [[urgent]]",  # Tags in content
+                            "marker": "TODO",
+                            "properties": {"tags": ["urgent"]},
+                            "children": [
+                                {
+                                    "id": "block-1-2-1",
+                                    "content": "Grandchild detail",
+                                    "properties": {},
+                                    "children": [],
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ],
         }
         mock_logseq_class.return_value = mock_api
 
@@ -374,9 +403,9 @@ class TestGetPageContentToolHandler:
         assert "DONE Parent task" in text
         assert "TODO Child task 2" in text
 
-        # Verify properties are formatted inline
-        assert "priority::high" in text  # Parent's property
-        assert "#urgent" in text  # Child's tag property
+        # Verify properties are shown as they appear in content (no extra formatting)
+        assert "priority:: high" in text  # As Logseq stores it in content
+        assert "tags:: [[urgent]]" in text  # As Logseq stores tags in content
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")
