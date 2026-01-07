@@ -56,6 +56,7 @@ HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$")
 BULLET_PATTERN = re.compile(r"^(\s*)([-*+])\s+(.*)$")
 NUMBERED_PATTERN = re.compile(r"^(\s*)(\d+\.)\s+(.*)$")
 CHECKBOX_PATTERN = re.compile(r"^(\s*)([-*+])\s+\[([ xX])\]\s+(.*)$")
+CAPITALIZED_MARKER_PATTERN = re.compile(r"^(\s*)([A-Z][A-Z0-9_-]{2,})\s+(.+)$")
 BLOCKQUOTE_PATTERN = re.compile(r"^(\s*)(>+)\s*(.*)$")
 HORIZONTAL_RULE_PATTERN = re.compile(r"^(\s*)[-*_]{3,}\s*$")
 FENCED_CODE_START = re.compile(r"^(\s*)```(\w*)(.*)$")
@@ -182,6 +183,12 @@ def _parse_list_item_content(line: str) -> tuple[str, int]:
         _, number, text = numbered_match.groups()
         return text, indent_level
 
+    # Check for capitalized marker (TODO, DONE, DOING, etc.)
+    marker_match = CAPITALIZED_MARKER_PATTERN.match(line)
+    if marker_match:
+        _, marker, text = marker_match.groups()
+        return f"{marker} {text}", indent_level
+
     # Fallback
     return line.strip(), indent_level
 
@@ -257,11 +264,12 @@ class MarkdownParser:
                 i = self._parse_blockquote(lines, i)
                 continue
 
-            # Check for list items (checkbox, bullet, or numbered)
+            # Check for list items (checkbox, bullet, numbered, or capitalized marker)
             if (
                 CHECKBOX_PATTERN.match(line)
                 or BULLET_PATTERN.match(line)
                 or NUMBERED_PATTERN.match(line)
+                or CAPITALIZED_MARKER_PATTERN.match(line)
             ):
                 i = self._parse_list_item(lines, i)
                 continue
@@ -394,6 +402,7 @@ class MarkdownParser:
                         BULLET_PATTERN.match(next_line)
                         or NUMBERED_PATTERN.match(next_line)
                         or CHECKBOX_PATTERN.match(next_line)
+                        or CAPITALIZED_MARKER_PATTERN.match(next_line)
                     ):
                         break
                 else:
@@ -413,6 +422,7 @@ class MarkdownParser:
                 CHECKBOX_PATTERN.match(next_line)
                 or BULLET_PATTERN.match(next_line)
                 or NUMBERED_PATTERN.match(next_line)
+                or CAPITALIZED_MARKER_PATTERN.match(next_line)
             ):
                 nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
                 list_block.children.append(nested_block)
@@ -468,6 +478,7 @@ class MarkdownParser:
                 CHECKBOX_PATTERN.match(next_line)
                 or BULLET_PATTERN.match(next_line)
                 or NUMBERED_PATTERN.match(next_line)
+                or CAPITALIZED_MARKER_PATTERN.match(next_line)
             ):
                 nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
                 list_block.children.append(nested_block)

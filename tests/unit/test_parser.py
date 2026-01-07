@@ -592,3 +592,162 @@ key: value
         assert isinstance(batch, list)
         assert len(batch) == 1
         assert batch[0]["content"] == "# Title"
+
+
+class TestCapitalizedMarkers:
+    """Tests for capitalized marker patterns (TODO, DONE, DOING, etc.)."""
+
+    def test_simple_done_marker(self):
+        """Test simple DONE marker without children."""
+        content = "DONE Complete the task"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "DONE Complete the task"
+
+    def test_done_marker_with_children(self):
+        """Test DONE marker with nested children."""
+        content = """DONE Contributed to mcp-logseq
+  - Fixed issue #7
+  - Added 91 tests"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "DONE Contributed to mcp-logseq"
+        assert len(blocks[0].children) == 2
+        assert blocks[0].children[0].content == "Fixed issue #7"
+        assert blocks[0].children[1].content == "Added 91 tests"
+
+    def test_todo_marker(self):
+        """Test TODO marker."""
+        content = "TODO Review the PR"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "TODO Review the PR"
+
+    def test_custom_markers(self):
+        """Test custom capitalized markers (DOING, WAITING, etc.)."""
+        content = """DOING Work in progress
+  - Step 1 complete
+
+WAITING For review
+
+LATER Maybe someday
+
+NOW Urgent task"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 4
+        assert blocks[0].content == "DOING Work in progress"
+        assert len(blocks[0].children) == 1
+        assert blocks[1].content == "WAITING For review"
+        assert blocks[2].content == "LATER Maybe someday"
+        assert blocks[3].content == "NOW Urgent task"
+
+    def test_marker_with_deep_nesting(self):
+        """Test marker with multiple levels of nesting."""
+        content = """DONE Main task
+  - Subtask 1
+    - Detail A
+    - Detail B
+  - Subtask 2"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "DONE Main task"
+        assert len(blocks[0].children) == 2
+        assert len(blocks[0].children[0].children) == 2
+
+    def test_short_codes_not_markers(self):
+        """Test that 2-char codes (like state codes) are not treated as markers."""
+        content = """CA California location
+  - Should not be nested
+NY New York office
+  - Should not be nested"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        # Should be 4 blocks (2 paragraphs + 2 lists), not 2 nested structures
+        assert len(blocks) == 4
+
+    def test_three_char_minimum(self):
+        """Test that 3-char markers work (like NOW)."""
+        content = """NOW Do this immediately
+  - Urgent detail"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "NOW Do this immediately"
+        assert len(blocks[0].children) == 1
+
+    def test_lowercase_not_treated_as_marker(self):
+        """Test that lowercase words are not treated as markers."""
+        content = """done This should be a paragraph
+  - This should be a separate list"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        # Should be 2 blocks (paragraph + list), not nested
+        assert len(blocks) == 2
+
+    def test_marker_mixed_with_checkboxes(self):
+        """Test that markers work alongside checkbox items."""
+        content = """DONE Custom marker task
+  - Detail 1
+- [x] Checkbox task
+  - Detail 2"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 2
+        assert blocks[0].content == "DONE Custom marker task"
+        assert blocks[1].content == "DONE Checkbox task"  # Converted from [x]
+        assert len(blocks[0].children) == 1
+        assert len(blocks[1].children) == 1
+
+    def test_marker_with_hyphens_and_underscores(self):
+        """Test markers with hyphens and underscores."""
+        content = """IN-PROGRESS Current work
+  - Detail
+
+PRIORITY_HIGH Important task
+  - Detail"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 2
+        assert blocks[0].content == "IN-PROGRESS Current work"
+        assert blocks[1].content == "PRIORITY_HIGH Important task"
+
+    def test_marker_with_numbers(self):
+        """Test markers with numbers."""
+        content = """STEP1 First step
+  - Detail
+
+PRIORITY2 Second priority
+  - Detail"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 2
+        assert blocks[0].content == "STEP1 First step"
+        assert blocks[1].content == "PRIORITY2 Second priority"
+
+    def test_empty_line_breaks_nesting(self):
+        """Test that empty lines break nesting context."""
+        content = """DONE Task
+
+- Unrelated list"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        # Should be 2 blocks (marker + separate list), not nested
+        assert len(blocks) == 2
+        assert blocks[0].content == "DONE Task"
+        assert len(blocks[0].children) == 0
+        assert blocks[1].content == "Unrelated list"
