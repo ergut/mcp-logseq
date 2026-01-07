@@ -131,11 +131,11 @@ class TestMCPServerIntegration:
     @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_get_page_content_tool_integration(self, mock_logseq_class):
         """Test get_page_content tool end-to-end."""
-        # Setup mock
+        # Setup mock - properties in content (as Logseq returns them)
         mock_api = Mock()
         mock_api.get_page_content.return_value = {
             "page": {"originalName": "Test Page", "properties": {"priority": "high"}},
-            "blocks": [{"content": "Test content"}],
+            "blocks": [{"content": "Test content\npriority:: high"}],
         }
         mock_logseq_class.return_value = mock_api
 
@@ -146,9 +146,9 @@ class TestMCPServerIntegration:
         # Verify result structure
         assert len(result) == 1
         text = result[0].text
-        assert "---" in text  # YAML frontmatter delimiter
-        assert "priority: high" in text
+        # Properties shown in content (no YAML frontmatter)
         assert "Test content" in text
+        assert "priority:: high" in text
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")

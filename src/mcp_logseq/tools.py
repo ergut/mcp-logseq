@@ -1,6 +1,5 @@
 import os
 import logging
-import yaml
 from typing import Any
 from . import logseq
 from . import parser
@@ -296,19 +295,10 @@ class GetPageContentToolHandler(ToolHandler):
             # Format as readable text
             content_parts = []
 
-            # Get page info and blocks from the result structure
-            page_info = result.get("page", {})
+            # Get blocks from the result structure
+            # Note: Page properties are already in the first block's content,
+            # so we don't need to show them separately in YAML frontmatter
             blocks = result.get("blocks", [])
-
-            # Properties as YAML frontmatter (if they exist)
-            properties = page_info.get("properties", {})
-            if properties:
-                yaml_content = yaml.dump(
-                    properties, default_flow_style=False, allow_unicode=True
-                ).strip()
-                content_parts.append("---")
-                content_parts.append(yaml_content)
-                content_parts.append("---")
 
             # Blocks content - use recursive formatter
             max_depth = args.get("max_depth", -1)

@@ -210,14 +210,17 @@ class TestGetPageContentToolHandler:
     @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_run_tool_success_text_format(self, mock_logseq_class):
         """Test successful page content retrieval in text format."""
-        # Setup mock
+        # Setup mock - properties are in the first block's content (as Logseq returns them)
         mock_api = Mock()
         mock_api.get_page_content.return_value = {
             "page": {
                 "originalName": "Test Page",
                 "properties": {"tags": ["test"], "priority": "high"},
             },
-            "blocks": [{"content": "Block 1 content"}, {"content": "Block 2 content"}],
+            "blocks": [
+                {"content": "Block 1 content\ntags:: [[test]]\npriority:: high"},
+                {"content": "Block 2 content"},
+            ],
         }
         mock_logseq_class.return_value = mock_api
 
@@ -228,12 +231,13 @@ class TestGetPageContentToolHandler:
         assert len(result) == 1
         text = result[0].text
 
-        # Check for YAML frontmatter
-        assert "---" in text
-        assert "tags:" in text
-        assert "priority: high" in text
+        # Properties shown in content (no YAML frontmatter duplication)
         assert "Block 1 content" in text
+        assert "tags:: [[test]]" in text  # Properties in content
+        assert "priority:: high" in text  # Properties in content
         assert "Block 2 content" in text
+        # No YAML frontmatter
+        assert not text.startswith("---")
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")
