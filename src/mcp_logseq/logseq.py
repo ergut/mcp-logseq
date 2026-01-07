@@ -364,14 +364,13 @@ class LogSeq:
         logger.info(f"Creating page '{title}' with {len(blocks)} blocks")
 
         try:
-            # Step 1: Create the page with properties
-            page_properties = properties or {}
+            # Step 1: Create the page without properties (properties will be set on first block later)
             response = requests.post(
                 url,
                 headers=self._get_headers(),
                 json={
                     "method": "logseq.Editor.createPage",
-                    "args": [title, page_properties, {"createFirstBlock": True}],
+                    "args": [title, {}, {"createFirstBlock": True}],
                 },
                 verify=self.verify_ssl,
                 timeout=self.timeout,
@@ -397,6 +396,11 @@ class LogSeq:
                     logger.warning("No first block found, using fallback append method")
                     for block in blocks:
                         self._append_block_recursive(title, block)
+
+            # Step 3: Set properties on the first block if provided
+            # Properties must be set AFTER blocks are inserted to ensure they're on the correct block
+            if properties:
+                self._update_page_properties(title, properties)
 
             logger.info(f"Successfully created page '{title}' with blocks")
             return page_result
@@ -469,12 +473,7 @@ class LogSeq:
                 self.clear_page_content(page_name)
                 results.append(("cleared", True))
 
-            # Update properties if provided
-            if properties:
-                self._update_page_properties(page_name, properties)
-                results.append(("properties", properties))
-
-            # Insert new blocks
+            # Insert new blocks FIRST, then set properties
             if blocks:
                 if mode == "replace":
                     # After clearing, we need to add a first block to use as anchor
@@ -516,6 +515,21 @@ class LogSeq:
                             self._append_block_recursive(page_name, block)
                         results.append(("blocks_appended", len(blocks)))
 
+            # Update properties AFTER blocks are inserted/replaced
+            # This ensures properties are always set on the correct first block
+            if properties:
+                # For append mode, merge with existing properties
+                # For replace mode, replace all properties
+                if mode == "append":
+                    existing_props = self._get_page_properties(page_name)
+                    merged_props = {**existing_props, **properties}
+                    self._update_page_properties(page_name, merged_props)
+                    results.append(("properties", merged_props))
+                else:
+                    # Replace mode - set only the new properties
+                    self._update_page_properties(page_name, properties)
+                    results.append(("properties", properties))
+
             return {"updates": results, "page": page_name}
 
         except ValueError:
@@ -523,6 +537,42 @@ class LogSeq:
         except Exception as e:
             logger.error(f"Error updating page with blocks: {str(e)}")
             raise
+
+    def _get_page_properties(self, page_name: str) -> dict:
+        """
+        Get current page properties from the first block.
+
+        Returns:
+            Dict of current page properties, or empty dict if none found
+        """
+        page_blocks = self.get_page_blocks(page_name)
+        if not page_blocks:
+            return {}
+
+        first_block = page_blocks[0]
+        return first_block.get("properties", {})
+
+    def _normalize_property_value(self, key: str, value: Any) -> Any:
+        """
+        Normalize property values for Logseq's upsertBlockProperty API.
+
+        Handles special cases:
+        - tags/aliases as dict with boolean values -> convert to array of keys
+        - Other dicts remain as-is (for nested properties)
+
+        Args:
+            key: Property name
+            value: Property value
+
+        Returns:
+            Normalized value suitable for Logseq
+        """
+        # Special handling for tags and aliases - convert dict to array
+        if key in ("tags", "alias", "aliases") and isinstance(value, dict):
+            # Extract keys where value is truthy (typically true for tags)
+            return [k for k, v in value.items() if v]
+
+        return value
 
     def _update_page_properties(self, page_name: str, properties: dict) -> None:
         """
@@ -545,7 +595,8 @@ class LogSeq:
 
         # Set each property using upsertBlockProperty
         for key, value in properties.items():
-            self._upsert_block_property(first_block_uuid, key, value)
+            normalized_value = self._normalize_property_value(key, value)
+            self._upsert_block_property(first_block_uuid, key, normalized_value)
 
         logger.info(f"Updated {len(properties)} properties on page '{page_name}'")
 
