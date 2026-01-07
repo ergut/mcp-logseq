@@ -1,6 +1,8 @@
 import os
 import logging
+from typing import Any
 from . import logseq
+from . import parser
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
@@ -12,7 +14,8 @@ else:
     logger.info("Found LOGSEQ_API_TOKEN in environment")
     logger.debug(f"API Token starts with: {api_key[:5]}...")
 
-class ToolHandler():
+
+class ToolHandler:
     def __init__(self, tool_name: str):
         self.name = tool_name
 
@@ -22,45 +25,111 @@ class ToolHandler():
     def run_tool(self, args: dict) -> list[TextContent]:
         raise NotImplementedError()
 
+
+# =============================================================================
+# TOOL HANDLERS (with proper markdown parsing and block hierarchy)
+# =============================================================================
+
+
 class CreatePageToolHandler(ToolHandler):
+    """
+    Create a new page with proper block hierarchy.
+
+    Parses markdown content into Logseq blocks, supporting:
+    - Headings (# ## ###) with nested hierarchy
+    - Bullet and numbered lists with nesting
+    - Code blocks (fenced with ```)
+    - Blockquotes (>)
+    - YAML frontmatter for page properties
+    """
+
     def __init__(self):
         super().__init__("create_page")
 
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="Create a new page in LogSeq.",
+            description="""Create a new page in Logseq with properly structured blocks.
+
+Markdown content is automatically parsed into Logseq's block hierarchy:
+- Headings (# ## ###) create nested sections
+- Lists (- or 1.) become proper block trees  
+- Code blocks are preserved as single blocks
+- YAML frontmatter (---) becomes page properties
+
+Example content:
+```
+---
+tags: [project, active]
+priority: high
+---
+
+# Project Title
+Introduction paragraph.
+
+## Tasks
+- Task 1
+  - Subtask A
+- Task 2
+```""",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Title of the new page"
-                    },
+                    "title": {"type": "string", "description": "Title of the new page"},
                     "content": {
                         "type": "string",
-                        "description": "Content of the new page"
-                    }
+                        "description": "Markdown content to parse into blocks (optional)",
+                    },
+                    "properties": {
+                        "type": "object",
+                        "description": "Page properties (merged with frontmatter if both provided)",
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["title", "content"]
-            }
+                "required": ["title"],
+            },
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
-        if "title" not in args or "content" not in args:
-            raise RuntimeError("title and content arguments required")
+        if "title" not in args:
+            raise RuntimeError("title argument required")
+
+        title = args["title"]
+        content = args.get("content", "")
+        explicit_properties = args.get("properties", {})
 
         try:
             api = logseq.LogSeq(api_key=api_key)
-            api.create_page(args["title"], args["content"])
-            
-            return [TextContent(
-                type="text",
-                text=f"Successfully created page '{args['title']}'"
-            )]
+
+            # Parse the content
+            parsed = (
+                parser.parse_content(content) if content else parser.ParsedContent()
+            )
+
+            # Merge properties: explicit properties override frontmatter
+            page_properties = {**parsed.properties, **explicit_properties}
+
+            # Convert blocks to batch format
+            blocks = parsed.to_batch_format()
+
+            # Create the page with blocks
+            api.create_page_with_blocks(title, blocks, page_properties)
+
+            # Build success message
+            block_count = len(blocks)
+            prop_count = len(page_properties)
+
+            msg_parts = [f"Successfully created page '{title}'"]
+            if block_count > 0:
+                msg_parts.append(f"  - {block_count} top-level block(s) created")
+            if prop_count > 0:
+                msg_parts.append(f"  - {prop_count} page property/ies set")
+
+            return [TextContent(type="text", text="\n".join(msg_parts))]
         except Exception as e:
             logger.error(f"Failed to create page: {str(e)}")
             raise
+
 
 class ListPagesToolHandler(ToolHandler):
     def __init__(self):
@@ -76,52 +145,59 @@ class ListPagesToolHandler(ToolHandler):
                     "include_journals": {
                         "type": "boolean",
                         "description": "Whether to include journal/daily notes in the list",
-                        "default": False
+                        "default": False,
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         )
-    
+
     def run_tool(self, args: dict) -> list[TextContent]:
         include_journals = args.get("include_journals", False)
-        
+
         try:
             api = logseq.LogSeq(api_key=api_key)
             result = api.list_pages()
-            
+
             # Format pages for display
             pages_info = []
             for page in result:
                 # Skip if it's a journal page and we don't want to include those
-                is_journal = page.get('journal?', False)
+                is_journal = page.get("journal?", False)
                 if is_journal and not include_journals:
                     continue
-                
+
                 # Get page information
-                name = page.get('originalName') or page.get('name', '<unknown>')
-                
+                name = page.get("originalName") or page.get("name", "<unknown>")
+
                 # Build page info string
                 info_parts = [f"- {name}"]
                 if is_journal:
                     info_parts.append("[journal]")
-                    
+
                 pages_info.append(" ".join(info_parts))
-            
+
             # Sort alphabetically by page name
             pages_info.sort()
-            
+
             # Build response
             count_msg = f"\nTotal pages: {len(pages_info)}"
-            journal_msg = " (excluding journal pages)" if not include_journals else " (including journal pages)"
-            
-            response = "LogSeq Pages:\n\n" + "\n".join(pages_info) + count_msg + journal_msg
-            
+            journal_msg = (
+                " (excluding journal pages)"
+                if not include_journals
+                else " (including journal pages)"
+            )
+
+            response = (
+                "LogSeq Pages:\n\n" + "\n".join(pages_info) + count_msg + journal_msg
+            )
+
             return [TextContent(type="text", text=response)]
-            
+
         except Exception as e:
             logger.error(f"Failed to list pages: {str(e)}")
             raise
+
 
 class GetPageContentToolHandler(ToolHandler):
     def __init__(self):
@@ -136,54 +212,52 @@ class GetPageContentToolHandler(ToolHandler):
                 "properties": {
                     "page_name": {
                         "type": "string",
-                        "description": "Name of the page to retrieve"
+                        "description": "Name of the page to retrieve",
                     },
                     "format": {
                         "type": "string",
                         "description": "Output format (text or json)",
                         "enum": ["text", "json"],
-                        "default": "text"
-                    }
+                        "default": "text",
+                    },
                 },
-                "required": ["page_name"]
-            }
+                "required": ["page_name"],
+            },
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
         """Get and format LogSeq page content."""
         logger.info(f"Getting page content with args: {args}")
-        
+
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
         try:
             api = logseq.LogSeq(api_key=api_key)
             result = api.get_page_content(args["page_name"])
-            
+
             if not result:
-                return [TextContent(
-                    type="text",
-                    text=f"Page '{args['page_name']}' not found."
-                )]
+                return [
+                    TextContent(
+                        type="text", text=f"Page '{args['page_name']}' not found."
+                    )
+                ]
 
             # Handle JSON format request
             if args.get("format") == "json":
-                return [TextContent(
-                    type="text",
-                    text=str(result)
-                )]
+                return [TextContent(type="text", text=str(result))]
 
             # Format as readable text
             content_parts = []
-            
+
             # Get page info and blocks from the result structure
             page_info = result.get("page", {})
             blocks = result.get("blocks", [])
-            
+
             # Title
             title = page_info.get("originalName", args["page_name"])
             content_parts.append(f"# {title}\n")
-            
+
             # Properties
             properties = page_info.get("properties", {})
             if properties:
@@ -191,7 +265,7 @@ class GetPageContentToolHandler(ToolHandler):
                 for key, value in properties.items():
                     content_parts.append(f"- {key}: {value}")
                 content_parts.append("")
-            
+
             # Blocks content
             if blocks:
                 content_parts.append("Content:")
@@ -202,15 +276,13 @@ class GetPageContentToolHandler(ToolHandler):
                         content_parts.append(f"- {block}")
             else:
                 content_parts.append("No content blocks found.")
-            
-            return [TextContent(
-                type="text",
-                text="\n".join(content_parts)
-            )]
+
+            return [TextContent(type="text", text="\n".join(content_parts))]
 
         except Exception as e:
             logger.error(f"Failed to get page content: {str(e)}")
             raise
+
 
 class DeletePageToolHandler(ToolHandler):
     def __init__(self):
@@ -225,11 +297,11 @@ class DeletePageToolHandler(ToolHandler):
                 "properties": {
                     "page_name": {
                         "type": "string",
-                        "description": "Name of the page to delete"
+                        "description": "Name of the page to delete",
                     }
                 },
-                "required": ["page_name"]
-            }
+                "required": ["page_name"],
+            },
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
@@ -239,62 +311,84 @@ class DeletePageToolHandler(ToolHandler):
         try:
             api = logseq.LogSeq(api_key=api_key)
             result = api.delete_page(args["page_name"])
-            
+
             # Build detailed success message
             page_name = args["page_name"]
             success_msg = f"✅ Successfully deleted page '{page_name}'"
-            
+
             # Add any additional info from the API result if available
             if result and isinstance(result, dict):
                 if result.get("success"):
-                    success_msg += f"\n📋 Status: {result.get('message', 'Deletion confirmed')}"
-            
-            success_msg += f"\n🗑️  Page '{page_name}' has been permanently removed from LogSeq"
-            
-            return [TextContent(
-                type="text",
-                text=success_msg
-            )]
+                    success_msg += (
+                        f"\n📋 Status: {result.get('message', 'Deletion confirmed')}"
+                    )
+
+            success_msg += (
+                f"\n🗑️  Page '{page_name}' has been permanently removed from LogSeq"
+            )
+
+            return [TextContent(type="text", text=success_msg)]
         except ValueError as e:
             # Handle validation errors (page not found) gracefully
-            return [TextContent(
-                type="text", 
-                text=f"❌ Error: {str(e)}"
-            )]
+            return [TextContent(type="text", text=f"❌ Error: {str(e)}")]
         except Exception as e:
             logger.error(f"Failed to delete page: {str(e)}")
-            return [TextContent(
-                type="text",
-                text=f"❌ Failed to delete page '{args['page_name']}': {str(e)}"
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text=f"❌ Failed to delete page '{args['page_name']}': {str(e)}",
+                )
+            ]
+
 
 class UpdatePageToolHandler(ToolHandler):
+    """
+    Update a page with proper block hierarchy support.
+
+    Supports two modes:
+    - append: Add new blocks after existing content (default)
+    - replace: Clear existing content and add new blocks
+    """
+
     def __init__(self):
         super().__init__("update_page")
 
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="Update a page in LogSeq with new content and/or properties.",
+            description="""Update a page in Logseq with new content and/or properties.
+
+Supports two modes:
+- append: Add new blocks after existing content (default)
+- replace: Clear all existing blocks and add new content
+
+Markdown is parsed into proper block hierarchy just like create_page.
+YAML frontmatter in content will be merged with explicit properties.""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "page_name": {
                         "type": "string",
-                        "description": "Name of the page to update"
+                        "description": "Name of the page to update",
                     },
                     "content": {
                         "type": "string",
-                        "description": "New content to append to the page (optional)"
+                        "description": "Markdown content to add or replace with",
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["append", "replace"],
+                        "default": "append",
+                        "description": "append: add after existing content. replace: clear page and add new content.",
                     },
                     "properties": {
                         "type": "object",
-                        "description": "Page properties to update (optional)",
-                        "additionalProperties": True
-                    }
+                        "description": "Page properties to set/update",
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["page_name"]
-            }
+                "required": ["page_name"],
+            },
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
@@ -302,56 +396,69 @@ class UpdatePageToolHandler(ToolHandler):
             raise RuntimeError("page_name argument required")
 
         page_name = args["page_name"]
-        content = args.get("content")
-        properties = args.get("properties")
-        
+        content = args.get("content", "")
+        mode = args.get("mode", "append")
+        explicit_properties = args.get("properties", {})
+
         # Validate that at least one update is provided
-        if not content and not properties:
-            return [TextContent(
-                type="text",
-                text="❌ Error: Either 'content' or 'properties' must be provided for update"
-            )]
+        if not content and not explicit_properties:
+            return [
+                TextContent(
+                    type="text",
+                    text="Error: Either 'content' or 'properties' must be provided for update",
+                )
+            ]
 
         try:
             api = logseq.LogSeq(api_key=api_key)
-            result = api.update_page(page_name, content=content, properties=properties)
-            
-            # Build detailed success message
-            success_msg = f"✅ Successfully updated page '{page_name}'"
-            
-            # Show what was updated
+
+            # Parse the content
+            parsed = (
+                parser.parse_content(content) if content else parser.ParsedContent()
+            )
+
+            # Merge properties: explicit properties override frontmatter
+            page_properties = (
+                {**parsed.properties, **explicit_properties}
+                if (parsed.properties or explicit_properties)
+                else None
+            )
+
+            # Convert blocks to batch format
+            blocks = parsed.to_batch_format()
+
+            # Update the page
+            result = api.update_page_with_blocks(
+                page_name, blocks, page_properties, mode=mode
+            )
+
+            # Build success message
             updates = result.get("updates", [])
-            update_details = []
-            
-            for update_type, update_result in updates:
-                if update_type == "properties":
-                    update_details.append("📝 Properties updated")
-                elif update_type == "properties_fallback":
-                    update_details.append("📝 Properties updated (via fallback method)")
-                elif update_type == "content":
-                    update_details.append("📄 Content appended")
-            
-            if update_details:
-                success_msg += f"\n{chr(10).join(update_details)}"
-            
-            success_msg += f"\n🔄 Page '{page_name}' has been updated in LogSeq"
-            
-            return [TextContent(
-                type="text",
-                text=success_msg
-            )]
+            msg_parts = [f"Successfully updated page '{page_name}'"]
+
+            for update_type, update_value in updates:
+                if update_type == "cleared":
+                    msg_parts.append("  - Existing content cleared")
+                elif update_type == "properties":
+                    msg_parts.append(f"  - {len(update_value)} property/ies updated")
+                elif update_type == "blocks_replaced":
+                    msg_parts.append(f"  - {update_value} block(s) added")
+                elif update_type == "blocks_appended":
+                    msg_parts.append(f"  - {update_value} block(s) appended")
+
+            msg_parts.append(f"Mode: {mode}")
+
+            return [TextContent(type="text", text="\n".join(msg_parts))]
         except ValueError as e:
-            # Handle validation errors (page not found) gracefully
-            return [TextContent(
-                type="text", 
-                text=f"❌ Error: {str(e)}"
-            )]
+            return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
             logger.error(f"Failed to update page: {str(e)}")
-            return [TextContent(
-                type="text",
-                text=f"❌ Failed to update page '{page_name}': {str(e)}"
-            )]
+            return [
+                TextContent(
+                    type="text", text=f"Failed to update page '{page_name}': {str(e)}"
+                )
+            ]
+
 
 class SearchToolHandler(ToolHandler):
     def __init__(self):
@@ -364,39 +471,36 @@ class SearchToolHandler(ToolHandler):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query text"
-                    },
+                    "query": {"type": "string", "description": "Search query text"},
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of results to return",
-                        "default": 20
+                        "default": 20,
                     },
                     "include_blocks": {
                         "type": "boolean",
                         "description": "Include block content results",
-                        "default": True
+                        "default": True,
                     },
                     "include_pages": {
-                        "type": "boolean", 
+                        "type": "boolean",
                         "description": "Include page name results",
-                        "default": True
+                        "default": True,
                     },
                     "include_files": {
                         "type": "boolean",
-                        "description": "Include file name results", 
-                        "default": False
-                    }
+                        "description": "Include file name results",
+                        "default": False,
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
         """Execute search and format results."""
         logger.info(f"Searching with args: {args}")
-        
+
         if "query" not in args:
             raise RuntimeError("query argument required")
 
@@ -409,20 +513,21 @@ class SearchToolHandler(ToolHandler):
         try:
             # Prepare search options
             search_options = {"limit": limit}
-            
+
             api = logseq.LogSeq(api_key=api_key)
             result = api.search_content(query, search_options)
-            
+
             if not result:
-                return [TextContent(
-                    type="text",
-                    text=f"No search results found for '{query}'"
-                )]
+                return [
+                    TextContent(
+                        type="text", text=f"No search results found for '{query}'"
+                    )
+                ]
 
             # Format results
             content_parts = []
             content_parts.append(f"# Search Results for '{query}'\n")
-            
+
             # Block results
             if include_blocks and result.get("blocks"):
                 blocks = result["blocks"]
@@ -434,22 +539,24 @@ class SearchToolHandler(ToolHandler):
                         # Truncate long content
                         if len(content) > 150:
                             content = content[:150] + "..."
-                        content_parts.append(f"{i+1}. {content}")
+                        content_parts.append(f"{i + 1}. {content}")
                 content_parts.append("")
 
-            # Page snippet results  
+            # Page snippet results
             if include_blocks and result.get("pages-content"):
                 snippets = result["pages-content"]
                 content_parts.append(f"## 📝 Page Snippets ({len(snippets)} found)")
                 for i, snippet in enumerate(snippets[:limit]):
-                    # LogSeq returns snippets with 'block/snippet' key  
+                    # LogSeq returns snippets with 'block/snippet' key
                     snippet_text = snippet.get("block/snippet", "").strip()
                     if snippet_text:
                         # Clean up snippet text
-                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace("$<pfts_2lqh$", "")
+                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
+                            "$<pfts_2lqh$", ""
+                        )
                         if len(snippet_text) > 200:
                             snippet_text = snippet_text[:200] + "..."
-                        content_parts.append(f"{i+1}. {snippet_text}")
+                        content_parts.append(f"{i + 1}. {snippet_text}")
                 content_parts.append("")
 
             # Page name results
@@ -470,19 +577,22 @@ class SearchToolHandler(ToolHandler):
 
             # Pagination info
             if result.get("has-more?"):
-                content_parts.append("📌 *More results available - increase limit to see more*")
+                content_parts.append(
+                    "📌 *More results available - increase limit to see more*"
+                )
 
             # Summary
-            total_results = len(result.get("blocks", [])) + len(result.get("pages", [])) + len(result.get("files", []))
+            total_results = (
+                len(result.get("blocks", []))
+                + len(result.get("pages", []))
+                + len(result.get("files", []))
+            )
             content_parts.append(f"\n**Total results found: {total_results}**")
 
             response_text = "\n".join(content_parts)
-            
+
             return [TextContent(type="text", text=response_text)]
-            
+
         except Exception as e:
             logger.error(f"Failed to search: {str(e)}")
-            return [TextContent(
-                type="text",
-                text=f"❌ Search failed: {str(e)}"
-            )]
+            return [TextContent(type="text", text=f"❌ Search failed: {str(e)}")]
