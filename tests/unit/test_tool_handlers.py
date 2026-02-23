@@ -6,6 +6,7 @@ from mcp_logseq.tools import (
     ListPagesToolHandler,
     GetPageContentToolHandler,
     DeletePageToolHandler,
+    DeleteBlockToolHandler,
     UpdatePageToolHandler,
     SearchToolHandler,
 )
@@ -497,6 +498,81 @@ class TestDeletePageToolHandler:
         # Verify error handling
         text = result[0].text
         assert "❌ Error: Page 'Test' does not exist" in text
+
+
+class TestDeleteBlockToolHandler:
+    """Test cases for DeleteBlockToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = DeleteBlockToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "delete_block"
+        assert "Delete a block from LogSeq" in tool.description
+        assert tool.inputSchema["required"] == ["block_uuid"]
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful block deletion returns confirmation with UUID."""
+        mock_api = Mock()
+        mock_api.delete_block.return_value = None
+        mock_logseq_class.return_value = mock_api
+
+        handler = DeleteBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123"})
+
+        mock_api.delete_block.assert_called_once_with("abc-123")
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅ Successfully deleted block 'abc-123'" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    def test_run_tool_missing_block_uuid(self):
+        """Test that omitting block_uuid raises RuntimeError."""
+        handler = DeleteBlockToolHandler()
+
+        with pytest.raises(RuntimeError, match="block_uuid argument required"):
+            handler.run_tool({})
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_value_error_returns_error_message(self, mock_logseq_class):
+        """Test that a ValueError from the API returns an error TextContent."""
+        mock_api = Mock()
+        mock_api.delete_block.side_effect = ValueError("Block 'abc-123' does not exist")
+        mock_logseq_class.return_value = mock_api
+
+        handler = DeleteBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌ Error: Block 'abc-123' does not exist" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_generic_exception_returns_failed_message(
+        self, mock_logseq_class, caplog
+    ):
+        """Test that a generic exception returns a failed TextContent and logs the error."""
+        import logging
+
+        mock_api = Mock()
+        mock_api.delete_block.side_effect = Exception("Unexpected API failure")
+        mock_logseq_class.return_value = mock_api
+
+        handler = DeleteBlockToolHandler()
+
+        with caplog.at_level(logging.ERROR, logger="mcp-logseq"):
+            result = handler.run_tool({"block_uuid": "abc-123"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌ Failed to delete block 'abc-123'" in result[0].text
+        assert "Unexpected API failure" in result[0].text
+        assert "Failed to delete block" in caplog.text
 
 
 class TestUpdatePageToolHandler:
