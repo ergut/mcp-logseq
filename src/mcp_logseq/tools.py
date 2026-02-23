@@ -353,6 +353,47 @@ class UpdatePageToolHandler(ToolHandler):
                 text=f"❌ Failed to update page '{page_name}': {str(e)}"
             )]
 
+class DeleteBlockToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("delete_block")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Delete a block from LogSeq by its UUID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the block to delete"
+                    }
+                },
+                "required": ["block_uuid"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "block_uuid" not in args:
+            raise RuntimeError("block_uuid argument required")
+
+        block_uuid = args["block_uuid"]
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            api.delete_block(block_uuid)
+
+            return [TextContent(
+                type="text",
+                text=f"Successfully deleted block '{block_uuid}'"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to delete block: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to delete block '{block_uuid}': {str(e)}"
+            )]
+
 class SearchToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("search")

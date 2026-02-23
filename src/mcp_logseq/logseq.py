@@ -295,3 +295,28 @@ class LogSeq():
         except Exception as e:
             logger.error(f"Error updating page '{page_name}': {str(e)}")
             raise
+
+    def delete_block(self, block_uuid: str) -> Any:
+        """Delete a LogSeq block by UUID."""
+        url = self.get_base_url()
+        logger.info(f"Deleting block '{block_uuid}'")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.removeBlock",
+                    "args": [block_uuid]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Successfully deleted block '{block_uuid}'")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error deleting block '{block_uuid}': {str(e)}")
+            raise
