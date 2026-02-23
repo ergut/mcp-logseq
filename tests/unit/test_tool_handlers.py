@@ -15,6 +15,7 @@ from mcp_logseq.tools import (
     GetPagesTreeFromNamespaceToolHandler,
     RenamePageToolHandler,
     GetPageBacklinksToolHandler,
+    InsertNestedBlockToolHandler,
 )
 
 
@@ -259,8 +260,10 @@ class TestGetPageContentToolHandler:
         handler = GetPageContentToolHandler()
         result = handler.run_tool({"page_name": "Test Page", "format": "json"})
 
-        # Verify result
-        assert str(mock_data) in result[0].text
+        # Verify result is valid JSON (not Python repr)
+        import json
+        parsed = json.loads(result[0].text)
+        assert parsed == mock_data
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")
@@ -738,7 +741,7 @@ class TestSearchToolHandler:
         assert "Found content" in text
         assert "📑 Matching Pages (1 found)" in text
         assert "Matching Page" in text
-        assert "Total results found: 2" in text
+        assert "Total results found: 3" in text  # blocks(1) + snippets(1) + pages(1)
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")
@@ -1338,3 +1341,127 @@ class TestGetPageBacklinksToolHandler:
 
         with pytest.raises(RuntimeError, match="page_name argument required"):
             handler.run_tool({})
+
+
+class TestInsertNestedBlockToolHandler:
+    """Test cases for InsertNestedBlockToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = InsertNestedBlockToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "insert_nested_block"
+        assert "child" in tool.description.lower() or "nested" in tool.description.lower()
+        assert "parent_block_uuid" in tool.inputSchema["properties"]
+        assert "content" in tool.inputSchema["properties"]
+        assert "sibling" in tool.inputSchema["properties"]
+        assert tool.inputSchema["required"] == ["parent_block_uuid", "content"]
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_insert_child_success(self, mock_logseq_class):
+        """Test successful child block insertion."""
+        mock_api = Mock()
+        mock_api.insert_block_as_child.return_value = {
+            "uuid": "new-block-uuid",
+            "content": "Child block content"
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = InsertNestedBlockToolHandler()
+        result = handler.run_tool({
+            "parent_block_uuid": "parent-uuid",
+            "content": "Child block content"
+        })
+
+        mock_api.insert_block_as_child.assert_called_once_with(
+            parent_block_uuid="parent-uuid",
+            content="Child block content",
+            properties=None,
+            sibling=False
+        )
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        assert "✅" in text
+        assert "child" in text
+        assert "new-block-uuid" in text
+        assert "parent-uuid" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_insert_sibling_success(self, mock_logseq_class):
+        """Test successful sibling block insertion."""
+        mock_api = Mock()
+        mock_api.insert_block_as_child.return_value = {
+            "uuid": "sibling-block-uuid",
+            "content": "Sibling content"
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = InsertNestedBlockToolHandler()
+        result = handler.run_tool({
+            "parent_block_uuid": "ref-uuid",
+            "content": "Sibling content",
+            "sibling": True
+        })
+
+        mock_api.insert_block_as_child.assert_called_once_with(
+            parent_block_uuid="ref-uuid",
+            content="Sibling content",
+            properties=None,
+            sibling=True
+        )
+        text = result[0].text
+        assert "✅" in text
+        assert "sibling" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_with_properties(self, mock_logseq_class):
+        """Test block insertion with properties."""
+        mock_api = Mock()
+        mock_api.insert_block_as_child.return_value = {"uuid": "todo-uuid"}
+        mock_logseq_class.return_value = mock_api
+
+        handler = InsertNestedBlockToolHandler()
+        result = handler.run_tool({
+            "parent_block_uuid": "parent-uuid",
+            "content": "Do something",
+            "properties": {"marker": "TODO"}
+        })
+
+        mock_api.insert_block_as_child.assert_called_once_with(
+            parent_block_uuid="parent-uuid",
+            content="Do something",
+            properties={"marker": "TODO"},
+            sibling=False
+        )
+        assert "✅" in result[0].text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_api_error(self, mock_logseq_class):
+        """Test API failure returns error message."""
+        mock_api = Mock()
+        mock_api.insert_block_as_child.side_effect = Exception("Block not found")
+        mock_logseq_class.return_value = mock_api
+
+        handler = InsertNestedBlockToolHandler()
+        result = handler.run_tool({
+            "parent_block_uuid": "bad-uuid",
+            "content": "Content"
+        })
+
+        text = result[0].text
+        assert "❌" in text
+        assert "Block not found" in text
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    def test_run_tool_missing_args(self):
+        """Test tool with missing required arguments."""
+        handler = InsertNestedBlockToolHandler()
+
+        with pytest.raises(RuntimeError, match="parent_block_uuid and content arguments required"):
+            handler.run_tool({"parent_block_uuid": "uuid"})

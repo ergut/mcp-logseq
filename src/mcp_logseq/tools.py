@@ -1,6 +1,8 @@
+import json
 import os
 import logging
 from typing import Any
+from urllib.parse import urlparse
 from . import logseq
 from . import parser
 from mcp.types import Tool, TextContent
@@ -13,6 +15,28 @@ if api_key == "":
 else:
     logger.info("Found LOGSEQ_API_TOKEN in environment")
     logger.debug(f"API Token starts with: {api_key[:5]}...")
+
+_api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
+_parsed_url = urlparse(_api_url)
+_api_protocol = _parsed_url.scheme or "http"
+_api_host = _parsed_url.hostname or "127.0.0.1"
+_api_port = _parsed_url.port or 12315
+
+_verify_ssl_env = os.getenv("LOGSEQ_VERIFY_SSL")
+if _verify_ssl_env is not None:
+    _api_verify_ssl = _verify_ssl_env.lower() not in ("0", "false", "no")
+else:
+    _api_verify_ssl = _api_protocol == "https"
+
+
+def _make_api() -> logseq.LogSeq:
+    return logseq.LogSeq(
+        api_key=api_key,
+        protocol=_api_protocol,
+        host=_api_host,
+        port=_api_port,
+        verify_ssl=_api_verify_ssl,
+    )
 
 
 class ToolHandler:
@@ -99,7 +123,7 @@ Introduction paragraph.
         explicit_properties = args.get("properties", {})
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
 
             # Parse the content
             parsed = (
@@ -156,7 +180,7 @@ class ListPagesToolHandler(ToolHandler):
         include_journals = args.get("include_journals", False)
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.list_pages()
 
             # Format pages for display
@@ -278,7 +302,7 @@ class GetPageContentToolHandler(ToolHandler):
             raise RuntimeError("page_name argument required")
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.get_page_content(args["page_name"])
 
             if not result:
@@ -290,7 +314,7 @@ class GetPageContentToolHandler(ToolHandler):
 
             # Handle JSON format request
             if args.get("format") == "json":
-                return [TextContent(type="text", text=str(result))]
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
             # Format as readable text
             content_parts = []
@@ -345,7 +369,7 @@ class DeletePageToolHandler(ToolHandler):
             raise RuntimeError("page_name argument required")
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.delete_page(args["page_name"])
 
             # Build detailed success message
@@ -446,7 +470,7 @@ YAML frontmatter in content will be merged with explicit properties.""",
             ]
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
 
             # Parse the content
             parsed = (
@@ -523,7 +547,7 @@ class DeleteBlockToolHandler(ToolHandler):
         block_uuid = args["block_uuid"]
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             api.delete_block(block_uuid)
 
             return [TextContent(
@@ -596,7 +620,7 @@ class SearchToolHandler(ToolHandler):
             # Prepare search options
             search_options = {"limit": limit}
 
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.search_content(query, search_options)
 
             if not result:
@@ -625,7 +649,7 @@ class SearchToolHandler(ToolHandler):
                 content_parts.append("")
 
             # Page snippet results
-            if include_blocks and result.get("pages-content"):
+            if include_pages and result.get("pages-content"):
                 snippets = result["pages-content"]
                 content_parts.append(f"## 📝 Page Snippets ({len(snippets)} found)")
                 for i, snippet in enumerate(snippets[:limit]):
@@ -667,6 +691,7 @@ class SearchToolHandler(ToolHandler):
             total_results = (
                 len(result.get("blocks", []))
                 + len(result.get("pages", []))
+                + len(result.get("pages-content", []))
                 + len(result.get("files", []))
             )
             content_parts.append(f"\n**Total results found: {total_results}**")
@@ -765,7 +790,7 @@ class QueryToolHandler(ToolHandler):
         result_type = args.get("result_type", "all")
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.query_dsl(query)
 
             if not result:
@@ -851,15 +876,24 @@ class FindPagesByPropertyToolHandler(ToolHandler):
 
     def _escape_value(self, value: str) -> str:
         """Escape special characters in property values for DSL query."""
-        # Escape double quotes
         return value.replace('"', '\\"')
+
+    def _validate_property_name(self, name: str) -> str:
+        """Validate and return property name, raising if it contains unsafe characters."""
+        import re
+        if not re.match(r'^[a-zA-Z0-9_\-]+$', name):
+            raise ValueError(f"Invalid property name '{name}': only alphanumeric, hyphens, and underscores allowed")
+        return name
 
     def run_tool(self, args: dict) -> list[TextContent]:
         """Find pages by property and format results."""
         if "property_name" not in args:
             raise RuntimeError("property_name argument required")
 
-        property_name = args["property_name"]
+        try:
+            property_name = self._validate_property_name(args["property_name"])
+        except ValueError as e:
+            return [TextContent(type="text", text=f"❌ {str(e)}")]
         property_value = args.get("property_value")
         limit = args.get("limit", 100)
 
@@ -871,7 +905,7 @@ class FindPagesByPropertyToolHandler(ToolHandler):
             query = f'(page-property {property_name})'
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.query_dsl(query)
 
             if not result:
@@ -947,7 +981,7 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
             raise RuntimeError("namespace argument required")
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.get_pages_from_namespace(args["namespace"])
 
             if not result:
@@ -972,7 +1006,7 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
 
         except Exception as e:
             logger.error(f"Failed to get pages from namespace: {str(e)}")
-            raise
+            return [TextContent(type="text", text=f"❌ Failed to get pages from namespace '{args['namespace']}': {str(e)}")]
 
 
 class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
@@ -1000,7 +1034,7 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
             raise RuntimeError("namespace argument required")
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.get_pages_tree_from_namespace(args["namespace"])
 
             if not result:
@@ -1045,7 +1079,7 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
 
         except Exception as e:
             logger.error(f"Failed to get pages tree: {str(e)}")
-            raise
+            return [TextContent(type="text", text=f"❌ Failed to get pages tree for namespace '{args['namespace']}': {str(e)}")]
 
 
 class RenamePageToolHandler(ToolHandler):
@@ -1080,7 +1114,7 @@ class RenamePageToolHandler(ToolHandler):
         new_name = args["new_name"]
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             api.rename_page(old_name, new_name)
 
             return [TextContent(
@@ -1134,7 +1168,7 @@ class GetPageBacklinksToolHandler(ToolHandler):
         include_content = args.get("include_content", True)
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.get_page_linked_references(page_name)
 
             if not result:
@@ -1232,7 +1266,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
         sibling = args.get("sibling", False)
 
         try:
-            api = logseq.LogSeq(api_key=api_key)
+            api = _make_api()
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,

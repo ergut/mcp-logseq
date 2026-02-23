@@ -505,3 +505,117 @@ class TestLogSeqAPI:
 
         result = logseq_client.get_page_linked_references("OrphanPage")
         assert result == []
+
+    @responses.activate
+    def test_insert_block_as_child_success(self, logseq_client):
+        """Test inserting a child block under a parent."""
+        new_block = {"uuid": "child-uuid", "content": "Child content"}
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=new_block,
+            status=200
+        )
+
+        result = logseq_client.insert_block_as_child("parent-uuid", "Child content")
+
+        assert result == new_block
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.Editor.insertBlock"
+        assert request_data["args"][0] == "parent-uuid"
+        assert request_data["args"][1] == "Child content"
+        assert request_data["args"][2]["sibling"] is False
+
+    @responses.activate
+    def test_insert_block_as_sibling(self, logseq_client):
+        """Test inserting a sibling block."""
+        new_block = {"uuid": "sibling-uuid", "content": "Sibling content"}
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=new_block,
+            status=200
+        )
+
+        result = logseq_client.insert_block_as_child("ref-uuid", "Sibling content", sibling=True)
+
+        assert result == new_block
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["args"][2]["sibling"] is True
+
+    @responses.activate
+    def test_insert_block_as_child_with_properties(self, logseq_client):
+        """Test inserting a child block with properties."""
+        new_block = {"uuid": "todo-uuid", "content": "Task"}
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=new_block,
+            status=200
+        )
+
+        result = logseq_client.insert_block_as_child(
+            "parent-uuid", "Task", properties={"marker": "TODO"}
+        )
+
+        assert result == new_block
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["args"][2]["properties"] == {"marker": "TODO"}
+
+    def test_append_block_recursive_root_level(self, logseq_client):
+        """Test _append_block_recursive at root level calls append_block_in_page."""
+        from unittest.mock import patch, Mock
+
+        mock_result = {"uuid": "root-uuid"}
+        with patch.object(logseq_client, "append_block_in_page", return_value=mock_result) as mock_append:
+            with patch.object(logseq_client, "insert_block_as_child") as mock_insert:
+                block = {"content": "Root block", "children": []}
+                logseq_client._append_block_recursive("TestPage", block, parent_uuid=None)
+
+                mock_append.assert_called_once_with("TestPage", "Root block", None)
+                mock_insert.assert_not_called()
+
+    def test_append_block_recursive_nested(self, logseq_client):
+        """Test _append_block_recursive uses insert_block_as_child when parent_uuid given."""
+        from unittest.mock import patch
+
+        mock_result = {"uuid": "child-uuid"}
+        with patch.object(logseq_client, "append_block_in_page") as mock_append:
+            with patch.object(logseq_client, "insert_block_as_child", return_value=mock_result) as mock_insert:
+                block = {"content": "Child block", "children": []}
+                logseq_client._append_block_recursive("TestPage", block, parent_uuid="parent-uuid")
+
+                mock_insert.assert_called_once_with("parent-uuid", "Child block", None)
+                mock_append.assert_not_called()
+
+    def test_append_block_recursive_with_children(self, logseq_client):
+        """Test _append_block_recursive recurses into children with correct parent UUID."""
+        from unittest.mock import patch, call
+
+        call_order = []
+
+        def fake_append(page, content, props):
+            uuid = f"uuid-{content}"
+            call_order.append(("append", content))
+            return {"uuid": uuid}
+
+        def fake_insert(parent_uuid, content, props):
+            call_order.append(("insert", content, parent_uuid))
+            return {"uuid": f"uuid-{content}"}
+
+        with patch.object(logseq_client, "append_block_in_page", side_effect=fake_append):
+            with patch.object(logseq_client, "insert_block_as_child", side_effect=fake_insert):
+                block = {
+                    "content": "Parent",
+                    "children": [
+                        {"content": "Child1", "children": []},
+                        {"content": "Child2", "children": []},
+                    ]
+                }
+                logseq_client._append_block_recursive("TestPage", block, parent_uuid=None)
+
+        # Root block appended to page
+        assert call_order[0] == ("append", "Parent")
+        # Children inserted under root's uuid
+        assert call_order[1] == ("insert", "Child1", "uuid-Parent")
+        assert call_order[2] == ("insert", "Child2", "uuid-Parent")

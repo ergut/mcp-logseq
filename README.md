@@ -89,16 +89,24 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🛠️ Available Tools
 
-The server provides 6 comprehensive tools with intelligent markdown parsing:
+The server provides 14 tools with intelligent markdown parsing:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
 | **`list_pages`** | Browse your graph | "Show me all my pages" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
-| **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |  
+| **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |
 | **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |
 | **`delete_page`** | Remove pages | "Delete the old draft page" |
+| **`delete_block`** | Remove a block by UUID | "Delete this specific block" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
+| **`query`** | Execute Logseq DSL queries | "Find all TODO tasks tagged #project" |
+| **`find_pages_by_property`** | Search pages by property | "Find all pages with status = active" |
+| **`get_pages_from_namespace`** | List pages in a namespace | "Show all pages under Customer/" |
+| **`get_pages_tree_from_namespace`** | Hierarchical namespace view | "Show Projects/ as a tree" |
+| **`rename_page`** | Rename with reference updates | "Rename 'Old Name' to 'New Name'" |
+| **`get_page_backlinks`** | Find pages linking to a page | "What links to this page?" |
+| **`insert_nested_block`** | Insert child/sibling blocks | "Add a child block under this task" |
 
 ### 🎨 Smart Markdown Parsing (v1.1.0+)
 

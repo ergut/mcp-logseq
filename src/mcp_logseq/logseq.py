@@ -232,22 +232,7 @@ class LogSeq:
         Args:
             block_uuid: UUID of block to remove
         """
-        url = self.get_base_url()
-        logger.debug(f"Removing block '{block_uuid}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.removeBlock", "args": [block_uuid]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-
-        except Exception as e:
-            logger.error(f"Error removing block '{block_uuid}': {str(e)}")
-            raise
+        self.delete_block(block_uuid)
 
     def clear_page_content(self, page_name: str) -> None:
         """
@@ -421,14 +406,15 @@ class LogSeq:
         properties = block.get("properties")
         children = block.get("children", [])
 
-        # Append this block
-        result = self.append_block_in_page(page_name, content, properties)
+        # Append this block, nested under parent if available
+        if parent_uuid:
+            result = self.insert_block_as_child(parent_uuid, content, properties)
+        else:
+            result = self.append_block_in_page(page_name, content, properties)
         block_uuid = result.get("uuid") if result else None
 
-        # Append children if any (would need insertBlock with parent)
-        # For now, just append them at root level with indentation marker
+        # Recursively append children under this block
         for child in children:
-            # Note: This is a simplified fallback - proper nesting requires insertBlock
             self._append_block_recursive(page_name, child, block_uuid)
 
     def update_page_with_blocks(

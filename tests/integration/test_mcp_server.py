@@ -20,6 +20,11 @@ class TestMCPServerIntegration:
             "delete_block",
             "query",
             "find_pages_by_property",
+            "get_pages_from_namespace",
+            "get_pages_tree_from_namespace",
+            "rename_page",
+            "get_page_backlinks",
+            "insert_nested_block",
         ]
 
         # Verify all expected tools are registered
