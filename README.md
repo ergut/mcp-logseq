@@ -89,16 +89,54 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🛠️ Available Tools
 
-The server provides 6 comprehensive tools:
+The server provides 6 comprehensive tools with intelligent markdown parsing:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
 | **`list_pages`** | Browse your graph | "Show me all my pages" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
-| **`create_page`** | Add new pages | "Create a meeting notes page" |  
-| **`update_page`** | Modify existing pages | "Update my task list" |
+| **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |  
+| **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |
 | **`delete_page`** | Remove pages | "Delete the old draft page" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
+
+### 🎨 Smart Markdown Parsing (v1.1.0+)
+
+The `create_page` and `update_page` tools now automatically convert markdown into Logseq's native block structure:
+
+**Markdown Input:**
+```markdown
+---
+tags: [project, active]
+priority: high
+---
+
+# Project Overview
+Introduction paragraph here.
+
+## Tasks
+- Task 1
+  - Subtask A
+  - Subtask B
+- Task 2
+
+## Code Example
+```python
+def hello():
+    print("Hello Logseq!")
+```
+```
+
+**Result:** Creates properly nested blocks with:
+- ✅ Page properties from YAML frontmatter (`tags`, `priority`)
+- ✅ Hierarchical sections from headings (`#`, `##`, `###`)
+- ✅ Nested bullet lists with proper indentation
+- ✅ Code blocks preserved as single blocks
+- ✅ Checkbox support (`- [ ]` → TODO, `- [x]` → DONE)
+
+**Update Modes:**
+- **`append`** (default): Add new content after existing blocks
+- **`replace`**: Clear page and replace with new content
 
 ---
 
