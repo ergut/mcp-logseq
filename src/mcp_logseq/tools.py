@@ -385,13 +385,18 @@ class DeleteBlockToolHandler(ToolHandler):
 
             return [TextContent(
                 type="text",
-                text=f"Successfully deleted block '{block_uuid}'"
+                text=f"✅ Successfully deleted block '{block_uuid}'"
+            )]
+        except ValueError as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error: {str(e)}"
             )]
         except Exception as e:
             logger.error(f"Failed to delete block: {str(e)}")
             return [TextContent(
                 type="text",
-                text=f"Failed to delete block '{block_uuid}': {str(e)}"
+                text=f"❌ Failed to delete block '{block_uuid}': {str(e)}"
             )]
 
 class SearchToolHandler(ToolHandler):
