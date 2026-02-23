@@ -349,3 +349,159 @@ class TestLogSeqAPI:
 
         with pytest.raises(requests.exceptions.ConnectionError):
             logseq_client.query_dsl("(page-property type)")
+    @responses.activate
+    def test_get_pages_from_namespace_success(self, logseq_client, mock_logseq_responses):
+        """Test successful namespace pages retrieval."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=mock_logseq_responses["get_pages_from_namespace_success"],
+            status=200
+        )
+
+        result = logseq_client.get_pages_from_namespace("Customer")
+        assert result == mock_logseq_responses["get_pages_from_namespace_success"]
+
+        # Verify the request
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.Editor.getPagesFromNamespace"
+        assert request_data["args"] == ["Customer"]
+
+    @responses.activate
+    def test_get_pages_from_namespace_empty(self, logseq_client):
+        """Test namespace pages retrieval with no results."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[],
+            status=200
+        )
+
+        result = logseq_client.get_pages_from_namespace("EmptyNamespace")
+        assert result == []
+
+    @responses.activate
+    def test_get_pages_tree_from_namespace_success(self, logseq_client, mock_logseq_responses):
+        """Test successful namespace tree retrieval."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=mock_logseq_responses["get_pages_tree_from_namespace_success"],
+            status=200
+        )
+
+        result = logseq_client.get_pages_tree_from_namespace("Projects")
+        assert result == mock_logseq_responses["get_pages_tree_from_namespace_success"]
+
+        # Verify the request
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.Editor.getPagesTreeFromNamespace"
+        assert request_data["args"] == ["Projects"]
+
+    @responses.activate
+    def test_get_pages_tree_from_namespace_empty(self, logseq_client):
+        """Test namespace tree retrieval with no results."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[],
+            status=200
+        )
+
+        result = logseq_client.get_pages_tree_from_namespace("EmptyNamespace")
+        assert result == []
+
+    @responses.activate
+    def test_rename_page_success(self, logseq_client, mock_logseq_responses):
+        """Test successful page rename."""
+        # Mock list_pages for validation
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[
+                {"originalName": "OldPage"},
+                {"originalName": "OtherPage"}
+            ],
+            status=200
+        )
+
+        # Mock rename call (returns null on success)
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body='null',
+            status=200,
+            content_type='application/json'
+        )
+
+        result = logseq_client.rename_page("OldPage", "NewPage")
+        assert result is None
+
+        # Verify the rename request
+        request_data = json.loads(responses.calls[1].request.body)
+        assert request_data["method"] == "logseq.Editor.renamePage"
+        assert request_data["args"] == ["OldPage", "NewPage"]
+
+    @responses.activate
+    def test_rename_page_source_not_found(self, logseq_client):
+        """Test rename with non-existent source page."""
+        # Mock list_pages - source doesn't exist
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[
+                {"originalName": "OtherPage"}
+            ],
+            status=200
+        )
+
+        with pytest.raises(ValueError, match="does not exist"):
+            logseq_client.rename_page("NonExistent", "NewPage")
+
+    @responses.activate
+    def test_rename_page_target_exists(self, logseq_client):
+        """Test rename to existing page name."""
+        # Mock list_pages - target already exists
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[
+                {"originalName": "OldPage"},
+                {"originalName": "ExistingPage"}
+            ],
+            status=200
+        )
+
+        with pytest.raises(ValueError, match="already exists"):
+            logseq_client.rename_page("OldPage", "ExistingPage")
+
+    @responses.activate
+    def test_get_page_linked_references_success(self, logseq_client, mock_logseq_responses):
+        """Test successful backlinks retrieval."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=mock_logseq_responses["get_page_linked_references_success"],
+            status=200
+        )
+
+        result = logseq_client.get_page_linked_references("Customer/Orienteme")
+        assert result == mock_logseq_responses["get_page_linked_references_success"]
+
+        # Verify the request
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.Editor.getPageLinkedReferences"
+        assert request_data["args"] == ["Customer/Orienteme"]
+
+    @responses.activate
+    def test_get_page_linked_references_empty(self, logseq_client):
+        """Test backlinks retrieval with no results."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=[],
+            status=200
+        )
+
+        result = logseq_client.get_page_linked_references("OrphanPage")
+        assert result == []

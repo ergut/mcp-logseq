@@ -87,6 +87,10 @@ add_tool_handler(tools.DeleteBlockToolHandler())
 add_tool_handler(tools.SearchToolHandler())
 add_tool_handler(tools.QueryToolHandler())
 add_tool_handler(tools.FindPagesByPropertyToolHandler())
+add_tool_handler(tools.GetPagesFromNamespaceToolHandler())
+add_tool_handler(tools.GetPagesTreeFromNamespaceToolHandler())
+add_tool_handler(tools.RenamePageToolHandler())
+add_tool_handler(tools.GetPageBacklinksToolHandler())
 logger.info("Tool handlers registration complete")
 
 

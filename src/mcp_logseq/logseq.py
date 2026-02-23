@@ -681,3 +681,110 @@ class LogSeq:
         except Exception as e:
             logger.error(f"Error executing DSL query: {str(e)}")
             raise
+
+    def get_pages_from_namespace(self, namespace: str) -> Any:
+        """Get all pages within a namespace (flat list)."""
+        url = self.get_base_url()
+        logger.info(f"Getting pages from namespace '{namespace}'")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPagesFromNamespace",
+                    "args": [namespace]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Error getting pages from namespace: {str(e)}")
+            raise
+
+    def get_pages_tree_from_namespace(self, namespace: str) -> Any:
+        """Get pages within a namespace as a tree structure."""
+        url = self.get_base_url()
+        logger.info(f"Getting pages tree from namespace '{namespace}'")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPagesTreeFromNamespace",
+                    "args": [namespace]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Error getting pages tree from namespace: {str(e)}")
+            raise
+
+    def rename_page(self, old_name: str, new_name: str) -> Any:
+        """Rename a page and update all references."""
+        url = self.get_base_url()
+        logger.info(f"Renaming page '{old_name}' to '{new_name}'")
+
+        try:
+            # Validate old page exists
+            existing_pages = self.list_pages()
+            page_names = [p.get("originalName") or p.get("name") for p in existing_pages]
+
+            if old_name not in page_names:
+                raise ValueError(f"Page '{old_name}' does not exist")
+
+            if new_name in page_names:
+                raise ValueError(f"Page '{new_name}' already exists")
+
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.renamePage",
+                    "args": [old_name, new_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            # renamePage returns null on success
+            if response.text and response.text.strip() and response.text.strip() != 'null':
+                return response.json()
+            return None
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error renaming page: {str(e)}")
+            raise
+
+    def get_page_linked_references(self, page_name: str) -> Any:
+        """Get all pages and blocks that reference this page (backlinks)."""
+        url = self.get_base_url()
+        logger.info(f"Getting backlinks for page '{page_name}'")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getPageLinkedReferences",
+                    "args": [page_name]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Error getting backlinks: {str(e)}")
+            raise

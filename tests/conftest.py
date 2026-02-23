@@ -11,6 +11,10 @@ from mcp_logseq.tools import (
     SearchToolHandler,
     QueryToolHandler,
     FindPagesByPropertyToolHandler,
+    GetPagesFromNamespaceToolHandler,
+    GetPagesTreeFromNamespaceToolHandler,
+    RenamePageToolHandler,
+    GetPageBacklinksToolHandler,
 )
 
 
@@ -163,7 +167,70 @@ def mock_logseq_responses():
                 "content": "Block referencing customer"
             }
         ],
-        "query_dsl_empty": []
+        "query_dsl_empty": [],
+        "get_pages_from_namespace_success": [
+            {
+                "id": "page-1",
+                "name": "customer/insideout",
+                "originalName": "Customer/InsideOut"
+            },
+            {
+                "id": "page-2",
+                "name": "customer/orienteme",
+                "originalName": "Customer/Orienteme"
+            }
+        ],
+        "get_pages_tree_from_namespace_success": [
+            {
+                "id": "page-1",
+                "name": "projects/2024",
+                "originalName": "Projects/2024",
+                "children": [
+                    {
+                        "id": "page-2",
+                        "name": "projects/2024/clienta",
+                        "originalName": "Projects/2024/ClientA",
+                        "children": []
+                    },
+                    {
+                        "id": "page-3",
+                        "name": "projects/2024/clientb",
+                        "originalName": "Projects/2024/ClientB",
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "id": "page-4",
+                "name": "projects/archive",
+                "originalName": "Projects/Archive",
+                "children": []
+            }
+        ],
+        "rename_page_success": None,
+        "get_page_linked_references_success": [
+            [
+                {
+                    "id": "page-1",
+                    "name": "dec 15th, 2024",
+                    "originalName": "Dec 15th, 2024"
+                },
+                [
+                    {"content": "session [[Customer/Orienteme]]"},
+                    {"content": "followup with [[Customer/Orienteme]] team"}
+                ]
+            ],
+            [
+                {
+                    "id": "page-2",
+                    "name": "projects/ai consulting",
+                    "originalName": "Projects/AI Consulting"
+                },
+                [
+                    {"content": "Active client: [[Customer/Orienteme]]"}
+                ]
+            ]
+        ]
     }
 
 
@@ -179,6 +246,10 @@ def tool_handlers():
         "search": SearchToolHandler(),
         "query": QueryToolHandler(),
         "find_pages_by_property": FindPagesByPropertyToolHandler(),
+        "get_pages_from_namespace": GetPagesFromNamespaceToolHandler(),
+        "get_pages_tree_from_namespace": GetPagesTreeFromNamespaceToolHandler(),
+        "rename_page": RenamePageToolHandler(),
+        "get_page_backlinks": GetPageBacklinksToolHandler(),
     }
 
 
