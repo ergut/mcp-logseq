@@ -55,6 +55,13 @@ Standard JSON-RPC response with result or error.
   - Adds content block to existing page
   - Example: `["My Page", "This is content"]`
 
+- **`insertBlock(targetBlockUUID, content, options)`**
+  - Inserts a new block relative to an existing block
+  - Options: `{sibling: false, properties: {...}}`
+  - `sibling: false` inserts as child (default)
+  - `sibling: true` inserts as sibling after target
+  - Example: `["parent-block-uuid-123", "Child content", {"sibling": false, "properties": {}}]`
+
 - **`getAllPages()`**
   - Returns array of all page objects with metadata
   - Each page includes: name, properties, journal status, etc.
@@ -70,7 +77,6 @@ Standard JSON-RPC response with result or error.
 #### 🔍 Likely Available (Unverified)
 - **`deletePage(pageName)`** - Delete page entirely
 - **`updatePage(pageName, properties)`** - Update page properties
-- **`insertBlock(targetBlock, content, options)`** - Insert block at position
 - **`updateBlock(blockUUID, content)`** - Update specific block content
 - **`removeBlock(blockUUID)`** - Delete specific block
 
@@ -155,6 +161,22 @@ Blocks returned by `getPageBlocksTree()` can be:
 To create page with content:
 1. `createPage(pageName, {}, {"createFirstBlock": true})`
 2. `appendBlockInPage(pageName, content)` (if content needed)
+
+### Nested Block Creation Pattern
+To create hierarchical block structures:
+1. Create parent block: `appendBlockInPage(pageName, "Parent content")`
+2. Get parent block UUID from the returned block data
+3. Insert child: `insertBlock(parentBlockUUID, "Child content", {"sibling": false})`
+4. Insert another child: `insertBlock(parentBlockUUID, "Second child", {"sibling": false})`
+5. Insert sibling: `insertBlock(parentBlockUUID, "Sibling content", {"sibling": true})`
+
+Block hierarchy example:
+```
+- Parent block
+  - Child block 1
+  - Child block 2
+- Sibling block
+```
 
 ## Future Research Areas
 
