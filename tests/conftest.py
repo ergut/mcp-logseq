@@ -15,6 +15,7 @@ from mcp_logseq.tools import (
     GetPagesTreeFromNamespaceToolHandler,
     RenamePageToolHandler,
     GetPageBacklinksToolHandler,
+    InsertNestedBlockToolHandler,
 )
 
 
@@ -131,6 +132,12 @@ def mock_logseq_responses():
             "files": [],
             "has-more?": False,
         },
+        "insert_block_success": {
+            "uuid": "block-child-uuid-123",
+            "content": "Child block content",
+            "parent": "parent-block-uuid-456",
+            "properties": {}
+        },
         "query_dsl_pages_success": [
             {
                 "id": "page-1",
@@ -230,7 +237,13 @@ def mock_logseq_responses():
                     {"content": "Active client: [[Customer/Orienteme]]"}
                 ]
             ]
-        ]
+        ],
+        "insert_block_success": {
+            "uuid": "block-child-uuid-123",
+            "content": "Child block content",
+            "parent": "parent-block-uuid-456",
+            "properties": {}
+        }
     }
 
 
@@ -250,6 +263,7 @@ def tool_handlers():
         "get_pages_tree_from_namespace": GetPagesTreeFromNamespaceToolHandler(),
         "rename_page": RenamePageToolHandler(),
         "get_page_backlinks": GetPageBacklinksToolHandler(),
+        "insert_nested_block": InsertNestedBlockToolHandler()
     }
 
 

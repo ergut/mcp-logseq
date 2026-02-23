@@ -1187,3 +1187,87 @@ class GetPageBacklinksToolHandler(ToolHandler):
                 type="text",
                 text=f"Failed to get backlinks: {str(e)}"
             )]
+class InsertNestedBlockToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("insert_nested_block")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="""Insert a new block as a child or sibling of an existing block, enabling nested hierarchical structures""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "parent_block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the reference block. If sibling=false, new block becomes a CHILD of this UUID. If sibling=true, new block becomes a SIBLING of this UUID (at the same level)."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content text for the new block"
+                    },
+                    "properties": {
+                        "type": "object",
+                        "description": "Optional block properties (e.g., {'marker': 'TODO', 'priority': 'A'})",
+                        "additionalProperties": True
+                    },
+                    "sibling": {
+                        "type": "boolean",
+                        "description": "false (default) = insert as CHILD under parent_block_uuid. true = insert as SIBLING after parent_block_uuid at the same level. For multiple children under same parent, ALWAYS use false with the parent's UUID.",
+                        "default": False
+                    }
+                },
+                "required": ["parent_block_uuid", "content"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Insert a nested block under an existing block."""
+        if "parent_block_uuid" not in args or "content" not in args:
+            raise RuntimeError("parent_block_uuid and content arguments required")
+
+        parent_uuid = args["parent_block_uuid"]
+        content = args["content"]
+        properties = args.get("properties")
+        sibling = args.get("sibling", False)
+
+        try:
+            api = logseq.LogSeq(api_key=api_key)
+            result = api.insert_block_as_child(
+                parent_block_uuid=parent_uuid,
+                content=content,
+                properties=properties,
+                sibling=sibling
+            )
+
+            relationship = "sibling" if sibling else "child"
+            success_msg = f"✅ Successfully inserted block as {relationship}"
+
+            # Add block details if available
+            if result and isinstance(result, dict):
+                if result.get("uuid"):
+                    success_msg += f"\n🆔 New block UUID: {result.get('uuid')}"
+                if result.get("content"):
+                    content_preview = result.get('content')
+                    if len(content_preview) > 100:
+                        content_preview = content_preview[:100] + "..."
+                    success_msg += f"\n📝 Content: {content_preview}"
+
+            success_msg += f"\n🔗 Inserted under parent: {parent_uuid}"
+
+            return [TextContent(
+                type="text",
+                text=success_msg
+            )]
+
+        except ValueError as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error: {str(e)}"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to insert nested block: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to insert nested block: {str(e)}"
+            )]

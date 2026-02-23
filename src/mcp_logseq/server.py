@@ -91,6 +91,7 @@ add_tool_handler(tools.GetPagesFromNamespaceToolHandler())
 add_tool_handler(tools.GetPagesTreeFromNamespaceToolHandler())
 add_tool_handler(tools.RenamePageToolHandler())
 add_tool_handler(tools.GetPageBacklinksToolHandler())
+add_tool_handler(tools.InsertNestedBlockToolHandler())
 logger.info("Tool handlers registration complete")
 
 
