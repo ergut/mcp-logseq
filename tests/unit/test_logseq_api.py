@@ -306,3 +306,46 @@ class TestLogSeqAPI:
 
         with pytest.raises(requests.exceptions.ConnectionError):
             logseq_client.delete_block("block-uuid-abc")
+
+    @responses.activate
+    def test_query_dsl_success(self, logseq_client, mock_logseq_responses):
+        """Test successful DSL query."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=mock_logseq_responses["query_dsl_pages_success"],
+            status=200
+        )
+
+        result = logseq_client.query_dsl("(page-property type customer)")
+        assert result == mock_logseq_responses["query_dsl_pages_success"]
+
+        # Verify the request
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.DB.q"
+        assert request_data["args"] == ["(page-property type customer)"]
+
+    @responses.activate
+    def test_query_dsl_empty_results(self, logseq_client, mock_logseq_responses):
+        """Test DSL query with no results."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=mock_logseq_responses["query_dsl_empty"],
+            status=200
+        )
+
+        result = logseq_client.query_dsl("(page-property nonexistent)")
+        assert result == []
+
+    @responses.activate
+    def test_query_dsl_network_error(self, logseq_client):
+        """Test DSL query with network error."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body=requests.exceptions.ConnectionError("Connection failed")
+        )
+
+        with pytest.raises(requests.exceptions.ConnectionError):
+            logseq_client.query_dsl("(page-property type)")
