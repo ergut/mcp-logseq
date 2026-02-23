@@ -1,0 +1,2535 @@
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: LOGse...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Listing pages
+Error listing pages: 401 Client Error: Unauthorized for url: http://127.0.0.1:12315/api
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: LOGse...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Listing tools
+Found 3 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: LOGse...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Listing pages
+Error listing pages: 401 Client Error: Unauthorized for url: http://127.0.0.1:12315/api
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Listing pages
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Getting content for page 'LLM'
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 3 tools
+Tool call: get_page_content with arguments {'page_name': 'LLM', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'LLM', 'format': 'text'}
+Getting content for page 'LLM'
+Tool result: [TextContent(type='text', text='# LLM\n\nProperties:\n- error: MethodNotExist: get_page_properties\n\nContent:')]
+Tool call: get_page_content with arguments {'page_name': 'LLM', 'format': 'json'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'LLM', 'format': 'json'}
+Getting content for page 'LLM'
+Tool result: [TextContent(type='text', text="{'page': {'id': 1645, 'createdAt': 1717085351897, 'format': 'markdown', 'journal?': False, 'name': 'llm', 'originalName': 'LLM', 'updatedAt': 1717085351897, 'uuid': '67694807-9f5a-462c-a9f5-7cffdde8494b', 'properties': {'error': 'MethodNotExist: get_page_properties'}}, 'blocks': [{'properties': {}, 'parent': {'id': 1645}, 'children': [], 'id': 16287, 'pathRefs': [{'id': 1645}], 'level': 1, 'uuid': '6731a55e-8446-4994-8f0d-dc14964560ba', 'content': '', 'journal?': False, 'page': {'id': 1645}, 'left': {'id': 1645}, 'format': 'markdown'}]}")]
+Tool call: get_page_content with arguments {'page_name': 'AgentX Celtic', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'AgentX Celtic', 'format': 'text'}
+Getting content for page 'AgentX Celtic'
+Tool result: [TextContent(type='text', text='# AgentX Celtic\n\nProperties:\n- error: MethodNotExist: get_page_properties\n\nContent:\n- This is the initial appplication page')]
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 3 tools
+Tool call: create_page with arguments {'title': 'MCP Test Page', 'content': 'This is a test page created via the MCP LogSeq server from Claude Code.\n\n## Testing Features\n- Page creation ✅\n- Content formatting\n- Integration with Claude\n\n## Next Steps\n- Test page retrieval\n- Test page updates\n- Implement search functionality\n\nCreated on: August 20, 2025'}
+Looking for tool handler: create_page
+Found tool handler: create_page
+Running tool create_page
+Creating page 'MCP Test Page'
+Tool result: [TextContent(type='text', text="Successfully created page 'MCP Test Page'")]
+Tool call: get_page_content with arguments {'page_name': 'MCP Test Page', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'MCP Test Page', 'format': 'text'}
+Getting content for page 'MCP Test Page'
+Failed to get page content: 'str' object has no attribute 'get'
+Error running tool: 'str' object has no attribute 'get'
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/server.py", line 94, in call_tool
+    result = tool_handler.run_tool(arguments)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/tools.py", line 199, in run_tool
+    if block.get("content"):
+       ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+Tool call: list_pages with arguments {'include_journals': False}
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Running tool list_pages
+Listing pages
+Tool result: [TextContent(type='text', text='LogSeq Pages:\n\n- #\n- ,\n- -\n- .\n- 0\n- 2\n- 3 Critical LLM Compression Strategies: Optimizing AI Performance for Real-World Applications\n- 34a853ff\n- 351c75ff\n- 362fd9ff\n- 3c4043ff\n- 45\n- 45)\n- 46\n- 46)\n- 47\n- 48\n- 49\n- 49)\n- 5\n- 621\n- :\n- ADHD\n- ADHD/Challenges\n- ADHD/Challenges/Disorganization\n- ADHD/Challenges/Low self-esteem\n- ADHD/Challenges/Prioritization Issues\n- ADHD/Challenges/Procrastination\n- ADHD/Challenges/Relationship Strains\n- ADHD/Challenges/Time Blindness\n- Abdelrahman\n- Achievement\n- Agenda\n- Agent-X proposal\n- AgentX Celtic\n- Alexithymia\n- All Sales Document\n- Andrew Ng\n- Andrew Ng - LLM Evaluations\n- Apr 25\n- Avendus\n- Ayca\n- Beren\n- Bilkent Üniversitesi\n- Board\n- Boks Kum Torbasi\n- Boğaziçi Üniversitesi\n- Bulgur Pilavı\n- Burak Atamgüç\n- Business Plan\n- Business Understanding Meetings\n- Churn Prediction\n- Cloud Day\n- Contents\n- Dans Dersleri\n- Disorganization\n- Distractibility\n- Dogan Parlak\n- Dogukan Güner\n- Domates Çorbası\n- Dr. Alok Kanojia\n- Dr. Khurrum\n- EdgeComputing\n- Ersan\n- Esra Arpacı\n- Ezogelin Çorbası\n- F\n- Favorites\n- Feeling of Underachievement\n- Financial Database\n- Financial Modeling\n- Financial Reporting\n- GCP Retail AI\n- Gardening\n- Gen AI - Past, Current and Future\n- Graph Databases for RAG\n- GraphRAG\n- GrowthPal\n- Gym Tracker MCP\n- HAMLE Projesi\n- HR\n- Hakan Sönmez\n- Hamdiye\n- HealthyGamerGG\n- Hyperfocus\n- I\n- IR\n- Investor Relations\n- Khurrum\n- LLM\n- Leadership Offsite 2024\n- LinkedIn\n- M&A Advisor\n- MCP Test Page\n- Makarna\n- MeetScribe\n- Mehmet Ali\n- Mehmet Ali Varol\n- Menu\n- Mercimek Çorbası\n- Misyon Bank\n- ModelCompression\n- N\n- Nuran\n- ODP Faz 2 Projesi\n- Omantel\n- Omantel AI Use Cases\n- Omantel/Business Understandings\n- Omantel/Business Understandings/Roamer Prediction\n- Omantel/Success Criteria\n- Omantel/Universal ADS\n- Omantel/Use Case Ideas\n- Omantel/Use Case Ideas/Network\n- Omer\n- Omer F. Kurt\n- One Page Summary\n- Oredata\n- P\n- PWC\n- PWC DD\n- Personality Disorders\n- Personality Disorders/B\n- Personality Disorders/B/BPD\n- Personality Disorders/B/NPD\n- Personality Disorders/C\n- Personality Disorders/C/APD\n- Pirinç Pilavı\n- Project Portfolio Dashboard\n- R&D\n- RAG\n- Reflections\n- RnD\n- S\n- Salata\n- Saliha Sezgin Alp\n- Selen\n- Sena\n- Sengör Hoca\n- Sensitivity to Criticism\n- SilverPeak\n- Sinem Kayımer\n- SnA Consulting\n- Strategy\n- Struggling with Task Completion\n- TEKMER Süreci\n- Tavuklu Noodle\n- Test page\n- Time Series Forecasting with Foundational Models\n- TÜBİTAK\n- TÜBİTAK Projesi\n- VentureBeat\n- Wireless Edge Report\n- YK\n- Yayla Çorbası\n- Yemek Listesi\n- YouTube\n- YouTube/Channel\n- ai-related-developments\n- author\n- candidate-resource\n- card\n- category\n- company\n- competitor\n- d\n- date\n- dev\n- e\n- e37400ff\n- ea4335ff\n- emotions\n- errands\n- follow\n- g\n- h\n- home\n- inbox\n- interview\n- investor\n- l\n- leadership\n- loneliness\n- m\n- management\n- mcp\n- meeting\n- o\n- person\n- personal\n- planning-difficulty\n- psychology\n- q\n- r\n- role\n- someday-maybe\n- source\n- stressed\n- t\n- technical-article\n- temp\n- test hierarchy\n- type\n- u\n- v\n- w\n- work\n- workout\n- x\n- y\n- Çağlar Kara\n- Ömer F. Kurt\n- ✅\nTotal pages: 212 (excluding journal pages)')]
+Tool call: get_page_content with arguments {'page_name': 'MCP Test Page', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'MCP Test Page', 'format': 'text'}
+Getting content for page 'MCP Test Page'
+Failed to get page content: 'str' object has no attribute 'get'
+Error running tool: 'str' object has no attribute 'get'
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/server.py", line 94, in call_tool
+    result = tool_handler.run_tool(arguments)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/tools.py", line 199, in run_tool
+    if isinstance(block, dict) and block.get("content"):
+       ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Tool call: get_page_content with arguments {'page_name': 'MCP Test Page', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'MCP Test Page', 'format': 'text'}
+Getting content for page 'MCP Test Page'
+Failed to get page content: 'str' object has no attribute 'get'
+Error running tool: 'str' object has no attribute 'get'
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/server.py", line 94, in call_tool
+    result = tool_handler.run_tool(arguments)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/tools.py", line 199, in run_tool
+    if isinstance(block, dict) and block.get("content"):
+       ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 3 tools
+Tool call: get_page_content with arguments {'page_name': 'MCP Test Page', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'MCP Test Page', 'format': 'text'}
+Getting content for page 'MCP Test Page'
+Tool result: [TextContent(type='text', text='# MCP Test Page\n\nProperties:\n- error: MethodNotExist: get_page_properties\n\nContent:\n- error')]
+Tool call: get_page_content with arguments {'page_name': 'MCP Test Page', 'format': 'json'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'MCP Test Page', 'format': 'json'}
+Getting content for page 'MCP Test Page'
+Tool result: [TextContent(type='text', text="{'page': {'properties': {'error': 'MethodNotExist: get_page_properties'}, 'updatedAt': 1755670334504, 'createdAt': 1755670334504, 'id': 22734, 'name': 'mcp test page', 'uuid': '68a5673e-718d-417e-92bc-ca26cd0e11ba', 'journal?': False, 'originalName': 'MCP Test Page', 'format': 'markdown'}, 'blocks': {'error': 'this.$mseq$.$cljs$core$ISeq$_first$arity$1$(...).$cljs$core$IMapEntry$_key$arity$1$ is not a function'}}")]
+Tool call: get_page_content with arguments {'page_name': 'AgentX Celtic', 'format': 'json'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'AgentX Celtic', 'format': 'json'}
+Getting content for page 'AgentX Celtic'
+Tool result: [TextContent(type='text', text="{'page': {'updatedAt': 1755669663755, 'createdAt': 1745169354591, 'id': 20227, 'name': 'agentx celtic', 'uuid': '68052bca-3a73-44f0-9daa-5bc789a6bee6', 'journal?': False, 'originalName': 'AgentX Celtic', 'file': {'id': 22733}, 'format': 'markdown', 'properties': {'error': 'MethodNotExist: get_page_properties'}}, 'blocks': [{'properties': {}, 'parent': {'id': 20227}, 'children': [], 'id': 22732, 'pathRefs': [{'id': 20227}], 'level': 1, 'uuid': '68a56499-f678-4d48-926a-c1329231f53d', 'content': 'This is the initial appplication page', 'journal?': False, 'page': {'id': 20227}, 'left': {'id': 20227}, 'format': 'markdown'}]}")]
+Tool call: create_page with arguments {'title': 'Simple Test', 'content': 'Basic content test'}
+Looking for tool handler: create_page
+Found tool handler: create_page
+Running tool create_page
+Creating page 'Simple Test'
+Tool result: [TextContent(type='text', text="Successfully created page 'Simple Test'")]
+Tool call: get_page_content with arguments {'page_name': 'Simple Test', 'format': 'json'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'Simple Test', 'format': 'json'}
+Getting content for page 'Simple Test'
+Tool result: [TextContent(type='text', text="{'page': {'properties': {'error': 'MethodNotExist: get_page_properties'}, 'updatedAt': 1755670683823, 'createdAt': 1755670683823, 'id': 22765, 'name': 'simple test', 'uuid': '68a5689b-73cc-44c0-935f-557c314b8d93', 'journal?': False, 'originalName': 'Simple Test', 'file': {'id': 22767}, 'format': 'markdown'}, 'blocks': {'error': 'this.$mseq$.$cljs$core$ISeq$_first$arity$1$(...).$cljs$core$IMapEntry$_key$arity$1$ is not a function'}}")]
+Tool call: create_page with arguments {'title': 'Empty Page Test', 'content': ''}
+Looking for tool handler: create_page
+Found tool handler: create_page
+Running tool create_page
+Creating page 'Empty Page Test'
+Tool result: [TextContent(type='text', text="Successfully created page 'Empty Page Test'")]
+Tool call: get_page_content with arguments {'page_name': 'Empty Page Test', 'format': 'json'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'Empty Page Test', 'format': 'json'}
+Getting content for page 'Empty Page Test'
+Tool result: [TextContent(type='text', text="{'page': {'id': 22768, 'createdAt': 1755670701619, 'format': 'markdown', 'journal?': False, 'name': 'empty page test', 'originalName': 'Empty Page Test', 'updatedAt': 1755670701619, 'uuid': '68a568ad-b659-4b0c-8818-b19119c187a4', 'properties': {'error': 'MethodNotExist: get_page_properties'}}, 'blocks': [{'properties': {}, 'parent': {'id': 22768}, 'children': [], 'id': 22769, 'pathRefs': [{'id': 22768}], 'level': 1, 'uuid': '68a568ad-f6bc-4ad8-871e-2cce05720394', 'content': '', 'journal?': False, 'page': {'id': 22768}, 'left': {'id': 22768}, 'format': 'markdown'}]}")]
+Tool call: get_page_content with arguments {'page_name': 'Empty Page Test', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'Empty Page Test', 'format': 'text'}
+Getting content for page 'Empty Page Test'
+Tool result: [TextContent(type='text', text='# Empty Page Test\n\nProperties:\n- error: MethodNotExist: get_page_properties\n\nContent:')]
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 3 tools
+Tool call: create_page with arguments {'title': 'Fixed API Test', 'content': 'This page was created using the corrected LogSeq API method.\n\nThe fix:\n1. Use createPage with proper parameters (name, properties, options)\n2. Use appendBlockInPage to add content separately\n\nThis should resolve the blocks retrieval issue!'}
+Looking for tool handler: create_page
+Found tool handler: create_page
+Running tool create_page
+Creating page 'Fixed API Test'
+Tool result: [TextContent(type='text', text="Successfully created page 'Fixed API Test'")]
+Tool call: get_page_content with arguments {'page_name': 'Fixed API Test', 'format': 'text'}
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Running tool get_page_content
+Getting page content with args: {'page_name': 'Fixed API Test', 'format': 'text'}
+Getting content for page 'Fixed API Test'
+Tool result: [TextContent(type='text', text='# Fixed API Test\n\nProperties:\n- error: MethodNotExist: get_page_properties\n\nContent:\n- This page was created using the corrected LogSeq API method.\n\nThe fix:\n1. Use createPage with proper parameters (name, properties, options)\n2. Use appendBlockInPage to add content separately\n\nThis should resolve the blocks retrieval issue!')]
+Tool call: create_page with arguments {'title': 'Test Delete Page', 'content': 'This page will be used to test the delete functionality. It can be safely removed.'}
+Looking for tool handler: create_page
+Found tool handler: create_page
+Running tool create_page
+Creating page 'Test Delete Page'
+Error creating page: HTTPConnectionPool(host='127.0.0.1', port=12315): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused'))
+Failed to create page: HTTPConnectionPool(host='127.0.0.1', port=12315): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused'))
+Error running tool: HTTPConnectionPool(host='127.0.0.1', port=12315): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused'))
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 199, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 789, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 495, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 441, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1333, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1093, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1037, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 279, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 214, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/adapters.py", line 667, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 843, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/urllib3/util/retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='127.0.0.1', port=12315): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/server.py", line 94, in call_tool
+    logger.debug(f"Running tool {name}")
+             ~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/tools.py", line 55, in run_tool
+    api.create_page(args["title"], args["content"])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/src/mcp_logseq/logseq.py", line 38, in create_page
+    response = requests.post(
+        url,
+    ...<6 lines>...
+        timeout=self.timeout
+    )
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/salih/Documents/dev/mcp-logseq-server/.venv/lib/python3.13/site-packages/requests/adapters.py", line 700, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=12315): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x106ed7530>: Failed to establish a new connection: [Errno 61] Connection refused'))
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 4 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 5 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Tool call: search with arguments {'query': 'LLM', 'limit': 5}
+Looking for tool handler: search
+Found tool handler: search
+Running tool search
+Searching with args: {'query': 'LLM', 'limit': 5}
+Searching for 'LLM'
+Tool result: [TextContent(type='text', text="# Search Results for 'LLM'\n\n## 📄 Content Blocks (10 found)\n\n## 📝 Page Snippets (10 found)\n\n## 📑 Matching Pages (6 found)\n- LLM\n- Andrew Ng - LLM Evaluations\n- 3 Critical LLM Compression Strategies: Optimizing AI Performance for Real-World Applications\n- ADHD/Challenges/Time Blindness\n- ADHD/Challenges/Low self-esteem\n- All Sales Document\n\n📌 *More results available - increase limit to see more*\n\n**Total results found: 19**")]
+Tool call: search with arguments {'query': 'AgentX', 'limit': 10, 'include_blocks': True, 'include_pages': True, 'include_files': False}
+Looking for tool handler: search
+Found tool handler: search
+Running tool search
+Searching with args: {'query': 'AgentX', 'limit': 10, 'include_blocks': True, 'include_pages': True, 'include_files': False}
+Searching for 'AgentX'
+Tool result: [TextContent(type='text', text="# Search Results for 'AgentX'\n\n## 📄 Content Blocks (4 found)\n\n## 📝 Page Snippets (5 found)\n\n## 📑 Matching Pages (2 found)\n- AgentX Celtic\n- Agent-X proposal\n\n\n**Total results found: 6**")]
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Tool call: search with arguments {'query': 'AgentX', 'limit': 5}
+Looking for tool handler: search
+Found tool handler: search
+Running tool search
+Searching with args: {'query': 'AgentX', 'limit': 5}
+Searching for 'AgentX'
+Tool result: [TextContent(type='text', text="# Search Results for 'AgentX'\n\n## 📄 Content Blocks (4 found)\n1. [[agentx celtic]]\n2. [[agentx celtic]]\n3. agentx proposal\n4. todo agentx icin toplanti daveti at\n\n## 📝 Page Snippets (5 found)\n1. - this is the initial appplication page\n2. - lob\n\t- burak, caglar, cagri\n\t-\n- plan\n\t- todo   agentx   icin toplanti daveti at\n\t- todo internal satis toplantisi at\n\t-\n3. - mohammed\n\t- marie curie\n\t\t-   agentx   proposal\n\t\t- 1. doctor network\n\t\t\t- hire free researcher - fully paid salaries, travel expenses\n\t\t\t\t- company gets overhead, management and training budget\n\t\t\t...\n4. ...meselesi\n\t\t- i̇scinin isverene karsi sir saklama\n\t\t- esitlik ilkesi kapsaminda bu veriyi almasiyla\n\t- persembe-cuma kapali\n\t\t-\n\t\t-\n- [[  agentx   celtic]]\n\t- work packages old\n\t\t- **\n\t\t  \n\t\t  **wor...\n5. - [[  agentx   celtic]]\n\t- this was part of abstract and got removed:\n\t  collapsed:: true\n\t\t- **\n\t\t- ai and agents technologies are revolutionising our societies and economies nowadays.  in 3gpp...\n\n## 📑 Matching Pages (2 found)\n- AgentX Celtic\n- Agent-X proposal\n\n\n**Total results found: 6**")]
+Tool call: search with arguments {'query': 'LLM', 'limit': 3, 'include_files': True}
+Looking for tool handler: search
+Found tool handler: search
+Running tool search
+Searching with args: {'query': 'LLM', 'limit': 3, 'include_files': True}
+Searching for 'LLM'
+Tool result: [TextContent(type='text', text="# Search Results for 'LLM'\n\n## 📄 Content Blocks (10 found)\n1. llm\n2. unstructured, llm\n3. llm olusturdular\n\n## 📝 Page Snippets (10 found)\n1. - savas yildirim, tubi̇tak proje sunumu\n\t- nlp konusunda cok iyi. ortak proje yapilabilir.\n\t- chunking stratejiniz nedir diye sordu\n\t- t5 modelleri etiketlerini   llm  'den al\n2. - odp faz ii\n\t- gcp'dekine benzer tablolarin su field uzerinde cluster edilmesi, partition edilmesi onerileri -- performans artirimi, cost reduction\n\t-   llm   bazli text sql entegrasyonu\n\t-\n3. author:: [[andrew ng]]\ntype:: [[technical-article]]\ntags::    llm  , rag\n\n- ### summary\n- andrew ng’s article in the batch highlights challenges in evaluating generative ai, particularly...\n\n## 📑 Matching Pages (6 found)\n- LLM\n- Andrew Ng - LLM Evaluations\n- 3 Critical LLM Compression Strategies: Optimizing AI Performance for Real-World Applications\n- ADHD/Challenges/Time Blindness\n- ADHD/Challenges/Low self-esteem\n- All Sales Document\n\n## 📁 Matching Files (3 found)\n- logseq 2/bak/logseq/custom/2024-04-30T00_53_48.544Z.Desktop.css\n- logseq 2/bak/logseq/custom/2024-04-30T00_48_01.406Z.Desktop.css\n- logseq 2/bak/logseq/custom/2024-04-30T00_54_40.131Z.Desktop.css\n\n📌 *More results available - increase limit to see more*\n\n**Total results found: 19**")]
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Error getting page content: Expecting value: line 1 column 1 (char 0)
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Error getting page content: Expecting value: line 1 column 1 (char 0)
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Error getting page content: Expecting value: line 1 column 1 (char 0)
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Error getting page content: 'str' object is not a mapping
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Error getting page content: 'str' object is not a mapping
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Getting content for page 'Non-existent Page'
+Page 'Non-existent Page' not found
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Page 'Non-existent Page' not found
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Page 'Non-existent Page' not found
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Looking for tool handler: search
+Found tool handler: search
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: non_existing_tool
+Tool handler not found: non_existing_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Looking for tool handler: unknown_tool
+Tool handler not found: unknown_tool
+Looking for tool handler: create_page
+Found tool handler: create_page
+Failed to create page: API Error
+Looking for tool handler: list_pages
+Found tool handler: list_pages
+Looking for tool handler: get_page_content
+Found tool handler: get_page_content
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Looking for tool handler: search
+Found tool handler: search
+Searching with args: {'query': 'test search'}
+Looking for tool handler: delete_page
+Found tool handler: delete_page
+Looking for tool handler: update_page
+Found tool handler: update_page
+Registering tool handler: custom_tool
+Successfully registered tool handler: custom_tool
+Looking for tool handler: custom_tool
+Found tool handler: custom_tool
+Creating page 'Test Page'
+Creating page 'Test Page'
+Creating page 'Test Page'
+Error creating page: Connection failed
+Listing pages
+Getting content for page 'Test Page'
+Getting content for page 'Non-existent Page'
+Page 'Non-existent Page' not found
+Deleting page 'Page One'
+Listing pages
+Successfully deleted page 'Page One'
+Deleting page 'Non-existent'
+Listing pages
+Searching for 'test query'
+Searching for 'test query'
+Updating page 'Page One'
+Listing pages
+Updating properties for page 'Page One': {'priority': 'high'}
+Updating content for page 'Page One'
+Successfully updated page 'Page One'
+Failed to create page: API Error
+Getting page content with args: {'page_name': 'Test Page', 'format': 'text'}
+Getting page content with args: {'page_name': 'Test Page', 'format': 'json'}
+Getting page content with args: {'page_name': 'Non-existent'}
+Searching with args: {'query': 'test'}
+Searching with args: {'query': 'nothing'}
+Searching with args: {'query': 'test', 'limit': 5, 'include_blocks': False, 'include_files': True}
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Listing pages
+Found LOGSEQ_API_TOKEN in environment
+API Token starts with: 8oZD+...
+Found LOGSEQ_API_TOKEN in environment
+API token validation successful
+Using API URL: http://localhost:12315
+Registering tool handlers...
+Registering tool handler: create_page
+Successfully registered tool handler: create_page
+Registering tool handler: list_pages
+Successfully registered tool handler: list_pages
+Registering tool handler: get_page_content
+Successfully registered tool handler: get_page_content
+Registering tool handler: delete_page
+Successfully registered tool handler: delete_page
+Registering tool handler: update_page
+Successfully registered tool handler: update_page
+Registering tool handler: search
+Successfully registered tool handler: search
+Tool handlers registration complete
+Starting LogSeq MCP server
+Initializing server...
+Listing tools
+Found 6 tools

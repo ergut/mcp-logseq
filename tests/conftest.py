@@ -9,6 +9,8 @@ from mcp_logseq.tools import (
     DeletePageToolHandler,
     UpdatePageToolHandler,
     SearchToolHandler,
+    QueryToolHandler,
+    FindPagesByPropertyToolHandler,
 )
 
 
@@ -125,6 +127,43 @@ def mock_logseq_responses():
             "files": [],
             "has-more?": False,
         },
+        "query_dsl_pages_success": [
+            {
+                "id": "page-1",
+                "name": "customer/orienteme",
+                "originalName": "Customer/Orienteme",
+                "propertiesTextValues": {"type": "customer", "status": "active"}
+            },
+            {
+                "id": "page-2",
+                "name": "customer/insideout",
+                "originalName": "Customer/InsideOut",
+                "propertiesTextValues": {"type": "customer"}
+            }
+        ],
+        "query_dsl_blocks_success": [
+            {
+                "id": "block-1",
+                "content": "This is a TODO block",
+                "marker": "TODO"
+            },
+            {
+                "id": "block-2",
+                "content": "Another block with content"
+            }
+        ],
+        "query_dsl_mixed_success": [
+            {
+                "id": "page-1",
+                "originalName": "Customer/Orienteme",
+                "propertiesTextValues": {"type": "customer"}
+            },
+            {
+                "id": "block-1",
+                "content": "Block referencing customer"
+            }
+        ],
+        "query_dsl_empty": []
     }
 
 
@@ -138,6 +177,8 @@ def tool_handlers():
         "delete_page": DeletePageToolHandler(),
         "update_page": UpdatePageToolHandler(),
         "search": SearchToolHandler(),
+        "query": QueryToolHandler(),
+        "find_pages_by_property": FindPagesByPropertyToolHandler(),
     }
 
 
