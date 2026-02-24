@@ -638,6 +638,31 @@ class LogSeq:
             logger.error(f"Error deleting block '{block_uuid}': {str(e)}")
             raise
 
+    def update_block(self, block_uuid: str, content: str) -> Any:
+        """Update a LogSeq block's content by UUID."""
+        url = self.get_base_url()
+        logger.info(f"Updating block '{block_uuid}'")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.updateBlock",
+                    "args": [block_uuid, content]
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Successfully updated block '{block_uuid}'")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error updating block '{block_uuid}': {str(e)}")
+            raise
+
     def query_dsl(self, query: str) -> Any:
         """Execute a Logseq DSL query to search pages and blocks.
 
