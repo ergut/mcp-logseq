@@ -89,7 +89,7 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🛠️ Available Tools
 
-The server provides 14 tools with intelligent markdown parsing:
+The server provides 15 tools with intelligent markdown parsing:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
@@ -99,6 +99,7 @@ The server provides 14 tools with intelligent markdown parsing:
 | **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |
 | **`delete_page`** | Remove pages | "Delete the old draft page" |
 | **`delete_block`** | Remove a block by UUID | "Delete this specific block" |
+| **`update_block`** | Edit block content by UUID | "Update this specific block text" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
 | **`query`** | Execute Logseq DSL queries | "Find all TODO tasks tagged #project" |
 | **`find_pages_by_property`** | Search pages by property | "Find all pages with status = active" |

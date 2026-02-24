@@ -7,6 +7,7 @@ from mcp_logseq.tools import (
     GetPageContentToolHandler,
     DeletePageToolHandler,
     DeleteBlockToolHandler,
+    UpdateBlockToolHandler,
     UpdatePageToolHandler,
     SearchToolHandler,
     QueryToolHandler,
@@ -582,6 +583,81 @@ class TestDeleteBlockToolHandler:
         assert "❌ Failed to delete block 'abc-123'" in result[0].text
         assert "Unexpected API failure" in result[0].text
         assert "Failed to delete block" in caplog.text
+
+
+class TestUpdateBlockToolHandler:
+    """Test cases for UpdateBlockToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = UpdateBlockToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "update_block"
+        assert "Update the content of an existing LogSeq block" in tool.description
+        assert tool.inputSchema["required"] == ["block_uuid", "content"]
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_success(self, mock_logseq_class):
+        """Test successful block update returns confirmation with UUID."""
+        mock_api = Mock()
+        mock_api.update_block.return_value = None
+        mock_logseq_class.return_value = mock_api
+
+        handler = UpdateBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123", "content": "Updated text"})
+
+        mock_api.update_block.assert_called_once_with("abc-123", "Updated text")
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "✅ Successfully updated block 'abc-123'" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    def test_run_tool_missing_args(self):
+        """Test that omitting required args raises RuntimeError."""
+        handler = UpdateBlockToolHandler()
+
+        with pytest.raises(RuntimeError, match="block_uuid and content arguments required"):
+            handler.run_tool({"block_uuid": "abc-123"})
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_value_error_returns_error_message(self, mock_logseq_class):
+        """Test that a ValueError from the API returns an error TextContent."""
+        mock_api = Mock()
+        mock_api.update_block.side_effect = ValueError("Block 'abc-123' does not exist")
+        mock_logseq_class.return_value = mock_api
+
+        handler = UpdateBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123", "content": "Updated text"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌ Error: Block 'abc-123' does not exist" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_generic_exception_returns_failed_message(
+        self, mock_logseq_class, caplog
+    ):
+        """Test that a generic exception returns a failed TextContent and logs the error."""
+        import logging
+
+        mock_api = Mock()
+        mock_api.update_block.side_effect = Exception("Unexpected API failure")
+        mock_logseq_class.return_value = mock_api
+
+        handler = UpdateBlockToolHandler()
+
+        with caplog.at_level(logging.ERROR, logger="mcp-logseq"):
+            result = handler.run_tool({"block_uuid": "abc-123", "content": "Updated text"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "❌ Failed to update block 'abc-123'" in result[0].text
+        assert "Unexpected API failure" in result[0].text
+        assert "Failed to update block" in caplog.text
 
 
 class TestUpdatePageToolHandler:

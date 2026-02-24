@@ -566,6 +566,58 @@ class DeleteBlockToolHandler(ToolHandler):
                 text=f"❌ Failed to delete block '{block_uuid}': {str(e)}"
             )]
 
+
+class UpdateBlockToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("update_block")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Update the content of an existing LogSeq block by UUID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the block to update"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content that replaces the block text"
+                    }
+                },
+                "required": ["block_uuid", "content"]
+            }
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "block_uuid" not in args or "content" not in args:
+            raise RuntimeError("block_uuid and content arguments required")
+
+        block_uuid = args["block_uuid"]
+        content = args["content"]
+
+        try:
+            api = _make_api()
+            api.update_block(block_uuid, content)
+
+            return [TextContent(
+                type="text",
+                text=f"✅ Successfully updated block '{block_uuid}'"
+            )]
+        except ValueError as e:
+            return [TextContent(
+                type="text",
+                text=f"❌ Error: {str(e)}"
+            )]
+        except Exception as e:
+            logger.error(f"Failed to update block: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to update block '{block_uuid}': {str(e)}"
+            )]
+
 class SearchToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("search")

@@ -307,6 +307,50 @@ class TestLogSeqAPI:
         with pytest.raises(requests.exceptions.ConnectionError):
             logseq_client.delete_block("block-uuid-abc")
 
+
+    @responses.activate
+    def test_update_block_success(self, logseq_client):
+        """Test successful block update calls updateBlock with UUID and content."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body="null",
+            status=200,
+            content_type="application/json",
+        )
+
+        logseq_client.update_block("block-uuid-abc", "Updated content")
+
+        assert len(responses.calls) == 1
+        request_data = json.loads(responses.calls[0].request.body)
+        assert request_data["method"] == "logseq.Editor.updateBlock"
+        assert request_data["args"] == ["block-uuid-abc", "Updated content"]
+
+    @responses.activate
+    def test_update_block_http_error(self, logseq_client):
+        """Test that an HTTP error from updateBlock propagates as an exception."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={"error": "Not found"},
+            status=404,
+        )
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            logseq_client.update_block("block-uuid-missing", "Updated")
+
+    @responses.activate
+    def test_update_block_network_error(self, logseq_client):
+        """Test that a network/connection error propagates for updateBlock."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body=requests.exceptions.ConnectionError("Connection refused"),
+        )
+
+        with pytest.raises(requests.exceptions.ConnectionError):
+            logseq_client.update_block("block-uuid-abc", "Updated")
+
     @responses.activate
     def test_query_dsl_success(self, logseq_client, mock_logseq_responses):
         """Test successful DSL query."""
