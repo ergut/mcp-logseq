@@ -178,16 +178,27 @@ Block hierarchy example:
 - Sibling block
 ```
 
+## Current Status (as of v1.3.0)
+
+14 tools implemented. Block CRUD is nearly complete:
+
+| Operation | Tool | Status |
+| --------- | ---- | ------ |
+| Read | `get_page_content` | ✅ |
+| Create | `insert_nested_block` | ✅ |
+| Delete | `delete_block` | ✅ |
+| Update | `update_block` | ❌ Missing — [issue #17](https://github.com/ergut/mcp-logseq/issues/17) |
+
 ## Future Research Areas
 
-- Block-level CRUD operations
-- Graph management operations  
-- Advanced property management
-- Asset/file operations via `logseq.Assets.*`
-- UI interaction via `logseq.UI.*`
-- Git operations via `logseq.Git.*`
+- **`update_block`** — Edit an existing block's content by UUID (`logseq.Editor.updateBlock`). Completes block-level CRUD. Tracked in [#17](https://github.com/ergut/mcp-logseq/issues/17).
+- **Graph context** (`logseq.App.getCurrentGraph`) — Expose which graph is active. Low effort, useful for multi-graph setups.
+- **Advanced property management** — Set block-level properties directly (`logseq.Editor.setBlockProperties`). Currently only page properties are writable.
+- ~~Asset/file operations via `logseq.Assets.*`~~ — Not useful for AI assistant context.
+- ~~UI interaction via `logseq.UI.*`~~ — UI automation from AI is fragile; not worth pursuing.
+- ~~Git operations via `logseq.Git.*`~~ — Too niche (requires Logseq's built-in git sync).
 
 ---
 
-*Last Updated: 2025-01-20*
+*Last Updated: 2026-02-24*
 *Based on LogSeq source analysis and MCP server implementation*
