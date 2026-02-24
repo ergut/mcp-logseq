@@ -618,6 +618,7 @@ class UpdateBlockToolHandler(ToolHandler):
                 text=f"❌ Failed to update block '{block_uuid}': {str(e)}"
             )]
 
+
 class SearchToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("search")
