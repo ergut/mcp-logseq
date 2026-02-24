@@ -38,6 +38,11 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 "Search for 'Q4 planning' and organize all related content into a new overview page"
 ```
 
+
+### ✅ Task & Project Management Method
+
+If you want a structured method for personal + work tasks (with project links, emotion tracking, and focus/performance review), see **[docs/TASK_METHODOLOGY.md](docs/TASK_METHODOLOGY.md)**.
+
 ### 💡 Key Benefits
 - **Zero Context Switching**: Claude works directly with your LogSeq data
 - **Preserve Your Workflow**: No need to export or copy content manually  
