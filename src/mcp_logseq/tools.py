@@ -249,11 +249,16 @@ class GetPageContentToolHandler(ToolHandler):
         if not content:
             return lines
 
-        # Build the formatted line with indentation
+        # Build the formatted line with indentation.
         # Note: Properties are already included in the content by Logseq,
-        # so we don't need to add them separately from block.properties
+        # so we don't need to add them separately from block.properties.
+        # Skip adding "- " if the content already starts with it to avoid
+        # double-wrapping blocks whose text begins with a list marker.
         indent = "  " * indent_level
-        line = f"{indent}- {content}"
+        if content.startswith("- ") or content == "-":
+            line = f"{indent}{content}"
+        else:
+            line = f"{indent}- {content}"
         lines.append(line)
 
         # Process children if we haven't hit the depth limit

@@ -508,18 +508,15 @@ class LogSeq:
                         results.append(("blocks_appended", len(blocks)))
 
             # Update properties AFTER blocks are inserted/replaced
-            # This ensures properties are always set on the correct first block
             if properties:
-                # For append mode, merge with existing properties
-                # For replace mode, replace all properties
                 if mode == "append":
-                    existing_props = self._get_page_properties(page_name)
+                    existing_props = self._get_page_level_properties(page_name)
                     merged_props = {**existing_props, **properties}
-                    self._update_page_properties(page_name, merged_props)
+                    self._set_page_level_properties(page_name, merged_props)
                     results.append(("properties", merged_props))
                 else:
                     # Replace mode - set only the new properties
-                    self._update_page_properties(page_name, properties)
+                    self._set_page_level_properties(page_name, properties)
                     results.append(("properties", properties))
 
             return {"updates": results, "page": page_name}
@@ -565,6 +562,59 @@ class LogSeq:
             return [k for k, v in value.items() if v]
 
         return value
+
+    def _get_page_level_properties(self, page_name: str) -> dict:
+        """
+        Get page-level properties from the page entity (not from the first block).
+
+        Uses getPage which returns the page entity with its page-level properties.
+        """
+        url = self.get_base_url()
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={"method": "logseq.Editor.getPage", "args": [page_name]},
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            page = response.json()
+            if page and isinstance(page, dict):
+                return page.get("properties", {}) or {}
+            return {}
+        except Exception as e:
+            logger.warning(f"Could not get page-level properties for '{page_name}': {e}")
+            return {}
+
+    def _set_page_level_properties(self, page_name: str, properties: dict) -> None:
+        """
+        Set page-level properties via the setPageProperties API.
+
+        Unlike upsertBlockProperty (which sets block-level properties), this
+        stores properties at the page entity level, making them visible in the
+        page info panel and queryable via (page-property ...).
+        """
+        url = self.get_base_url()
+        api_props = {
+            k: self._normalize_property_value(k, v) for k, v in properties.items()
+        }
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.setPageProperties",
+                    "args": [page_name, api_props],
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            logger.info(f"Set {len(properties)} page-level properties on '{page_name}'")
+        except Exception as e:
+            logger.error(f"Could not set page-level properties for '{page_name}': {e}")
+            raise
 
     def _update_page_properties(self, page_name: str, properties: dict) -> None:
         """

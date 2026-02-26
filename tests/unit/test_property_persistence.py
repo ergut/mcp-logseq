@@ -115,36 +115,21 @@ class TestUpdatePageProperties:
             status=200,
         )
 
-        # Mock getPageBlocksTree for getting existing properties
+        # Mock getPage for _get_page_level_properties (returns existing page-level props)
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
-            json=[
-                {
-                    "uuid": "block-1",
-                    "content": "Existing",
-                    "properties": {"priority": "low", "status": "old"},
-                }
-            ],
+            json={"name": "Test Page", "properties": {"priority": "low", "status": "old"}},
             status=200,
         )
 
-        # Mock getPageBlocksTree for property update
+        # Mock setPageProperties for _set_page_level_properties
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "Existing", "properties": {}}],
+            json=True,
             status=200,
         )
-
-        # Mock upsertBlockProperty calls (for merged properties)
-        for _ in range(3):  # priority, status, tags
-            responses.add(
-                responses.POST,
-                "http://127.0.0.1:12315/api",
-                json=True,
-                status=200,
-            )
 
         # Update with new properties in append mode
         new_properties = {"priority": "high", "tags": ["urgent"]}
@@ -159,6 +144,24 @@ class TestUpdatePageProperties:
         assert merged_props["priority"] == "high"  # Overwritten
         assert merged_props["status"] == "old"  # Preserved
         assert merged_props["tags"] == ["urgent"]  # Added
+
+        # Verify setPageProperties was called (page-level, not block-level)
+        import json
+        set_props_calls = [
+            call for call in responses.calls
+            if "setPageProperties" in str(call.request.body)
+        ]
+        assert len(set_props_calls) == 1
+        body = json.loads(set_props_calls[0].request.body)
+        assert body["method"] == "logseq.Editor.setPageProperties"
+        assert body["args"][0] == "Test Page"
+
+        # Verify upsertBlockProperty was NOT called (would be block-level)
+        upsert_calls = [
+            call for call in responses.calls
+            if "upsertBlockProperty" in str(call.request.body)
+        ]
+        assert len(upsert_calls) == 0
 
     @responses.activate
     def test_update_page_replace_mode_replaces_properties(self, logseq_client):
@@ -201,15 +204,7 @@ class TestUpdatePageProperties:
             status=200,
         )
 
-        # Mock getPageBlocksTree for property update
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2", "content": "New", "properties": {}}],
-            status=200,
-        )
-
-        # Mock upsertBlockProperty calls (only new properties)
+        # Mock setPageProperties for _set_page_level_properties
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
@@ -228,6 +223,23 @@ class TestUpdatePageProperties:
         updates = dict(result["updates"])
         assert updates["properties"] == {"priority": "high"}
         assert "status" not in updates["properties"]
+
+        # Verify setPageProperties was called (page-level, not block-level)
+        import json
+        set_props_calls = [
+            call for call in responses.calls
+            if "setPageProperties" in str(call.request.body)
+        ]
+        assert len(set_props_calls) == 1
+        body = json.loads(set_props_calls[0].request.body)
+        assert body["method"] == "logseq.Editor.setPageProperties"
+
+        # Verify upsertBlockProperty was NOT called
+        upsert_calls = [
+            call for call in responses.calls
+            if "upsertBlockProperty" in str(call.request.body)
+        ]
+        assert len(upsert_calls) == 0
 
     @responses.activate
     def test_update_page_with_empty_properties_dict(self, logseq_client):
