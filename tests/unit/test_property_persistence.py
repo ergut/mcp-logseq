@@ -14,201 +14,69 @@ from mcp_logseq.logseq import LogSeq
 class TestCreatePageProperties:
     """Test property persistence during page creation."""
 
+    def _add_create_mocks(self, page_json=None):
+        """Register the 4 HTTP mocks needed for a create_page_with_blocks call with blocks."""
+        url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, json=page_json or {"uuid": "page-uuid", "name": "Test Page"}, status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-1", "content": ""}], status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
+        responses.add(responses.POST, url, json=True, status=200)  # removeBlock
+
     @responses.activate
-    def test_create_page_with_properties_calls_upsert(self, logseq_client):
-        """Test that creating a page with properties calls upsertBlockProperty."""
-        # Mock createPage (without properties)
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid", "name": "Test Page"},
-            status=200,
-        )
+    def test_create_page_with_properties_passes_to_create_page(self, logseq_client):
+        """Properties are passed as the 2nd arg to createPage (page entity level)."""
+        self._add_create_mocks()
 
-        # Mock getPageBlocksTree for getting first block
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "First block"}],
-            status=200,
-        )
-
-        # Mock insertBatchBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-
-        # Mock removeBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-
-        # Mock getPageBlocksTree for property update
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2", "content": "Content"}],
-            status=200,
-        )
-
-        # Mock upsertBlockProperty calls (one for each property)
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-
-        # Create page with properties
         properties = {"priority": "high", "status": "active"}
         blocks = [{"content": "Test content"}]
         logseq_client.create_page_with_blocks("Test Page", blocks, properties)
 
-        # Verify the createPage call does NOT include properties
-        create_page_call = responses.calls[0]
-        assert create_page_call.request.body is not None
         import json
-
-        body = json.loads(create_page_call.request.body)
+        body = json.loads(responses.calls[0].request.body)
         assert body["method"] == "logseq.Editor.createPage"
-        # Second arg should be empty dict (no properties)
-        assert body["args"][1] == {}
+        # Properties are in the 2nd arg — page entity level, not block level
+        assert body["args"][1] == {"priority": "high", "status": "active"}
+        assert body["args"][2] == {"createFirstBlock": True}
 
-        # Verify upsertBlockProperty was called for each property
+        # upsertBlockProperty must NOT be called — that would make them block-level
         upsert_calls = [
-            call
-            for call in responses.calls
+            call for call in responses.calls
             if "upsertBlockProperty" in str(call.request.body)
         ]
-        assert len(upsert_calls) == 2
+        assert len(upsert_calls) == 0
 
     @responses.activate
     def test_create_page_without_properties(self, logseq_client):
-        """Test that creating a page without properties works correctly."""
-        # Mock createPage
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid", "name": "Test Page"},
-            status=200,
-        )
+        """Creating a page without properties passes an empty dict to createPage."""
+        self._add_create_mocks()
 
-        # Mock getPageBlocksTree
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "First block"}],
-            status=200,
-        )
-
-        # Mock insertBatchBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-
-        # Mock removeBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-
-        # Create page without properties
         blocks = [{"content": "Test content"}]
         logseq_client.create_page_with_blocks("Test Page", blocks, properties=None)
 
-        # Verify no upsertBlockProperty calls were made
+        import json
+        body = json.loads(responses.calls[0].request.body)
+        assert body["method"] == "logseq.Editor.createPage"
+        assert body["args"][1] == {}  # empty dict when no properties
+
         upsert_calls = [
-            call
-            for call in responses.calls
+            call for call in responses.calls
             if "upsertBlockProperty" in str(call.request.body)
         ]
         assert len(upsert_calls) == 0
 
     @responses.activate
     def test_create_page_with_list_properties(self, logseq_client):
-        """Test creating a page with list-type properties (e.g., tags)."""
-        # Mock createPage
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid", "name": "Test Page"},
-            status=200,
-        )
+        """List-type properties (e.g. tags) are passed directly in the createPage call."""
+        self._add_create_mocks()
 
-        # Mock getPageBlocksTree for getting first block
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "First block"}],
-            status=200,
-        )
-
-        # Mock insertBatchBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-
-        # Mock removeBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-
-        # Mock getPageBlocksTree for property update
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2", "content": "Content"}],
-            status=200,
-        )
-
-        # Mock upsertBlockProperty
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
-
-        # Create page with list property
         properties = {"tags": ["project", "urgent", "backend"]}
         blocks = [{"content": "Test content"}]
         logseq_client.create_page_with_blocks("Test Page", blocks, properties)
 
-        # Verify upsertBlockProperty was called with list value
         import json
-
-        upsert_call = next(
-            call
-            for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
-        )
-        assert upsert_call.request.body is not None
-        body = json.loads(upsert_call.request.body)
-        assert body["args"][1] == "tags"
-        assert body["args"][2] == ["project", "urgent", "backend"]
+        body = json.loads(responses.calls[0].request.body)
+        assert body["method"] == "logseq.Editor.createPage"
+        assert body["args"][1]["tags"] == ["project", "urgent", "backend"]
 
 
 class TestUpdatePageProperties:
@@ -247,36 +115,21 @@ class TestUpdatePageProperties:
             status=200,
         )
 
-        # Mock getPageBlocksTree for getting existing properties
+        # Mock getPage for _get_page_level_properties (returns existing page-level props)
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
-            json=[
-                {
-                    "uuid": "block-1",
-                    "content": "Existing",
-                    "properties": {"priority": "low", "status": "old"},
-                }
-            ],
+            json={"name": "Test Page", "properties": {"priority": "low", "status": "old"}},
             status=200,
         )
 
-        # Mock getPageBlocksTree for property update
+        # Mock setPageProperties for _set_page_level_properties
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "Existing", "properties": {}}],
+            json=True,
             status=200,
         )
-
-        # Mock upsertBlockProperty calls (for merged properties)
-        for _ in range(3):  # priority, status, tags
-            responses.add(
-                responses.POST,
-                "http://127.0.0.1:12315/api",
-                json=True,
-                status=200,
-            )
 
         # Update with new properties in append mode
         new_properties = {"priority": "high", "tags": ["urgent"]}
@@ -291,6 +144,24 @@ class TestUpdatePageProperties:
         assert merged_props["priority"] == "high"  # Overwritten
         assert merged_props["status"] == "old"  # Preserved
         assert merged_props["tags"] == ["urgent"]  # Added
+
+        # Verify setPageProperties was called (page-level, not block-level)
+        import json
+        set_props_calls = [
+            call for call in responses.calls
+            if "setPageProperties" in str(call.request.body)
+        ]
+        assert len(set_props_calls) == 1
+        body = json.loads(set_props_calls[0].request.body)
+        assert body["method"] == "logseq.Editor.setPageProperties"
+        assert body["args"][0] == "Test Page"
+
+        # Verify upsertBlockProperty was NOT called (would be block-level)
+        upsert_calls = [
+            call for call in responses.calls
+            if "upsertBlockProperty" in str(call.request.body)
+        ]
+        assert len(upsert_calls) == 0
 
     @responses.activate
     def test_update_page_replace_mode_replaces_properties(self, logseq_client):
@@ -333,15 +204,7 @@ class TestUpdatePageProperties:
             status=200,
         )
 
-        # Mock getPageBlocksTree for property update
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2", "content": "New", "properties": {}}],
-            status=200,
-        )
-
-        # Mock upsertBlockProperty calls (only new properties)
+        # Mock setPageProperties for _set_page_level_properties
         responses.add(
             responses.POST,
             "http://127.0.0.1:12315/api",
@@ -360,6 +223,23 @@ class TestUpdatePageProperties:
         updates = dict(result["updates"])
         assert updates["properties"] == {"priority": "high"}
         assert "status" not in updates["properties"]
+
+        # Verify setPageProperties was called (page-level, not block-level)
+        import json
+        set_props_calls = [
+            call for call in responses.calls
+            if "setPageProperties" in str(call.request.body)
+        ]
+        assert len(set_props_calls) == 1
+        body = json.loads(set_props_calls[0].request.body)
+        assert body["method"] == "logseq.Editor.setPageProperties"
+
+        # Verify upsertBlockProperty was NOT called
+        upsert_calls = [
+            call for call in responses.calls
+            if "upsertBlockProperty" in str(call.request.body)
+        ]
+        assert len(upsert_calls) == 0
 
     @responses.activate
     def test_update_page_with_empty_properties_dict(self, logseq_client):
@@ -400,172 +280,52 @@ class TestUpdatePageProperties:
 
 
 class TestPropertyTypes:
-    """Test various property value types."""
+    """Test that various property value types are correctly passed to createPage."""
+
+    def _add_create_mocks(self):
+        """Register the 4 HTTP mocks needed for a create_page_with_blocks call with blocks."""
+        url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, json={"uuid": "page-uuid"}, status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-1"}], status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
+        responses.add(responses.POST, url, json=True, status=200)  # removeBlock
 
     @responses.activate
     def test_string_properties(self, logseq_client):
-        """Test simple string properties."""
-        # Setup mocks for create
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid"},
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
+        """String properties are passed verbatim in the createPage call."""
+        self._add_create_mocks()
 
         properties = {"title": "My Title", "author": "John Doe"}
-        logseq_client.create_page_with_blocks(
-            "Test", [{"content": "Content"}], properties
-        )
+        logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
-        # Verify string values passed correctly
         import json
-
-        upsert_calls = [
-            call
-            for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
-        ]
-        assert len(upsert_calls) == 2
+        body = json.loads(responses.calls[0].request.body)
+        assert body["args"][1] == {"title": "My Title", "author": "John Doe"}
 
     @responses.activate
     def test_number_properties(self, logseq_client):
-        """Test numeric properties."""
-        # Setup mocks
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid"},
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
+        """Numeric properties are passed verbatim in the createPage call."""
+        self._add_create_mocks()
 
         properties = {"priority": 5, "score": 9.5}
-        logseq_client.create_page_with_blocks(
-            "Test", [{"content": "Content"}], properties
-        )
+        logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
-        # Verify numeric values passed correctly
         import json
-
-        upsert_calls = [
-            call
-            for call in responses.calls
-            if call.request.body is not None
-            and "upsertBlockProperty" in str(call.request.body)
-        ]
-        bodies = [
-            json.loads(call.request.body)
-            for call in upsert_calls
-            if call.request.body is not None
-        ]
-        values = [body["args"][2] for body in bodies]
-        assert 5 in values
-        assert 9.5 in values
+        body = json.loads(responses.calls[0].request.body)
+        assert body["args"][1]["priority"] == 5
+        assert body["args"][1]["score"] == 9.5
 
     @responses.activate
     def test_nested_properties(self, logseq_client):
-        """Test nested/complex properties."""
-        # Setup mocks
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid"},
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
+        """Nested dict properties are passed verbatim in the createPage call."""
+        self._add_create_mocks()
 
         properties = {"metadata": {"author": "John", "date": "2024-01-01"}}
-        logseq_client.create_page_with_blocks(
-            "Test", [{"content": "Content"}], properties
-        )
+        logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
-        # Verify nested object passed correctly
         import json
-
-        upsert_calls = [
-            call
-            for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
-        ]
-        assert len(upsert_calls) == 1
-        assert upsert_calls[0].request.body is not None
-        body = json.loads(upsert_calls[0].request.body)
-        assert body["args"][1] == "metadata"
-        assert isinstance(body["args"][2], dict)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["args"][1]["metadata"] == {"author": "John", "date": "2024-01-01"}
 
 
 class TestGetPageProperties:
@@ -687,59 +447,19 @@ class TestPropertyValueNormalization:
 
     @responses.activate
     def test_create_page_with_tags_dict_normalizes(self, logseq_client):
-        """Test end-to-end: creating page with tags dict converts to array."""
-        # Setup mocks
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "page-uuid"},
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
-        )
-        responses.add(
-            responses.POST, "http://127.0.0.1:12315/api", json=True, status=200
-        )
+        """End-to-end: tags dict is normalized to an array in the createPage call."""
+        url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, json={"uuid": "page-uuid"}, status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-1"}], status=200)
+        responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
+        responses.add(responses.POST, url, json=True, status=200)  # removeBlock
 
-        # Create page with tags as dict (like the user reported)
         properties = {"tags": {"hello": True, "test": True}}
-        logseq_client.create_page_with_blocks(
-            "Test", [{"content": "Content"}], properties
-        )
+        logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
-        # Find the upsertBlockProperty call
         import json
-
-        upsert_calls = [
-            call
-            for call in responses.calls
-            if call.request.body is not None
-            and "upsertBlockProperty" in str(call.request.body)
-        ]
-        assert len(upsert_calls) == 1
-
-        # Verify the value passed is an array, not a dict
-        assert upsert_calls[0].request.body is not None
-        body = json.loads(upsert_calls[0].request.body)
-        assert body["args"][1] == "tags"
-        assert isinstance(body["args"][2], list)
-        assert set(body["args"][2]) == {"hello", "test"}
+        body = json.loads(responses.calls[0].request.body)
+        assert body["method"] == "logseq.Editor.createPage"
+        # Normalized to a list, not the raw dict
+        assert isinstance(body["args"][1]["tags"], list)
+        assert set(body["args"][1]["tags"]) == {"hello", "test"}
