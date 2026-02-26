@@ -255,7 +255,7 @@ class GetPageContentToolHandler(ToolHandler):
         # Skip adding "- " if the content already starts with it to avoid
         # double-wrapping blocks whose text begins with a list marker.
         indent = "  " * indent_level
-        if content.startswith("- ") or content == "-":
+        if content.startswith(("- ", "* ", "+ ")) or content in ("-", "*", "+"):
             line = f"{indent}{content}"
         else:
             line = f"{indent}- {content}"
