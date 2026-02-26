@@ -349,13 +349,23 @@ class LogSeq:
         logger.info(f"Creating page '{title}' with {len(blocks)} blocks")
 
         try:
-            # Step 1: Create the page without properties (properties will be set on first block later)
+            # Normalize properties for the createPage API.
+            # Passing them as the 2nd argument stores them at the page entity level,
+            # which is what Logseq queries via (page-property ...) and displays in
+            # the page info panel. Using upsertBlockProperty on a content block
+            # would create block-level properties instead, breaking queries.
+            api_props: dict = {}
+            if properties:
+                for key, value in properties.items():
+                    api_props[key] = self._normalize_property_value(key, value)
+
+            # Step 1: Create the page with page-level properties
             response = requests.post(
                 url,
                 headers=self._get_headers(),
                 json={
                     "method": "logseq.Editor.createPage",
-                    "args": [title, {}, {"createFirstBlock": True}],
+                    "args": [title, api_props, {"createFirstBlock": True}],
                 },
                 verify=self.verify_ssl,
                 timeout=self.timeout,
@@ -374,18 +384,14 @@ class LogSeq:
                         # Insert all blocks as siblings after the first block
                         self.insert_batch_block(first_block_uuid, blocks, sibling=True)
 
-                        # Remove the empty first block that was auto-created
+                        # Remove the empty placeholder block. Properties are already
+                        # stored at the page entity level via createPage above.
                         self.remove_block(first_block_uuid)
                 else:
                     # Fallback: append blocks one by one if no first block
                     logger.warning("No first block found, using fallback append method")
                     for block in blocks:
                         self._append_block_recursive(title, block)
-
-            # Step 3: Set properties on the first block if provided
-            # Properties must be set AFTER blocks are inserted to ensure they're on the correct block
-            if properties:
-                self._update_page_properties(title, properties)
 
             logger.info(f"Successfully created page '{title}' with blocks")
             return page_result
