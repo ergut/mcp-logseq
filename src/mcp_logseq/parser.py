@@ -60,6 +60,7 @@ CAPITALIZED_MARKER_PATTERN = re.compile(r"^(\s*)([A-Z][A-Z0-9_-]{2,})\s+(.+)$")
 BLOCKQUOTE_PATTERN = re.compile(r"^(\s*)(>+)\s*(.*)$")
 HORIZONTAL_RULE_PATTERN = re.compile(r"^(\s*)[-*_]{3,}\s*$")
 FENCED_CODE_START = re.compile(r"^(\s*)```(\w*)(.*)$")
+LOGSEQ_PROPERTY_PATTERN = re.compile(r"^\s*\w[\w-]*::\s")
 FENCED_CODE_END = re.compile(r"^(\s*)```\s*$")
 
 
@@ -272,6 +273,12 @@ class MarkdownParser:
                 or CAPITALIZED_MARKER_PATTERN.match(line)
             ):
                 i = self._parse_list_item(lines, i)
+                continue
+
+            # Check for Logseq inline property (key:: value)
+            if LOGSEQ_PROPERTY_PATTERN.match(line):
+                self._add_block(BlockNode(content=line.strip(), level=0))
+                i += 1
                 continue
 
             # Default: paragraph
@@ -514,6 +521,7 @@ class MarkdownParser:
                 or BLOCKQUOTE_PATTERN.match(line)
                 or HORIZONTAL_RULE_PATTERN.match(line)
                 or FENCED_CODE_START.match(line)
+                or LOGSEQ_PROPERTY_PATTERN.match(line)
             ):
                 break
 
