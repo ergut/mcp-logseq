@@ -275,10 +275,13 @@ class MarkdownParser:
                 i = self._parse_list_item(lines, i)
                 continue
 
-            # Check for Logseq inline property (key:: value)
+            # Check for Logseq inline property (key:: value) — group consecutives into one block
             if LOGSEQ_PROPERTY_PATTERN.match(line):
-                self._add_block(BlockNode(content=line.strip(), level=0))
-                i += 1
+                property_lines = []
+                while i < len(lines) and LOGSEQ_PROPERTY_PATTERN.match(lines[i]):
+                    property_lines.append(lines[i].strip())
+                    i += 1
+                self._add_block(BlockNode(content="\n  ".join(property_lines), level=0))
                 continue
 
             # Default: paragraph

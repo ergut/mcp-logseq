@@ -430,6 +430,33 @@ This is a new paragraph.
         assert "[link](url)" in blocks[0].content
 
 
+    def test_consecutive_properties_grouped_into_single_block(self):
+        """Consecutive key:: value lines should become one block joined with newline+indent."""
+        content = "type:: video\nsource:: https://example.com\nchannel:: Huberman Lab"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "type:: video\n  source:: https://example.com\n  channel:: Huberman Lab"
+
+    def test_single_property_block(self):
+        """A single key:: value line should become one block."""
+        content = "type:: video"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "type:: video"
+
+    def test_properties_between_text_blocks(self):
+        """Properties sandwiched between text should yield three separate blocks."""
+        content = "Some text\ntype:: video\nchannel:: Test\nMore text"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 3
+        assert blocks[0].content == "Some text"
+        assert blocks[1].content == "type:: video\n  channel:: Test"
+        assert blocks[2].content == "More text"
+
+
 class TestParseMarkdownEdgeCases:
     """Tests for edge cases."""
 
