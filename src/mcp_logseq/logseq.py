@@ -669,6 +669,184 @@ class LogSeq:
             logger.error(f"Failed to set property '{key}' on block {block_uuid}: {e}")
             raise
 
+    # =========================================================================
+    # DB-mode Property Methods (Datascript)
+    # =========================================================================
+
+    def datascript_query(self, query: str) -> Any:
+        """Execute a raw Datascript query against the Logseq database.
+
+        Args:
+            query: Datalog query string
+
+        Returns:
+            Query results
+        """
+        url = self.get_base_url()
+        logger.debug(f"Executing datascript query")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.DB.datascriptQuery",
+                    "args": [query],
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error executing datascript query: {str(e)}")
+            raise
+
+    def get_block_db_properties(self, block_id: int) -> dict[str, str]:
+        """Get DB-mode class properties for a block.
+
+        In Logseq DB-mode, class properties are stored as :user.property/*
+        attributes on the block entity, with values referencing other entities.
+
+        Args:
+            block_id: The numeric ID of the block
+
+        Returns:
+            Dict of {property_title: value_title}
+        """
+        # Get all attributes and their values for this block
+        query = f'[:find ?a ?v :where [{block_id} ?a ?v]]'
+        try:
+            attrs = self.datascript_query(query)
+        except Exception:
+            return {}
+
+        user_props = {}
+        for attr, val in attrs:
+            if isinstance(attr, str) and attr.startswith(":user.property/"):
+                user_props[attr] = val
+
+        if not user_props:
+            return {}
+
+        # Resolve property display names and value titles
+        result = {}
+        for ident, val_id in user_props.items():
+            # Get property display name via :db/ident lookup
+            prop_name = self._resolve_entity_title_by_ident(ident) or ident
+
+            # Get value title (val_id is an entity reference in DB-mode)
+            if isinstance(val_id, int):
+                val_title = self._resolve_entity_title(val_id) or str(val_id)
+            else:
+                val_title = str(val_id)
+
+            result[prop_name] = val_title
+
+        return result
+
+    def _resolve_entity_title_by_ident(self, ident: str) -> str | None:
+        """Resolve a :db/ident to its entity's title."""
+        query = f'[:find ?id :where [?id :db/ident {ident}]]'
+        try:
+            result = self.datascript_query(query)
+            if result:
+                return self._resolve_entity_title(result[0][0])
+        except Exception:
+            pass
+        return None
+
+    def _resolve_entity_title(self, entity_id: int) -> str | None:
+        """Get the title of an entity by its numeric ID."""
+        query = f'[:find ?a ?v :where [{entity_id} ?a ?v]]'
+        try:
+            attrs = self.datascript_query(query)
+            for attr, val in attrs:
+                if attr == "title":
+                    return str(val)
+        except Exception:
+            pass
+        return None
+
+    def get_blocks_db_properties(self, blocks: list[dict]) -> dict[str, dict[str, str]]:
+        """Get DB-mode properties for a list of blocks (from getPageBlocksTree).
+
+        Recursively processes blocks and their children.
+
+        Args:
+            blocks: List of block dicts from getPageBlocksTree
+
+        Returns:
+            Dict of {block_uuid: {property_title: value_title}}
+        """
+        result = {}
+
+        def process_blocks(block_list: list[dict]) -> None:
+            for block in block_list:
+                block_id = block.get("id")
+                block_uuid = str(block.get("uuid", ""))
+                if block_id and block_uuid:
+                    props = self.get_block_db_properties(block_id)
+                    if props:
+                        result[block_uuid] = props
+                process_blocks(block.get("children", []))
+
+        process_blocks(blocks)
+        return result
+
+    def set_block_db_property(self, block_uuid: str, property_ident: str, value: str) -> None:
+        """Set a DB-mode property on a block.
+
+        Args:
+            block_uuid: UUID of the block
+            property_ident: The :user.property/* ident of the property
+            value: The value to set
+        """
+        url = self.get_base_url()
+        logger.info(f"Setting property {property_ident} on block {block_uuid}")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.upsertBlockProperty",
+                    "args": [block_uuid, property_ident, value],
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to set property on block {block_uuid}: {e}")
+            raise
+
+    def resolve_property_ident(self, property_name: str) -> str | None:
+        """Look up the :user.property/* ident for a property by its display name.
+
+        Uses a two-step approach since DB-mode datascript queries cannot filter
+        on string attributes directly.
+
+        Args:
+            property_name: The human-readable property name (e.g. "Content status")
+
+        Returns:
+            The ident string (e.g. ":user.property/Contentstatus-oa99RD2-") or None
+        """
+        # Get all user property entities
+        query = '[:find ?id ?ident :where [?id :db/ident ?ident]]'
+        try:
+            result = self.datascript_query(query)
+            # Filter for :user.property/* idents
+            for entity_id, ident in result:
+                if isinstance(ident, str) and ident.startswith(":user.property/"):
+                    title = self._resolve_entity_title(entity_id)
+                    if title and title.lower() == property_name.lower():
+                        return ident
+        except Exception:
+            pass
+        return None
+
     def delete_block(self, block_uuid: str) -> Any:
         """Delete a LogSeq block by UUID."""
         url = self.get_base_url()

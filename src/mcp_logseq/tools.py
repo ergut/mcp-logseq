@@ -229,7 +229,8 @@ class GetPageContentToolHandler(ToolHandler):
 
     @staticmethod
     def _format_block_tree(
-        block: dict, indent_level: int = 0, max_depth: int = -1
+        block: dict, indent_level: int = 0, max_depth: int = -1,
+        db_properties: dict[str, dict[str, str]] | None = None,
     ) -> list[str]:
         """
         Recursively format a block and its children with proper indentation.
@@ -250,8 +251,6 @@ class GetPageContentToolHandler(ToolHandler):
             return lines
 
         # Build the formatted line with indentation.
-        # Note: Properties are already included in the content by Logseq,
-        # so we don't need to add them separately from block.properties.
         # Skip adding "- " if the content already starts with it to avoid
         # double-wrapping blocks whose text begins with a list marker.
         indent = "  " * indent_level
@@ -261,12 +260,29 @@ class GetPageContentToolHandler(ToolHandler):
             line = f"{indent}- {content}"
         lines.append(line)
 
+        # Render properties from two sources:
+        # 1. Markdown-mode: block.properties dict (inline key:: value)
+        # 2. DB-mode: db_properties lookup by block UUID
+        properties = block.get("properties", {})
+        if properties:
+            for key, value in properties.items():
+                if isinstance(key, str) and key.startswith(":logseq"):
+                    continue
+                if f"{key}::" not in content:
+                    lines.append(f"{indent}  {key}:: {value}")
+
+        # DB-mode class properties (from datascript query)
+        block_uuid = str(block.get("uuid", ""))
+        if db_properties and block_uuid in db_properties:
+            for key, value in db_properties[block_uuid].items():
+                lines.append(f"{indent}  {key}:: {value}")
+
         # Process children if we haven't hit the depth limit
         children = block.get("children", [])
         if children and (max_depth == -1 or indent_level < max_depth):
             for child in children:
                 child_lines = GetPageContentToolHandler._format_block_tree(
-                    child, indent_level + 1, max_depth
+                    child, indent_level + 1, max_depth, db_properties
                 )
                 lines.extend(child_lines)
 
@@ -325,16 +341,24 @@ class GetPageContentToolHandler(ToolHandler):
             content_parts = []
 
             # Get blocks from the result structure
-            # Note: Page properties are already in the first block's content,
-            # so we don't need to show them separately in YAML frontmatter
             blocks = result.get("blocks", [])
+
+            # Fetch DB-mode class properties for all blocks on this page
+            db_properties = {}
+            try:
+                db_properties = api.get_blocks_db_properties(blocks)
+                logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
+            except Exception as e:
+                logger.warning(f"Could not fetch DB-mode properties: {e}")
 
             # Blocks content - use recursive formatter
             max_depth = args.get("max_depth", -1)
             if blocks:
                 for block in blocks:
                     if isinstance(block, dict):
-                        block_lines = self._format_block_tree(block, 0, max_depth)
+                        block_lines = self._format_block_tree(
+                            block, 0, max_depth, db_properties
+                        )
                         content_parts.extend(block_lines)
                     elif isinstance(block, str) and block.strip():
                         content_parts.append(f"- {block}")
@@ -1362,4 +1386,64 @@ class InsertNestedBlockToolHandler(ToolHandler):
             return [TextContent(
                 type="text",
                 text=f"❌ Failed to insert nested block: {str(e)}"
+            )]
+
+
+class SetBlockPropertiesToolHandler(ToolHandler):
+    def __init__(self):
+        super().__init__("set_block_properties")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Set properties on a block in Logseq DB-mode. Properties must be defined on the block's tag/class. Use property display names (e.g. 'Content status', not the internal ident).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the block to update",
+                    },
+                    "properties": {
+                        "type": "object",
+                        "description": "Properties to set as {name: value} pairs. Use display names (e.g. 'Content status': 'kiem')",
+                        "additionalProperties": True,
+                    },
+                },
+                "required": ["block_uuid", "properties"],
+            },
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        """Set DB-mode properties on a block."""
+        if "block_uuid" not in args or "properties" not in args:
+            raise RuntimeError("block_uuid and properties arguments required")
+
+        block_uuid = args["block_uuid"]
+        properties = args["properties"]
+
+        try:
+            api = _make_api()
+            results = []
+
+            for prop_name, value in properties.items():
+                # Resolve display name to ident
+                ident = api.resolve_property_ident(prop_name)
+                if not ident:
+                    results.append(f"⚠️ Property '{prop_name}' not found")
+                    continue
+
+                api.set_block_db_property(block_uuid, ident, value)
+                results.append(f"✅ {prop_name} = {value}")
+
+            return [TextContent(
+                type="text",
+                text=f"Set properties on block {block_uuid}:\n" + "\n".join(results),
+            )]
+
+        except Exception as e:
+            logger.error(f"Failed to set block properties: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to set block properties: {str(e)}",
             )]
