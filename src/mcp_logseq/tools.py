@@ -1442,7 +1442,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
                     results.append(f"⚠️ Property '{prop_name}' not found")
                     continue
 
-                api.set_block_db_property(block_uuid, ident, value)
+                api._upsert_block_property(block_uuid, ident, value)
                 results.append(f"✅ {prop_name} = {value}")
 
             return [TextContent(

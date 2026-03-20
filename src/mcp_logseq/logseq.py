@@ -673,14 +673,15 @@ class LogSeq:
     # DB-mode Property Methods (Datascript)
     # =========================================================================
 
-    def datascript_query(self, query: str) -> Any:
+    def datascript_query(self, query: str) -> list[list]:
         """Execute a raw Datascript query against the Logseq database.
 
         Args:
-            query: Datalog query string
+            query: Datalog query string (e.g. '[:find ?a ?v :where [101 ?a ?v]]')
 
         Returns:
-            Query results
+            List of result tuples, e.g. [["title", "My Page"], [":db/ident", ":logseq..."]]
+            Each inner list corresponds to the :find clause bindings.
         """
         url = self.get_base_url()
         logger.debug(f"Executing datascript query")
@@ -905,33 +906,6 @@ class LogSeq:
                 result[block_uuid] = resolved
 
         return result
-
-    def set_block_db_property(self, block_uuid: str, property_ident: str, value: str) -> None:
-        """Set a DB-mode property on a block.
-
-        Args:
-            block_uuid: UUID of the block
-            property_ident: The :user.property/* ident of the property
-            value: The value to set
-        """
-        url = self.get_base_url()
-        logger.info(f"Setting property {property_ident} on block {block_uuid}")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.upsertBlockProperty",
-                    "args": [block_uuid, property_ident, value],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-        except Exception as e:
-            logger.error(f"Failed to set property on block {block_uuid}: {e}")
-            raise
 
     def resolve_property_ident(self, property_name: str) -> str | None:
         """Look up the :user.property/* ident for a property by its display name.
