@@ -122,28 +122,65 @@ class TestGetBlockDbProperties:
 
 
 class TestGetBlocksDbProperties:
-    """Tests for LogSeq.get_blocks_db_properties (recursive batch)."""
+    """Tests for LogSeq.get_blocks_db_properties (batched)."""
 
     def test_processes_nested_blocks(self, logseq_client, db_blocks):
-        """All blocks in tree (including children) are processed."""
-        processed_ids = []
+        """All blocks in tree (including children) are processed with batched queries."""
+        queried_block_ids = []
 
-        def mock_get_props(block_id):
-            processed_ids.append(block_id)
-            if block_id == 101:
-                return {"Status": "Active"}
-            return {}
+        def mock_query(query):
+            # Track which block IDs are queried for attributes
+            for bid in [101, 102, 103]:
+                if f'[{bid} ?a ?v]' in query:
+                    queried_block_ids.append(bid)
+                    if bid == 101:
+                        return [[":user.property/status-abc", 201]]
+                    return []
+            # Batch ident resolution
+            if ':db/ident' in query and 'or' in query.lower():
+                return [[301, ":user.property/status-abc"]]
+            if ':db/ident' in query:
+                return [[301, ":user.property/status-abc"]]
+            # Batch title resolution (entities 301=property name, 201=value)
+            if 'or' in query.lower():
+                return [[301, "title", "Status"], [201, "title", "Active"]]
+            return []
 
-        with patch.object(logseq_client, "get_block_db_properties", side_effect=mock_get_props):
+        with patch.object(logseq_client, "datascript_query", side_effect=mock_query):
             result = logseq_client.get_blocks_db_properties(db_blocks)
 
-        assert sorted(processed_ids) == [101, 102, 103]
+        assert sorted(queried_block_ids) == [101, 102, 103]
         assert result == {"uuid-block-1": {"Status": "Active"}}
 
     def test_empty_blocks(self, logseq_client):
         """Empty block list returns empty dict."""
         result = logseq_client.get_blocks_db_properties([])
         assert result == {}
+
+    def test_batched_reduces_query_count(self, logseq_client, db_blocks):
+        """Batched approach uses significantly fewer queries than N+1."""
+        query_count = 0
+
+        def mock_query(query):
+            nonlocal query_count
+            query_count += 1
+            for bid in [101, 102, 103]:
+                if f'[{bid} ?a ?v]' in query:
+                    if bid == 101:
+                        return [[":user.property/p1", 201], [":user.property/p2", 202]]
+                    return []
+            if ':db/ident' in query:
+                return [[301, ":user.property/p1"], [302, ":user.property/p2"]]
+            # Batch title resolution
+            return [[301, "title", "Prop1"], [302, "title", "Prop2"],
+                    [201, "title", "Val1"], [202, "title", "Val2"]]
+
+        with patch.object(logseq_client, "datascript_query", side_effect=mock_query):
+            logseq_client.get_blocks_db_properties(db_blocks)
+
+        # 3 blocks + 1 ident batch + 1 title batch = 5 queries
+        # Without batching this would be 3 + (2*2 ident) + (2*2 + 2 prop) = 13+
+        assert query_count == 5
 
 
 class TestResolvePropertyIdent:

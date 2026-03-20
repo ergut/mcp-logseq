@@ -768,10 +768,72 @@ class LogSeq:
             pass
         return None
 
+    def _resolve_idents_batch(self, idents: set[str]) -> dict[str, int]:
+        """Resolve multiple :db/ident values to their entity IDs in one query.
+
+        Args:
+            idents: Set of ident strings (e.g. {":user.property/status-abc"})
+
+        Returns:
+            Dict of {ident: entity_id}
+        """
+        if not idents:
+            return {}
+        or_clauses = " ".join(f'[?id :db/ident {ident}]' for ident in idents)
+        query = f'[:find ?id ?ident :where (or {or_clauses}) [?id :db/ident ?ident]]'
+        try:
+            result = self.datascript_query(query)
+            return {ident: eid for eid, ident in result if isinstance(ident, str)}
+        except Exception:
+            logger.warning("Batch ident resolution failed, falling back to individual queries")
+            # Fallback: resolve one by one
+            mapping = {}
+            for ident in idents:
+                try:
+                    r = self.datascript_query(f'[:find ?id :where [?id :db/ident {ident}]]')
+                    if r:
+                        mapping[ident] = r[0][0]
+                except Exception:
+                    pass
+            return mapping
+
+    def _resolve_titles_batch(self, entity_ids: set[int]) -> dict[int, str]:
+        """Resolve titles for multiple entities in a single query.
+
+        Args:
+            entity_ids: Set of numeric entity IDs
+
+        Returns:
+            Dict of {entity_id: title}
+        """
+        if not entity_ids:
+            return {}
+        or_clauses = " ".join(f'[{eid} ?a ?v]' for eid in entity_ids)
+        query = f'[:find ?eid ?a ?v :where (or {or_clauses})]'
+        try:
+            results = self.datascript_query(query)
+            titles = {}
+            for eid, attr, val in results:
+                if attr == "title":
+                    titles[eid] = str(val)
+            return titles
+        except Exception:
+            logger.warning("Batch title resolution failed, falling back to individual queries")
+            # Fallback: resolve one by one
+            titles = {}
+            for eid in entity_ids:
+                title = self._resolve_entity_title(eid)
+                if title:
+                    titles[eid] = title
+            return titles
+
     def get_blocks_db_properties(self, blocks: list[dict]) -> dict[str, dict[str, str]]:
         """Get DB-mode properties for a list of blocks (from getPageBlocksTree).
 
-        Recursively processes blocks and their children.
+        Batched approach to minimize API round-trips:
+        1. Per block: query attributes (1 call per block)
+        2. Batch resolve all :user.property/* idents to entity IDs (1 call)
+        3. Batch resolve all entity titles (property names + values) (1 call)
 
         Args:
             blocks: List of block dicts from getPageBlocksTree
@@ -779,19 +841,69 @@ class LogSeq:
         Returns:
             Dict of {block_uuid: {property_title: value_title}}
         """
-        result = {}
+        # Phase 1: collect all block attributes (1 query per block)
+        block_props: dict[str, dict[str, Any]] = {}  # uuid -> {ident: val}
 
-        def process_blocks(block_list: list[dict]) -> None:
+        def collect_attrs(block_list: list[dict]) -> None:
             for block in block_list:
                 block_id = block.get("id")
                 block_uuid = str(block.get("uuid", ""))
                 if block_id and block_uuid:
-                    props = self.get_block_db_properties(block_id)
-                    if props:
-                        result[block_uuid] = props
-                process_blocks(block.get("children", []))
+                    query = f'[:find ?a ?v :where [{block_id} ?a ?v]]'
+                    try:
+                        attrs = self.datascript_query(query)
+                    except Exception:
+                        attrs = []
+                    user_props = {}
+                    for attr, val in attrs:
+                        if isinstance(attr, str) and attr.startswith(":user.property/"):
+                            user_props[attr] = val
+                    if user_props:
+                        block_props[block_uuid] = user_props
+                collect_attrs(block.get("children", []))
 
-        process_blocks(blocks)
+        collect_attrs(blocks)
+
+        if not block_props:
+            return {}
+
+        # Phase 2: batch resolve all unique idents to entity IDs (1 query)
+        all_idents = set()
+        for props in block_props.values():
+            all_idents.update(props.keys())
+
+        ident_to_eid = self._resolve_idents_batch(all_idents)
+
+        # Phase 3: collect all entity IDs needing title resolution
+        entity_ids_to_resolve = set(ident_to_eid.values())
+        for props in block_props.values():
+            for val in props.values():
+                if isinstance(val, int):
+                    entity_ids_to_resolve.add(val)
+
+        # Batch resolve all titles (1 query)
+        titles = self._resolve_titles_batch(entity_ids_to_resolve)
+
+        # Phase 4: assemble results using the resolved titles
+        result = {}
+        for block_uuid, props in block_props.items():
+            resolved = {}
+            for ident, val in props.items():
+                # Property name: ident -> entity ID -> title
+                prop_eid = ident_to_eid.get(ident)
+                prop_name = titles.get(prop_eid) if prop_eid else None
+                prop_name = prop_name or ident
+
+                # Value: entity ref -> title, or string as-is
+                if isinstance(val, int):
+                    val_title = titles.get(val) or str(val)
+                else:
+                    val_title = str(val)
+
+                resolved[prop_name] = val_title
+            if resolved:
+                result[block_uuid] = resolved
+
         return result
 
     def set_block_db_property(self, block_uuid: str, property_ident: str, value: str) -> None:
