@@ -28,6 +28,8 @@ if _verify_ssl_env is not None:
 else:
     _api_verify_ssl = _api_protocol == "https"
 
+_db_mode = os.getenv("LOGSEQ_DB_MODE", "").lower() in ("1", "true", "yes")
+
 
 def _make_api() -> logseq.LogSeq:
     return logseq.LogSeq(
@@ -260,22 +262,22 @@ class GetPageContentToolHandler(ToolHandler):
             line = f"{indent}- {content}"
         lines.append(line)
 
-        # Render properties from two sources:
-        # 1. Markdown-mode: block.properties dict (inline key:: value)
-        # 2. DB-mode: db_properties lookup by block UUID
-        properties = block.get("properties", {})
-        if properties:
-            for key, value in properties.items():
-                if isinstance(key, str) and key.startswith(":logseq"):
-                    continue
-                if f"{key}::" not in content:
-                    lines.append(f"{indent}  {key}:: {value}")
+        # In DB-mode, properties are NOT embedded in content — render from dict
+        # In Markdown-mode, properties are already in block content — skip to avoid duplicates
+        if _db_mode:
+            properties = block.get("properties", {})
+            if properties:
+                for key, value in properties.items():
+                    if isinstance(key, str) and key.startswith(":logseq"):
+                        continue
+                    if f"{key}::" not in content:
+                        lines.append(f"{indent}  {key}:: {value}")
 
-        # DB-mode class properties (from datascript query)
-        block_uuid = str(block.get("uuid", ""))
-        if db_properties and block_uuid in db_properties:
-            for key, value in db_properties[block_uuid].items():
-                lines.append(f"{indent}  {key}:: {value}")
+            # DB-mode class properties (from datascript query)
+            block_uuid = str(block.get("uuid", ""))
+            if db_properties and block_uuid in db_properties:
+                for key, value in db_properties[block_uuid].items():
+                    lines.append(f"{indent}  {key}:: {value}")
 
         # Process children if we haven't hit the depth limit
         children = block.get("children", [])
@@ -343,13 +345,14 @@ class GetPageContentToolHandler(ToolHandler):
             # Get blocks from the result structure
             blocks = result.get("blocks", [])
 
-            # Fetch DB-mode class properties for all blocks on this page
+            # Fetch DB-mode class properties (only when LOGSEQ_DB_MODE is enabled)
             db_properties = {}
-            try:
-                db_properties = api.get_blocks_db_properties(blocks)
-                logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
-            except Exception as e:
-                logger.warning(f"Could not fetch DB-mode properties: {e}")
+            if _db_mode:
+                try:
+                    db_properties = api.get_blocks_db_properties(blocks)
+                    logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
+                except Exception as e:
+                    logger.warning(f"Could not fetch DB-mode properties: {e}")
 
             # Blocks content - use recursive formatter
             max_depth = args.get("max_depth", -1)
@@ -1416,6 +1419,12 @@ class SetBlockPropertiesToolHandler(ToolHandler):
 
     def run_tool(self, args: dict) -> list[TextContent]:
         """Set DB-mode properties on a block."""
+        if not _db_mode:
+            return [TextContent(
+                type="text",
+                text="❌ set_block_properties requires LOGSEQ_DB_MODE=true (only works with Logseq DB-mode graphs)",
+            )]
+
         if "block_uuid" not in args or "properties" not in args:
             raise RuntimeError("block_uuid and properties arguments required")
 
