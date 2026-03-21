@@ -57,6 +57,8 @@ class SyncEngine:
 
         if rebuild:
             self._rebuild_db()
+            # Reopen DB after directory was deleted — old connection has stale schema
+            self._db = VectorDB.open(self._config.db_path, self._embedder.dimensions)
 
         state, meta = self._state_mgr.load()
 

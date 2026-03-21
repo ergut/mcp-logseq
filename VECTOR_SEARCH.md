@@ -151,13 +151,13 @@ Before using `vector_search`, you need to build the initial index. This can take
 
 ```bash
 export LOGSEQ_CONFIG_FILE=~/.logseq-vector/config.json
-uv run logseq-sync --once
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --once
 ```
 
 You'll see progress as batches of pages are embedded. Check status when done:
 
 ```bash
-uv run logseq-sync --status
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --status
 ```
 
 ---
@@ -228,10 +228,10 @@ For syncing outside of the MCP server — useful for initial indexing, automatio
 ```bash
 export LOGSEQ_CONFIG_FILE=~/.logseq-vector/config.json
 
-logseq-sync --once      # incremental sync and exit
-logseq-sync --watch     # sync on file changes (uses watchdog, runs until Ctrl+C)
-logseq-sync --rebuild   # drop DB and re-index everything from scratch
-logseq-sync --status    # staleness report, no sync
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --once     # incremental sync and exit
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --watch    # sync on file changes (runs until Ctrl+C)
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --rebuild  # drop DB and re-index from scratch
+uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --status   # staleness report, no sync
 ```
 
 For continuous sync without the MCP auto-trigger, `--watch` is the recommended approach. It debounces file system events and re-embeds only changed files.
