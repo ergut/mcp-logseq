@@ -34,8 +34,14 @@ curl http://localhost:11434/api/embed -d '{"model":"qwen3-embedding:8b","input":
 
 ### 2. Vector extras
 
-Install the optional vector dependencies:
+Install the optional vector dependencies. The `[vector]` extra pulls in LanceDB, PyArrow, and watchdog.
 
+**From PyPI (once released):**
+```bash
+uv pip install "mcp-logseq[vector]"
+```
+
+**From source (development):**
 ```bash
 cd /path/to/mcp-logseq-server
 uv pip install -e ".[vector]"
@@ -143,13 +149,28 @@ uv run logseq-sync --status
 
 ---
 
-## MCP Tools
+## Talking to Claude
 
-Once the server is restarted with `LOGSEQ_CONFIG_FILE` set, three new tools appear.
+These tools are called by Claude on your behalf — you don't invoke them directly. Just talk naturally:
+
+```
+"Find my notes about shadow work or Jung"
+"Search for meeting notes with action items from last week"
+"What did I write about machine learning?"
+"Is my search index up to date?"
+"Sync the vector DB"
+"Rebuild the search index from scratch"
+```
+
+---
+
+## MCP Tools Reference
+
+Once the server is restarted with `LOGSEQ_CONFIG_FILE` set, three new tools are available to Claude.
 
 ### `vector_search`
 
-Semantic search across your notes.
+Semantic search across your notes. Claude calls this when you ask it to find notes by topic, concept, or meaning.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -159,30 +180,23 @@ Semantic search across your notes.
 | `filter_tags` | array | — | Only return pages with ALL these tags |
 | `filter_page` | string | — | Restrict to a single page |
 
-**Examples:**
-```
-"Find notes about shadow work or Jung"
-"What did I write about machine learning projects?"
-"Search for meeting notes with action items" with filter_tags: ["work"]
-```
-
-**Auto-sync:** When your graph has changed files since the last sync, `vector_search` automatically starts a background sync and returns current results immediately. The next search will benefit from the updated index.
+**Auto-sync:** If your graph has changed files since the last sync, `vector_search` automatically starts a background sync and returns current results immediately. The next search will benefit from the updated index.
 
 ### `sync_vector_db`
 
-Manually trigger an incremental sync. Only changed files are re-embedded.
+Triggers an incremental sync — only changed files are re-embedded. Claude calls this when you ask it to update or sync the search index.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `rebuild` | boolean | `false` | Drop and re-index everything from scratch |
 
-Use `rebuild: true` if you change your embedding model.
+Ask Claude `"rebuild the search index"` if you change your embedding model.
 
 ### `vector_db_status`
 
-Show the current state of the vector DB without syncing.
+Shows the current state of the vector DB. Claude calls this when you ask whether the index is up to date.
 
-```
+```text
 Vector DB Status
   Embedder:     ollama/qwen3-embedding:8b
   Dimensions:   4096
