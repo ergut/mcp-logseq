@@ -202,7 +202,8 @@ class VectorDB:
 
     def create_fts_index(self) -> None:
         try:
-            self._table.create_fts_index(["text", "page"], replace=True)
+            self._table.create_fts_index("text", replace=True)
+            self._table.create_fts_index("page", replace=True)
             logger.info("FTS index created on text and page fields")
         except Exception as e:
             logger.warning(f"Could not create FTS index: {e}")
