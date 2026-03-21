@@ -17,7 +17,7 @@ from mcp_logseq.tools import ToolHandler
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
-from mcp_logseq.vector.sync import SyncEngine, check_staleness
+from mcp_logseq.vector.sync import SyncEngine, check_staleness, _migrate_to_relative_keys
 from mcp_logseq.vector.types import SearchParams, SyncResult
 
 logger = logging.getLogger("mcp-logseq.vector.index")
@@ -171,6 +171,10 @@ class VectorSearchToolHandler(ToolHandler):
         try:
             state_mgr = StateManager(self._config.db_path)
             state, meta = state_mgr.load()
+            # Migrate legacy absolute-path keys (e.g. state written by container with different mount)
+            state, migrated = _migrate_to_relative_keys(state, self._config.graph_path)
+            if migrated:
+                state_mgr.save(state, meta)
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading vector DB state: {e}")]
 
@@ -314,6 +318,10 @@ class VectorDBStatusToolHandler(ToolHandler):
         try:
             state_mgr = StateManager(self._config.db_path)
             state, meta = state_mgr.load()
+            # Migrate legacy absolute-path keys (e.g. state written by container with different mount)
+            state, migrated = _migrate_to_relative_keys(state, self._config.graph_path)
+            if migrated:
+                state_mgr.save(state, meta)
         except Exception as e:
             return [TextContent(type="text", text=f"Error reading DB state: {e}")]
 

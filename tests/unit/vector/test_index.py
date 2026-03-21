@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import threading
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -194,3 +194,114 @@ class TestVectorSearchAutoSync:
             results = handler.run_tool({"query": "test"})
             mock_trigger.assert_not_called()
             assert "Note:" not in results[0].text
+
+
+class TestStateMigrationInToolHandlers:
+    """Test that tool handlers migrate absolute-path state keys on load."""
+
+    def _make_meta(self):
+        from mcp_logseq.vector.types import SyncMeta
+        return SyncMeta(embedder_key="ollama/nomic-embed-text", dimensions=4, last_full_sync=None)
+
+    def _make_absolute_state(self, graph_path="/tmp/test-graph"):
+        from mcp_logseq.vector.types import FileState
+        return {
+            f"{graph_path}/pages/foo.md": FileState(
+                content_hash="abc",
+                last_synced="2024-01-01T00:00:00+00:00",
+                chunk_ids=["foo::0"],
+            ),
+            f"{graph_path}/journals/2024_01_01.md": FileState(
+                content_hash="def",
+                last_synced="2024-01-01T00:00:00+00:00",
+                chunk_ids=["journal::0"],
+            ),
+        }
+
+    def test_search_migrates_absolute_state_keys(self):
+        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
+
+        config = _make_config()
+        handler = VectorSearchToolHandler(config)
+        abs_state = self._make_absolute_state(config.graph_path)
+        meta = self._make_meta()
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+            patch.object(_syncer, "trigger", return_value=False),
+        ):
+            mock_sm_inst = mock_sm.return_value
+            mock_sm_inst.load.return_value = (abs_state, meta)
+            mock_stale.return_value = MagicMock(stale=False)
+            mock_emb.return_value.embed.return_value = [[0.1] * 4]
+            mock_db.open.return_value.search.return_value = []
+
+            handler.run_tool({"query": "test"})
+
+            # State should have been saved back with migrated keys
+            mock_sm_inst.save.assert_called_once()
+            saved_state = mock_sm_inst.save.call_args[0][0]
+            assert "pages/foo.md" in saved_state
+            assert "journals/2024_01_01.md" in saved_state
+            assert f"{config.graph_path}/pages/foo.md" not in saved_state
+
+    def test_status_migrates_absolute_state_keys(self):
+        from mcp_logseq.vector.index import VectorDBStatusToolHandler
+
+        config = _make_config()
+        handler = VectorDBStatusToolHandler(config)
+        abs_state = self._make_absolute_state(config.graph_path)
+        meta = self._make_meta()
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm_inst = mock_sm.return_value
+            mock_sm_inst.load.return_value = (abs_state, meta)
+            mock_stale.return_value = MagicMock(stale=False)
+            mock_db.open.return_value.get_stats.return_value = {"total_chunks": 100, "total_pages": 10}
+
+            handler.run_tool({})
+
+            # State should have been saved back with migrated keys
+            mock_sm_inst.save.assert_called_once()
+            saved_state = mock_sm_inst.save.call_args[0][0]
+            assert "pages/foo.md" in saved_state
+
+    def test_search_skips_save_when_already_relative(self):
+        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
+        from mcp_logseq.vector.types import FileState
+
+        config = _make_config()
+        handler = VectorSearchToolHandler(config)
+        relative_state = {
+            "pages/foo.md": FileState(
+                content_hash="abc",
+                last_synced="2024-01-01T00:00:00+00:00",
+                chunk_ids=["foo::0"],
+            )
+        }
+        meta = self._make_meta()
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+            patch.object(_syncer, "trigger", return_value=False),
+        ):
+            mock_sm_inst = mock_sm.return_value
+            mock_sm_inst.load.return_value = (relative_state, meta)
+            mock_stale.return_value = MagicMock(stale=False)
+            mock_emb.return_value.embed.return_value = [[0.1] * 4]
+            mock_db.open.return_value.search.return_value = []
+
+            handler.run_tool({"query": "test"})
+
+            # No migration needed — save should NOT be called
+            mock_sm_inst.save.assert_not_called()

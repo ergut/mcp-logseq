@@ -88,8 +88,17 @@ class VectorDB:
         os.makedirs(db_path, exist_ok=True)
         db = lancedb.connect(db_path)
         table_names = db.table_names()
+        logger.info(f"LanceDB at {db_path}: tables found = {table_names}")
 
         if _TABLE_NAME not in table_names:
+            # Check if data directory exists but LanceDB can't read it (version mismatch)
+            data_dir = Path(db_path) / f"{_TABLE_NAME}.lance"
+            if data_dir.exists():
+                logger.warning(
+                    f"Data directory '{data_dir}' exists but LanceDB cannot read table "
+                    f"'{_TABLE_NAME}'. This typically means the DB was written by a different "
+                    f"LanceDB version. Run sync_vector_db with rebuild=true to re-index."
+                )
             schema = _get_schema(dimensions)
             table = db.create_table(_TABLE_NAME, schema=schema)
             logger.info(f"Created new LanceDB table '{_TABLE_NAME}' with {dimensions} dims")
