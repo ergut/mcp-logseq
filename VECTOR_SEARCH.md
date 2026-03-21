@@ -51,14 +51,20 @@ uv pip install -e ".[vector]"
 
 ## Configuration
 
-Create a JSON config file (e.g. `~/.logseq-vector-config.json`):
+Create a directory for all vector search files and a config file inside it:
+
+```bash
+mkdir -p ~/.logseq-vector
+```
+
+`~/.logseq-vector/config.json`:
 
 ```json
 {
   "logseq_graph_path": "~/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents",
   "vector": {
     "enabled": true,
-    "db_path": "~/.logseq-vector-db",
+    "db_path": "~/.logseq-vector/db",
     "embedder": {
       "provider": "ollama",
       "model": "qwen3-embedding:8b",
@@ -71,22 +77,25 @@ Create a JSON config file (e.g. `~/.logseq-vector-config.json`):
 }
 ```
 
+This keeps everything in one place:
+
+```text
+~/.logseq-vector/
+  config.json   ← you edit this
+  db/           ← generated, do not edit
+```
+
 | Field | Required | Description |
 | --- | --- | --- |
 | `logseq_graph_path` | ✅ | Path to your Logseq graph directory (contains `pages/` and `journals/`) |
 | `vector.enabled` | ✅ | Must be `true` to activate vector tools |
-| `vector.db_path` | ✅ | Where to store the vector DB (recommend a local non-iCloud path) |
+| `vector.db_path` | ✅ | Where to store the vector DB — keep it local, not in iCloud |
 | `vector.embedder.model` | ✅ | Ollama model name — must match what you pulled |
 | `vector.include_journals` | no | Index journal pages (default: `true`) |
 | `vector.exclude_tags` | no | Skip pages with these tags (default: `[]`) |
 | `vector.min_chunk_length` | no | Minimum characters per chunk (default: `50`) |
 
-### DB path placement
-
-Store the vector DB locally, **not** inside your iCloud-synced graph folder. The DB is a generated binary artifact — syncing it to iCloud wastes bandwidth and can cause corruption.
-
-Good: `~/.logseq-vector-db`
-Avoid: `~/Library/Mobile Documents/.../vector-db`
+**Important:** keep `db_path` outside your iCloud-synced Logseq folder. The DB is a generated binary artifact — syncing it to iCloud wastes bandwidth and can cause corruption.
 
 ---
 
@@ -104,7 +113,7 @@ claude mcp add-json mcp-logseq '{
   "env": {
     "LOGSEQ_API_TOKEN": "your_token",
     "LOGSEQ_API_URL": "http://localhost:12315",
-    "LOGSEQ_CONFIG_FILE": "/Users/you/.logseq-vector-config.json"
+    "LOGSEQ_CONFIG_FILE": "/Users/you/.logseq-vector/config.json"
   }
 }' -s local
 ```
@@ -121,7 +130,7 @@ claude mcp add-json mcp-logseq '{
       "env": {
         "LOGSEQ_API_TOKEN": "your_token",
         "LOGSEQ_API_URL": "http://localhost:12315",
-        "LOGSEQ_CONFIG_FILE": "/Users/you/.logseq-vector-config.json"
+        "LOGSEQ_CONFIG_FILE": "/Users/you/.logseq-vector/config.json"
       }
     }
   }
@@ -137,7 +146,7 @@ If `LOGSEQ_CONFIG_FILE` is not set or `vector.enabled` is `false`, the vector to
 Before using `vector_search`, you need to build the initial index. This can take several minutes depending on the size of your graph and your embedding model.
 
 ```bash
-export LOGSEQ_CONFIG_FILE=~/.logseq-vector-config.json
+export LOGSEQ_CONFIG_FILE=~/.logseq-vector/config.json
 uv run logseq-sync --once
 ```
 
@@ -213,7 +222,7 @@ Vector DB Status
 For syncing outside of the MCP server — useful for initial indexing, automation, or continuous watch mode.
 
 ```bash
-export LOGSEQ_CONFIG_FILE=~/.logseq-vector-config.json
+export LOGSEQ_CONFIG_FILE=~/.logseq-vector/config.json
 
 logseq-sync --once      # incremental sync and exit
 logseq-sync --watch     # sync on file changes (uses watchdog, runs until Ctrl+C)
