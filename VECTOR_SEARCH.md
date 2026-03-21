@@ -2,6 +2,10 @@
 
 Semantic search over your Logseq graph using local AI embeddings. Find notes by meaning rather than exact keywords — works across languages and concepts.
 
+## Architecture
+
+![Architecture diagram](assets/images/architecture.png)
+
 ## How It Works
 
 1. Your `.md` files are read directly from disk (not via the Logseq API)
