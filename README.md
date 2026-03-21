@@ -87,9 +87,19 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ---
 
+## 🔬 Vector Search (Optional)
+
+Semantic search over your Logseq graph using local AI embeddings — find notes by meaning, not just keywords. Searches across all your pages using vector similarity and full-text search combined, with cross-language support.
+
+Powered by [Ollama](https://ollama.com) (local embeddings) and [LanceDB](https://lancedb.com) (embedded vector DB). No data leaves your machine.
+
+→ **[Full setup guide: VECTOR_SEARCH.md](VECTOR_SEARCH.md)**
+
+---
+
 ## 🛠️ Available Tools
 
-The server provides 16 tools with intelligent markdown parsing:
+The server provides 16 tools with intelligent markdown parsing, plus 3 optional vector search tools:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
@@ -109,6 +119,11 @@ The server provides 16 tools with intelligent markdown parsing:
 | **`get_page_backlinks`** | Find pages linking to a page | "What links to this page?" |
 | **`insert_nested_block`** | Insert child/sibling blocks | "Add a child block under this task" |
 | **`set_block_properties`** | Set DB-mode class properties on a block | "Set the status of this block to active" *(DB-mode only)* |
+| **`vector_search`** ⚗️ | Semantic search by meaning | "Find notes about shadow work or Jung" |
+| **`sync_vector_db`** ⚗️ | Sync vector DB with graph files | "Update the search index" |
+| **`vector_db_status`** ⚗️ | Show vector DB health and staleness | "Is my search index up to date?" |
+
+⚗️ *Requires vector search setup — see [VECTOR_SEARCH.md](VECTOR_SEARCH.md)*
 
 ### 🎨 Smart Markdown Parsing (v1.1.0+)
 
