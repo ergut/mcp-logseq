@@ -70,13 +70,27 @@ class BackgroundSyncer:
 _syncer = BackgroundSyncer()
 
 
+_WEAK_MATCH_THRESHOLD = 0.80  # scores above this are likely tangential; AI should use judgment
+
+
+def _relevance_label(score: float) -> str:
+    if score < 0.65:
+        return "high relevance"
+    if score < _WEAK_MATCH_THRESHOLD:
+        return "medium relevance"
+    return "weak match"
+
+
 def _format_search_results(results) -> str:
     if not results:
         return "No results found."
     lines = []
+    has_weak = False
     for i, r in enumerate(results, 1):
-        score_str = f"{r.score:.3f}"
-        lines.append(f"{i}. **{r.page}** (score: {score_str})")
+        label = _relevance_label(r.score)
+        if label == "weak match":
+            has_weak = True
+        lines.append(f"{i}. **{r.page}** (score: {r.score:.3f} — {label})")
         lines.append(f"   {r.text[:300]}{'...' if len(r.text) > 300 else ''}")
         meta_parts = []
         if r.tags:
@@ -86,6 +100,11 @@ def _format_search_results(results) -> str:
         if meta_parts:
             lines.append(f"   {' | '.join(meta_parts)}")
         lines.append("   ---")
+    lines.append(
+        "\nNote: score is a distance metric — lower is more relevant. "
+        + ("Weak match results may not address the query; use judgment when presenting them." if has_weak
+           else "All results are within the expected relevance range.")
+    )
     return "\n".join(lines)
 
 
@@ -98,8 +117,12 @@ class VectorSearchToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description=(
-                "Semantic search over Logseq notes using vector similarity and full-text search. "
-                "Returns the most relevant note chunks for a natural language query."
+                "Semantic search over Logseq notes using hybrid search (vector similarity + "
+                "full-text, combined by default). Use this for natural language queries about "
+                "topics, concepts, or meaning — not for exact title lookups. "
+                "Results include a relevance label and score (lower score = more relevant). "
+                "Weak match results (score > 0.80) may be tangential; use judgment when "
+                "presenting them to the user."
             ),
             inputSchema={
                 "type": "object",
