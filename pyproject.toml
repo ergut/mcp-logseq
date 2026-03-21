@@ -48,5 +48,13 @@ dev = [
     "pytest-asyncio>=0.21.0",
 ]
 
+[project.optional-dependencies]
+vector = [
+    "lancedb>=0.6",
+    "watchdog>=4.0",
+    "pyarrow>=14.0",
+]
+
 [project.scripts]
 mcp-logseq = "mcp_logseq:main"
+logseq-sync = "mcp_logseq.bin.logseq_sync:main"
