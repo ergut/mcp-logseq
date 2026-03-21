@@ -32,6 +32,30 @@ def _hash_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _migrate_to_relative_keys(state: SyncState, graph_path: str) -> tuple[SyncState, bool]:
+    """
+    Rewrite absolute path keys to relative if the state file predates the relative-key fix.
+    Returns the (possibly migrated) state and a boolean indicating whether migration occurred.
+    """
+    root = Path(graph_path)
+    migrated: SyncState = {}
+    changed = False
+    for key, value in state.items():
+        p = Path(key)
+        if p.is_absolute():
+            try:
+                migrated[str(p.relative_to(root))] = value
+                changed = True
+            except ValueError:
+                migrated[key] = value  # outside graph root — keep as-is
+        else:
+            migrated[key] = value
+    if changed:
+        n = sum(1 for k in state if Path(k).is_absolute())
+        logger.info(f"Migrated {n} state keys from absolute to relative paths")
+    return migrated, changed
+
+
 def _walk_md_files(graph_dir: str) -> list[Path]:
     root = Path(graph_dir)
     if not root.exists():
@@ -62,12 +86,27 @@ class SyncEngine:
 
         state, meta = self._state_mgr.load()
 
+        # Migrate legacy absolute-path keys to relative (one-time, saves back immediately)
+        state, migrated = _migrate_to_relative_keys(state, self._config.graph_path)
+        if migrated:
+            self._state_mgr.save(state, meta)
+
         # Embedder mismatch check
         if meta.embedder_key and meta.embedder_key != self._embedder.key:
             raise RuntimeError(
                 f"Embedder changed from '{meta.embedder_key}' to '{self._embedder.key}'. "
                 f"Run sync_vector_db with rebuild=true to re-index from scratch."
             )
+
+        # Guard: if graph path is inaccessible (e.g. container without vault mounted),
+        # abort rather than interpreting all state entries as deleted and wiping the DB.
+        if not Path(self._config.graph_path).exists():
+            logger.warning(
+                f"Graph path not accessible: {self._config.graph_path} — "
+                f"skipping sync to protect existing DB"
+            )
+            duration_ms = int((time.monotonic() - start) * 1000)
+            return SyncResult(added=0, updated=0, deleted=0, skipped=0, duration_ms=duration_ms)
 
         md_files = _walk_md_files(self._config.graph_path)
         if not md_files:
@@ -180,7 +219,14 @@ def check_staleness(graph_dir: str, state: SyncState) -> StalenessReport:
     """
     Fast staleness check — hashes files only, no DB or network calls.
     Returns a StalenessReport indicating how many files have changed since last sync.
+
+    If the graph directory does not exist (e.g. running in a container where the graph
+    volume is not mounted), returns stale=False to avoid triggering a sync that would
+    incorrectly interpret all state entries as deleted and wipe the DB.
     """
+    if not Path(graph_dir).exists():
+        return StalenessReport(stale=False, changed_count=0, deleted_count=0, last_sync=None)
+
     md_files = _walk_md_files(graph_dir)
     graph_root = Path(graph_dir)
     current_paths = {str(f.relative_to(graph_root)): f for f in md_files}
