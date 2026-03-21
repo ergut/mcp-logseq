@@ -8,6 +8,7 @@ Follows the same ToolHandler pattern as tools.py.
 from __future__ import annotations
 
 import logging
+import threading
 
 from mcp.types import TextContent, Tool
 
@@ -17,24 +18,56 @@ from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
 from mcp_logseq.vector.sync import SyncEngine, check_staleness
-from mcp_logseq.vector.types import SearchParams
+from mcp_logseq.vector.types import SearchParams, SyncResult
 
 logger = logging.getLogger("mcp-logseq.vector.index")
 
 
-def _format_staleness_warning(report) -> str | None:
-    if not report.stale:
-        return None
-    parts = []
-    if report.changed_count:
-        parts.append(f"{report.changed_count} pages changed")
-    if report.deleted_count:
-        parts.append(f"{report.deleted_count} pages deleted")
-    detail = ", ".join(parts)
-    return (
-        f"Warning: Vector DB may be out of date ({detail} since last sync). "
-        f"Call sync_vector_db to update.\n\n"
-    )
+class BackgroundSyncer:
+    """Runs at most one sync at a time in a daemon thread."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._last_result: SyncResult | None = None
+        self._last_error: str | None = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._lock.locked()
+
+    def trigger(self, config: VectorConfig) -> bool:
+        """Start background sync. Returns True if started, False if already running."""
+        acquired = self._lock.acquire(blocking=False)
+        if not acquired:
+            return False
+        thread = threading.Thread(target=self._run, args=(config,), daemon=True)
+        thread.start()
+        return True
+
+    def _run(self, config: VectorConfig) -> None:
+        db = None
+        try:
+            embedder = create_embedder(config.embedder)
+            db = VectorDB.open(config.db_path, embedder.dimensions)
+            state_mgr = StateManager(config.db_path)
+            engine = SyncEngine(config, db, state_mgr, embedder)
+            self._last_result = engine.sync()
+            self._last_error = None
+            logger.info(
+                f"Background sync complete: +{self._last_result.added} "
+                f"~{self._last_result.updated} -{self._last_result.deleted}"
+            )
+        except Exception as e:
+            self._last_error = str(e)
+            logger.error(f"Background sync failed: {e}", exc_info=True)
+        finally:
+            if db is not None:
+                db.close()
+            self._lock.release()
+
+
+# Module-level singleton — shared across all tool handler instances in this process
+_syncer = BackgroundSyncer()
 
 
 def _format_search_results(results) -> str:
@@ -124,13 +157,26 @@ class VectorSearchToolHandler(ToolHandler):
                 text="Vector DB not initialized. Run sync_vector_db first.",
             )]
 
-        # Staleness check
+        # Staleness check — trigger background sync if stale
         output_prefix = ""
         try:
             report = check_staleness(self._config.graph_path, state)
-            warning = _format_staleness_warning(report)
-            if warning:
-                output_prefix = warning
+            if report.stale:
+                parts = []
+                if report.changed_count:
+                    parts.append(f"{report.changed_count} pages changed")
+                if report.deleted_count:
+                    parts.append(f"{report.deleted_count} pages deleted")
+                detail = ", ".join(parts)
+                if _syncer.trigger(self._config):
+                    output_prefix = (
+                        f"Note: {detail} since last sync — background sync started. "
+                        f"Results below reflect the current DB state.\n\n"
+                    )
+                else:
+                    output_prefix = (
+                        f"Note: {detail} since last sync — sync already in progress.\n\n"
+                    )
         except Exception as e:
             logger.warning(f"Staleness check failed: {e}")
 
