@@ -47,7 +47,7 @@ def test_staleness_no_changes(tmp_path):
     file_hash = hashlib.sha256(md.read_bytes()).hexdigest()
 
     state: SyncState = {
-        str(md): FileState(
+        "page.md": FileState(  # relative key
             content_hash=file_hash,
             last_synced="2024-01-01T00:00:00+00:00",
             chunk_ids=["page::0"],
@@ -117,7 +117,7 @@ def test_sync_skips_unchanged_files(tmp_path):
     state_mgr = MagicMock()
     state_mgr.load.return_value = (
         {
-            str(md): FileState(
+            "page.md": FileState(  # relative key
                 content_hash=file_hash,
                 last_synced="2024-01-01T00:00:00+00:00",
                 chunk_ids=["page::0"],

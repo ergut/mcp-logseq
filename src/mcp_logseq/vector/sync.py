@@ -73,8 +73,9 @@ class SyncEngine:
         if not md_files:
             logger.warning(f"No .md files found in {self._config.graph_path}")
 
-        # Identify what needs processing
-        current_paths = {str(f): f for f in md_files}
+        # Identify what needs processing — keys are relative paths for cross-mount portability
+        graph_root = Path(self._config.graph_path)
+        current_paths = {str(f.relative_to(graph_root)): f for f in md_files}
         added = updated = deleted = skipped = 0
 
         # Collect all chunks to embed in batches
@@ -181,7 +182,8 @@ def check_staleness(graph_dir: str, state: SyncState) -> StalenessReport:
     Returns a StalenessReport indicating how many files have changed since last sync.
     """
     md_files = _walk_md_files(graph_dir)
-    current_paths = {str(f): f for f in md_files}
+    graph_root = Path(graph_dir)
+    current_paths = {str(f.relative_to(graph_root)): f for f in md_files}
 
     changed = 0
     for path_str, file_path in current_paths.items():
