@@ -249,7 +249,7 @@ class TestParseMarkdownLists:
         assert blocks[1].content == "Another parent"
 
     def test_numbered_list(self):
-        """Test numbered list - numbers stripped."""
+        """Test numbered list - numbers stripped, order-list-type property set."""
         content = """1. First item
 2. Second item
 3. Third item
@@ -257,9 +257,11 @@ class TestParseMarkdownLists:
         blocks = parse_markdown_to_blocks(content)
 
         assert len(blocks) == 3
-        # Numbers stripped - Logseq handles numbering via block properties if needed
         assert blocks[0].content == "First item"
         assert blocks[1].content == "Second item"
+        assert blocks[2].content == "Third item"
+        for block in blocks:
+            assert block.properties == {"logseq.order-list-type": "number"}
 
     def test_checkbox_list(self):
         """Test checkbox/todo list - converts to Logseq TODO/DONE format."""
@@ -276,7 +278,7 @@ class TestParseMarkdownLists:
         assert blocks[2].content == "DONE Also checked"
 
     def test_mixed_list_types(self):
-        """Test mixing bullet and numbered lists - all markers stripped."""
+        """Test mixing bullet and numbered lists - only numbered gets property."""
         content = """- Bullet item
 1. Numbered item
 - Another bullet
@@ -285,8 +287,103 @@ class TestParseMarkdownLists:
 
         assert len(blocks) == 3
         assert blocks[0].content == "Bullet item"
+        assert blocks[0].properties == {}
         assert blocks[1].content == "Numbered item"
+        assert blocks[1].properties == {"logseq.order-list-type": "number"}
         assert blocks[2].content == "Another bullet"
+        assert blocks[2].properties == {}
+
+
+class TestNumberedListEdgeCases:
+    """Tests for ordered list property preservation across edge cases."""
+
+    NUMBERED_PROP = {"logseq.order-list-type": "number"}
+
+    def test_nested_numbered_lists(self):
+        """All levels of nested numbered items get the property."""
+        content = """1. Parent
+  1. Child
+    1. Grandchild
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == self.NUMBERED_PROP
+        child = blocks[0].children[0]
+        assert child.properties == self.NUMBERED_PROP
+        grandchild = child.children[0]
+        assert grandchild.properties == self.NUMBERED_PROP
+
+    def test_numbered_inside_bullet(self):
+        """Numbered child inside bullet parent: only child gets property."""
+        content = """- Bullet parent
+  1. Numbered child
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == {}
+        child = blocks[0].children[0]
+        assert child.properties == self.NUMBERED_PROP
+
+    def test_bullet_inside_numbered(self):
+        """Bullet child inside numbered parent: only parent gets property."""
+        content = """1. Numbered parent
+  - Bullet child
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == self.NUMBERED_PROP
+        child = blocks[0].children[0]
+        assert child.properties == {}
+
+    def test_checkbox_inside_numbered(self):
+        """Checkbox child inside numbered parent: parent gets property, child gets TODO."""
+        content = """1. Step one
+  - [ ] Sub-task
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == self.NUMBERED_PROP
+        child = blocks[0].children[0]
+        assert child.content == "TODO Sub-task"
+        assert child.properties == {}
+
+    def test_numbered_under_heading(self):
+        """Numbered items under a heading: heading has no property."""
+        content = """## Steps
+1. First
+2. Second
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == {}
+        assert len(blocks[0].children) == 2
+        for child in blocks[0].children:
+            assert child.properties == self.NUMBERED_PROP
+
+    def test_numbered_list_batch_format(self):
+        """Verify to_batch_format() embeds properties in content string."""
+        content = "1. Item one\n2. Item two"
+        blocks = parse_markdown_to_blocks(content)
+        batch = [b.to_batch_format() for b in blocks]
+
+        assert batch[0]["content"] == "Item one\nlogseq.order-list-type:: number"
+        assert batch[1]["content"] == "Item two\nlogseq.order-list-type:: number"
+        assert "properties" not in batch[0]
+        assert "properties" not in batch[1]
+
+    def test_bullet_list_no_properties_in_batch(self):
+        """Bullet items should not have properties key in batch format."""
+        content = "- Item one\n- Item two"
+        blocks = parse_markdown_to_blocks(content)
+        batch = [b.to_batch_format() for b in blocks]
+
+        assert "properties" not in batch[0]
+        assert "properties" not in batch[1]
 
 
 class TestParseMarkdownCodeBlocks:
@@ -548,18 +645,18 @@ class TestBlocksToBatchFormat:
         assert result[0]["children"][0]["content"] == "Child 1"
 
     def test_blocks_with_properties(self):
-        """Test blocks with properties."""
+        """Test blocks with properties embedded in content."""
         blocks = [
             BlockNode(
                 content="Block with props",
-                properties={"priority": "high", "tags": ["test"]},
+                properties={"priority": "high"},
             )
         ]
 
         result = blocks_to_batch_format(blocks)
 
-        assert result[0]["content"] == "Block with props"
-        assert result[0]["properties"] == {"priority": "high", "tags": ["test"]}
+        assert result[0]["content"] == "Block with props\npriority:: high"
+        assert "properties" not in result[0]
 
 
 class TestParseContent:
