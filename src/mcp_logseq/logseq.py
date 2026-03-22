@@ -384,9 +384,12 @@ class LogSeq:
                         # Insert all blocks as siblings after the first block
                         self.insert_batch_block(first_block_uuid, blocks, sibling=True)
 
-                        # Remove the empty placeholder block. Properties are already
-                        # stored at the page entity level via createPage above.
-                        self.remove_block(first_block_uuid)
+                        logger.info(f"api_props={api_props!r}, will delete first block: {not api_props}")
+                        if not api_props:
+                            # No properties — remove the empty placeholder block
+                            self.remove_block(first_block_uuid)
+                        # When properties exist, keep the first block: createPage
+                        # stores them there as a preBlock (tags:: val lines)
                 else:
                     # Fallback: append blocks one by one if no first block
                     logger.warning("No first block found, using fallback append method")
