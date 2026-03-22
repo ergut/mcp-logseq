@@ -1,0 +1,172 @@
+digraph mcp_logseq_architecture {
+    graph [
+        rankdir=LR
+        fontname="Helvetica"
+        fontsize=12
+        pad=0.6
+        splines=spline
+        nodesep=0.7
+        ranksep=1.2
+        bgcolor="#FAFAFA"
+        compound=true
+    ]
+    node [
+        fontname="Helvetica"
+        fontsize=11
+        style="filled,rounded"
+        shape=box
+        margin="0.2,0.1"
+    ]
+    edge [
+        fontname="Helvetica"
+        fontsize=10
+    ]
+
+    // ── AI Client ──────────────────────────────────────────────────────────────
+    subgraph cluster_client {
+        label="AI Client"
+        style="filled,rounded"
+        color="#4A90D9"
+        fillcolor="#EBF4FF"
+        fontcolor="#1A4A7A"
+        fontsize=13
+        fontname="Helvetica Bold"
+
+        claude [
+            label="Claude Code\nor Claude Desktop"
+            fillcolor="#D0E8FF"
+            color="#4A90D9"
+            fontcolor="#1A4A7A"
+        ]
+    }
+
+    // ── MCP Logseq Server ──────────────────────────────────────────────────────
+    subgraph cluster_mcp {
+        label="MCP Logseq Server"
+        style="filled,rounded"
+        color="#7B68EE"
+        fillcolor="#F5F3FF"
+        fontcolor="#3D2B8F"
+        fontsize=13
+        fontname="Helvetica Bold"
+
+        rw_tools [
+            label="Write Tools\n─────────────\ncreate_page\nupdate_page\ndelete_page\nupdate_block\ninsert_nested_block"
+            fillcolor="#DDD8FF"
+            color="#9B8FCC"
+            fontcolor="#3D2B8F"
+        ]
+        read_tools [
+            label="Read / Query Tools\n─────────────\nlist_pages\nget_page_content\nsearch  ·  query\nget_page_backlinks\nfind_pages_by_property"
+            fillcolor="#DDD8FF"
+            color="#9B8FCC"
+            fontcolor="#3D2B8F"
+        ]
+        vector_search [
+            label="vector_search\n─────────────\nhybrid: semantic\n+ keyword"
+            fillcolor="#D4EDD4"
+            color="#5BA85A"
+            fontcolor="#1E5C1D"
+        ]
+        sync_tools [
+            label="sync_vector_db\nvector_db_status\n─────────────\nBackgroundSyncer\n(daemon thread)"
+            fillcolor="#D4EDD4"
+            color="#5BA85A"
+            fontcolor="#1E5C1D"
+        ]
+    }
+
+    // ── Logseq App ─────────────────────────────────────────────────────────────
+    subgraph cluster_logseq {
+        label="Logseq App"
+        style="filled,rounded"
+        color="#E8963C"
+        fillcolor="#FFF6ED"
+        fontcolor="#7A3D00"
+        fontsize=13
+        fontname="Helvetica Bold"
+
+        logseq_ui [
+            label="Logseq UI"
+            fillcolor="#FFE4C0"
+            color="#E8963C"
+            fontcolor="#7A3D00"
+        ]
+        logseq_api [
+            label="HTTP API\n:12315"
+            fillcolor="#FFE4C0"
+            color="#E8963C"
+            fontcolor="#7A3D00"
+            shape=cylinder
+        ]
+        logseq_ui -> logseq_api [style=invis]
+    }
+
+    // ── Vault ──────────────────────────────────────────────────────────────────
+    subgraph cluster_vault {
+        label="Vault  (iCloud / local)"
+        style="filled,rounded"
+        color="#888888"
+        fillcolor="#F2F2F2"
+        fontcolor="#333333"
+        fontsize=13
+        fontname="Helvetica Bold"
+
+        vault [
+            label="pages/\njournals/\n*.md files"
+            fillcolor="#E8E8E8"
+            color="#888888"
+            fontcolor="#333333"
+            shape=cylinder
+        ]
+    }
+
+    // ── Vector Stack ───────────────────────────────────────────────────────────
+    subgraph cluster_vector {
+        label="Vector Stack"
+        style="filled,rounded"
+        color="#CC5050"
+        fillcolor="#FFF0F0"
+        fontcolor="#7A0000"
+        fontsize=13
+        fontname="Helvetica Bold"
+
+        ollama [
+            label="Ollama\nqwen3-embedding:8b\n(local, no cloud)"
+            fillcolor="#FFD8D8"
+            color="#CC5050"
+            fontcolor="#7A0000"
+        ]
+        lancedb [
+            label="LanceDB\n~/.logseq-vector/db\n(embedded, no server)"
+            fillcolor="#FFD8D8"
+            color="#CC5050"
+            fontcolor="#7A0000"
+            shape=cylinder
+        ]
+        ollama -> lancedb [style=invis]
+    }
+
+    // ── Edges ──────────────────────────────────────────────────────────────────
+
+    // Client → MCP tools
+    claude -> rw_tools     [label="MCP" color="#7B68EE" fontcolor="#7B68EE"]
+    claude -> read_tools   [color="#7B68EE"]
+    claude -> vector_search [color="#7B68EE"]
+    claude -> sync_tools   [color="#7B68EE"]
+
+    // API tools → Logseq API
+    rw_tools   -> logseq_api [label="JSON-RPC" color="#E8963C" fontcolor="#E8963C"]
+    read_tools -> logseq_api [color="#E8963C"]
+
+    // Logseq ↔ Vault
+    logseq_ui -> vault [label="reads/writes" style=dashed color="#AAAAAA" fontcolor="#888888"]
+
+    // Sync pipeline
+    sync_tools  -> vault   [label="reads .md" color="#5BA85A" fontcolor="#5BA85A"]
+    sync_tools  -> ollama  [label="embed chunks" color="#CC5050" fontcolor="#CC5050"]
+    sync_tools  -> lancedb [label="upsert" color="#5BA85A" fontcolor="#5BA85A"]
+
+    // Vector search → LanceDB
+    vector_search -> lancedb [label="query" color="#5BA85A" fontcolor="#5BA85A"]
+}

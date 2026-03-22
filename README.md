@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/images/logo.png" alt="MCP LogSeq" width="200" height="200">
   <h1>MCP server for LogSeq</h1>
-  <p>MCP server to interact with LogSeq via its API. Enables Claude to read, create, and manage LogSeq pages through a comprehensive set of tools.</p>
+  <p>Connect Claude to your LogSeq knowledge base. Read, create, and manage pages — with optional semantic vector search and DB-mode graph support.</p>
 </div>
 
 ## ✨ What You Can Do
@@ -24,11 +24,18 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 "Create a weekly review page from my recent notes"
 ```
 
-**🔍 Smart Research & Analysis** 
+**🔍 Smart Research & Analysis**
 ```
 "Compare my notes on React vs Vue and highlight key differences"
 "Find all references to 'customer feedback' and summarize themes"
 "Create a knowledge map connecting related topics across pages"
+```
+
+**🧠 Semantic Search** *(optional, requires vector setup)*
+```
+"Find everything I wrote about burnout, even if I didn't use that word"
+"What notes relate to my thoughts on deep work?"
+"Search across my Dutch and English notes for ideas about productivity"
 ```
 
 **🤝 Meeting & Documentation Workflow**
@@ -40,9 +47,11 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 
 ### 💡 Key Benefits
 - **Zero Context Switching**: Claude works directly with your LogSeq data
-- **Preserve Your Workflow**: No need to export or copy content manually  
+- **Preserve Your Workflow**: No need to export or copy content manually
 - **Intelligent Organization**: AI-powered page creation, linking, and search
 - **Enhanced Productivity**: Automate repetitive knowledge work
+- **Semantic Vector Search** *(optional)*: Find notes by meaning using local Ollama embeddings — no data leaves your machine
+- **DB-mode Support** *(opt-in)*: Read and write class properties on Logseq DB-mode graphs
 
 ---
 
@@ -87,9 +96,19 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ---
 
+## 🔬 Vector Search (Optional)
+
+Semantic search over your Logseq graph using local AI embeddings — find notes by meaning, not just keywords. Searches across all your pages using vector similarity and full-text search combined, with cross-language support.
+
+Powered by [Ollama](https://ollama.com) (local embeddings) and [LanceDB](https://lancedb.com) (embedded vector DB). No data leaves your machine.
+
+→ **[Full setup guide: VECTOR_SEARCH.md](VECTOR_SEARCH.md)**
+
+---
+
 ## 🛠️ Available Tools
 
-The server provides 16 tools with intelligent markdown parsing:
+The server provides 16 tools with intelligent markdown parsing, plus 3 optional vector search tools:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
@@ -109,6 +128,11 @@ The server provides 16 tools with intelligent markdown parsing:
 | **`get_page_backlinks`** | Find pages linking to a page | "What links to this page?" |
 | **`insert_nested_block`** | Insert child/sibling blocks | "Add a child block under this task" |
 | **`set_block_properties`** | Set DB-mode class properties on a block | "Set the status of this block to active" *(DB-mode only)* |
+| **`vector_search`** ⚗️ | Semantic search by meaning | "Find notes about shadow work or Jung" |
+| **`sync_vector_db`** ⚗️ | Sync vector DB with graph files | "Update the search index" |
+| **`vector_db_status`** ⚗️ | Show vector DB health and staleness | "Is my search index up to date?" |
+
+⚗️ *Requires vector search setup — see [VECTOR_SEARCH.md](VECTOR_SEARCH.md)*
 
 ### 🎨 Smart Markdown Parsing (v1.1.0+)
 
