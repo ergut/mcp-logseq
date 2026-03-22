@@ -93,6 +93,7 @@ add_tool_handler(tools.GetPagesTreeFromNamespaceToolHandler())
 add_tool_handler(tools.RenamePageToolHandler())
 add_tool_handler(tools.GetPageBacklinksToolHandler())
 add_tool_handler(tools.InsertNestedBlockToolHandler())
+add_tool_handler(tools.SetBlockPropertiesToolHandler())
 logger.info("Tool handlers registration complete")
 
 
