@@ -14,18 +14,19 @@ from mcp_logseq.logseq import LogSeq
 class TestCreatePageProperties:
     """Test property persistence during page creation."""
 
-    def _add_create_mocks(self, page_json=None):
-        """Register the 4 HTTP mocks needed for a create_page_with_blocks call with blocks."""
+    def _add_create_mocks(self, page_json=None, with_remove=True):
+        """Register HTTP mocks for a create_page_with_blocks call with blocks."""
         url = "http://127.0.0.1:12315/api"
         responses.add(responses.POST, url, json=page_json or {"uuid": "page-uuid", "name": "Test Page"}, status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-1", "content": ""}], status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
-        responses.add(responses.POST, url, json=True, status=200)  # removeBlock
+        if with_remove:
+            responses.add(responses.POST, url, json=True, status=200)  # removeBlock
 
     @responses.activate
     def test_create_page_with_properties_passes_to_create_page(self, logseq_client):
         """Properties are passed as the 2nd arg to createPage (page entity level)."""
-        self._add_create_mocks()
+        self._add_create_mocks(with_remove=False)
 
         properties = {"priority": "high", "status": "active"}
         blocks = [{"content": "Test content"}]
@@ -38,17 +39,17 @@ class TestCreatePageProperties:
         assert body["args"][1] == {"priority": "high", "status": "active"}
         assert body["args"][2] == {"createFirstBlock": True}
 
-        # upsertBlockProperty must NOT be called — that would make them block-level
-        upsert_calls = [
+        # First block must NOT be removed — it holds the page properties
+        remove_calls = [
             call for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
+            if "removeBlock" in str(call.request.body)
         ]
-        assert len(upsert_calls) == 0
+        assert len(remove_calls) == 0
 
     @responses.activate
     def test_create_page_without_properties(self, logseq_client):
-        """Creating a page without properties passes an empty dict to createPage."""
-        self._add_create_mocks()
+        """Creating a page without properties removes the empty placeholder block."""
+        self._add_create_mocks(with_remove=True)
 
         blocks = [{"content": "Test content"}]
         logseq_client.create_page_with_blocks("Test Page", blocks, properties=None)
@@ -58,16 +59,17 @@ class TestCreatePageProperties:
         assert body["method"] == "logseq.Editor.createPage"
         assert body["args"][1] == {}  # empty dict when no properties
 
-        upsert_calls = [
+        # Placeholder block must be removed when no properties
+        remove_calls = [
             call for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
+            if "removeBlock" in str(call.request.body)
         ]
-        assert len(upsert_calls) == 0
+        assert len(remove_calls) == 1
 
     @responses.activate
     def test_create_page_with_list_properties(self, logseq_client):
         """List-type properties (e.g. tags) are passed directly in the createPage call."""
-        self._add_create_mocks()
+        self._add_create_mocks(with_remove=False)
 
         properties = {"tags": ["project", "urgent", "backend"]}
         blocks = [{"content": "Test content"}]
