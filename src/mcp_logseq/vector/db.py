@@ -108,6 +108,42 @@ class VectorDB:
 
         return cls(db, table, dimensions)
 
+    @classmethod
+    def open_readonly(cls, db_path: str, dimensions: int) -> "VectorDB":
+        """Open an existing LanceDB table for reading only.
+
+        Unlike open(), this method:
+        - Does not create directories or tables
+        - Raises RuntimeError if the DB or table does not exist
+        - Provides clear diagnostics for version mismatch
+        """
+        import lancedb
+
+        if not Path(db_path).exists():
+            raise RuntimeError(
+                "Vector DB not initialized. Run sync_vector_db or logseq-sync --once first."
+            )
+
+        db = lancedb.connect(db_path)
+        table_names = db.table_names()
+        logger.info(f"LanceDB (read-only) at {db_path}: tables found = {table_names}")
+
+        if _TABLE_NAME not in table_names:
+            data_dir = Path(db_path) / f"{_TABLE_NAME}.lance"
+            if data_dir.exists():
+                raise RuntimeError(
+                    f"Vector DB data exists at {data_dir} but cannot be read. "
+                    f"Possible LanceDB version mismatch. "
+                    f"Run logseq-sync --rebuild to re-index."
+                )
+            raise RuntimeError(
+                "Vector DB not initialized. Run sync_vector_db or logseq-sync --once first."
+            )
+
+        table = db.open_table(_TABLE_NAME)
+        logger.info(f"Opened existing LanceDB table '{_TABLE_NAME}' (read-only)")
+        return cls(db, table, dimensions)
+
     def upsert(self, chunks: list[LogseqChunk]) -> None:
         if not chunks:
             return

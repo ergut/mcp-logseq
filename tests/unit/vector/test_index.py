@@ -1,14 +1,16 @@
-"""Unit tests for BackgroundSyncer and auto-sync behavior in vector/index.py."""
+"""Unit tests for read-only vector tool handlers in vector/index.py."""
 from __future__ import annotations
 
-import threading
-import time
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcp_logseq.vector.index import BackgroundSyncer
-from mcp_logseq.vector.types import SyncResult
+from mcp_logseq.vector.index import (
+    VectorDBStatusToolHandler,
+    VectorSearchToolHandler,
+    SyncVectorDBToolHandler,
+    _check_watcher_running,
+)
 
 
 def _make_config():
@@ -18,290 +20,273 @@ def _make_config():
     return config
 
 
-def _make_sync_result(added=1):
-    return SyncResult(added=added, updated=0, deleted=0, skipped=0, duration_ms=100)
+def _make_meta():
+    meta = MagicMock()
+    meta.embedder_key = "ollama/qwen3-embedding:4b"
+    meta.dimensions = 2560
+    return meta
 
 
-class TestBackgroundSyncer:
-    def test_trigger_starts_sync_and_returns_true(self):
-        syncer = BackgroundSyncer()
-        config = _make_config()
-        completed = threading.Event()
-
-        def fake_run(cfg):
-            completed.set()
-
-        syncer._run = fake_run
-        result = syncer.trigger(config)
-        assert result is True
-        completed.wait(timeout=2)
-
-    def test_trigger_returns_false_while_running(self):
-        syncer = BackgroundSyncer()
-        config = _make_config()
-        # Hold the lock manually to simulate an in-progress sync
-        syncer._lock.acquire()
-        try:
-            assert syncer.is_running is True
-            assert syncer.trigger(config) is False
-        finally:
-            syncer._lock.release()
-
-    def test_is_running_false_initially(self):
-        syncer = BackgroundSyncer()
-        assert syncer.is_running is False
-
-    def test_releases_lock_after_success(self):
-        syncer = BackgroundSyncer()
-        config = _make_config()
-        done = threading.Event()
-
-        with (
-            patch("mcp_logseq.vector.index.create_embedder") as mock_embedder,
-            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch("mcp_logseq.vector.index.StateManager"),
-            patch("mcp_logseq.vector.index.SyncEngine") as mock_engine,
-        ):
-            mock_embedder.return_value.dimensions = 4
-            mock_engine.return_value.sync.return_value = _make_sync_result()
-            mock_db.open.return_value = MagicMock()
-
-            syncer.trigger(config)
-            # Poll until lock is released
-            for _ in range(20):
-                if not syncer.is_running:
-                    break
-                time.sleep(0.1)
-
-        assert syncer.is_running is False
-
-    def test_releases_lock_after_error(self):
-        syncer = BackgroundSyncer()
-        config = _make_config()
-
-        with patch("mcp_logseq.vector.index.create_embedder", side_effect=RuntimeError("boom")):
-            syncer.trigger(config)
-            for _ in range(20):
-                if not syncer.is_running:
-                    break
-                time.sleep(0.1)
-
-        assert syncer.is_running is False
-        assert "boom" in syncer._last_error
-
-    def test_second_trigger_succeeds_after_first_completes(self):
-        syncer = BackgroundSyncer()
-        config = _make_config()
-
-        with (
-            patch("mcp_logseq.vector.index.create_embedder") as mock_embedder,
-            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch("mcp_logseq.vector.index.StateManager"),
-            patch("mcp_logseq.vector.index.SyncEngine") as mock_engine,
-        ):
-            mock_embedder.return_value.dimensions = 4
-            mock_engine.return_value.sync.return_value = _make_sync_result()
-            mock_db.open.return_value = MagicMock()
-
-            assert syncer.trigger(config) is True
-            for _ in range(20):
-                if not syncer.is_running:
-                    break
-                time.sleep(0.1)
-
-            assert syncer.trigger(config) is True
+def _make_stale_report(changed=2, deleted=0):
+    report = MagicMock()
+    report.stale = True
+    report.changed_count = changed
+    report.deleted_count = deleted
+    return report
 
 
-class TestVectorSearchAutoSync:
-    """Test that vector_search triggers background sync on staleness."""
+def _make_fresh_report():
+    report = MagicMock()
+    report.stale = False
+    return report
 
-    def _make_stale_report(self, changed=2, deleted=0):
-        report = MagicMock()
-        report.stale = True
-        report.changed_count = changed
-        report.deleted_count = deleted
-        return report
 
-    def _make_fresh_report(self):
-        report = MagicMock()
-        report.stale = False
-        return report
+class TestVectorSearchReadOnly:
+    """vector_search is read-only — no writes, no background sync."""
 
-    def _make_meta(self):
-        meta = MagicMock()
-        meta.embedder_key = "ollama/qwen3-embedding:8b"
-        meta.dimensions = 4096
-        return meta
-
-    def test_search_triggers_sync_when_stale(self):
-        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
-
+    def test_search_returns_staleness_note_without_syncing(self):
         config = _make_config()
         handler = VectorSearchToolHandler(config)
 
         with (
             patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness", return_value=self._make_stale_report()),
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_stale_report()),
             patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch.object(_syncer, "trigger", return_value=True) as mock_trigger,
         ):
-            mock_sm.return_value.load.return_value = (MagicMock(), self._make_meta())
-            mock_emb.return_value.embed.return_value = [[0.1] * 4096]
-            mock_db.open.return_value.search.return_value = []
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.embed.return_value = [[0.1] * 2560]
+            mock_db.open_readonly.return_value.search.return_value = []
 
             results = handler.run_tool({"query": "test"})
-            mock_trigger.assert_called_once_with(config)
-            assert "background sync started" in results[0].text
 
-    def test_search_notes_sync_in_progress(self):
-        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
-
-        config = _make_config()
-        handler = VectorSearchToolHandler(config)
-
-        with (
-            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness", return_value=self._make_stale_report()),
-            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
-            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch.object(_syncer, "trigger", return_value=False),
-        ):
-            mock_sm.return_value.load.return_value = (MagicMock(), self._make_meta())
-            mock_emb.return_value.embed.return_value = [[0.1] * 4096]
-            mock_db.open.return_value.search.return_value = []
-
-            results = handler.run_tool({"query": "test"})
-            assert "already in progress" in results[0].text
+            # Should report staleness but NOT trigger any sync
+            assert "2 pages changed since last sync" in results[0].text
+            assert "sync_vector_db" in results[0].text
+            # Should NOT call save (no migration, no sync)
+            mock_sm.return_value.save.assert_not_called()
 
     def test_search_no_prefix_when_fresh(self):
-        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
-
         config = _make_config()
         handler = VectorSearchToolHandler(config)
 
         with (
             patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness", return_value=self._make_fresh_report()),
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
             patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch.object(_syncer, "trigger") as mock_trigger,
         ):
-            mock_sm.return_value.load.return_value = (MagicMock(), self._make_meta())
-            mock_emb.return_value.embed.return_value = [[0.1] * 4096]
-            mock_db.open.return_value.search.return_value = []
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.embed.return_value = [[0.1] * 2560]
+            mock_db.open_readonly.return_value.search.return_value = []
 
             results = handler.run_tool({"query": "test"})
-            mock_trigger.assert_not_called()
             assert "Note:" not in results[0].text
 
-
-class TestStateMigrationInToolHandlers:
-    """Test that tool handlers migrate absolute-path state keys on load."""
-
-    def _make_meta(self):
-        from mcp_logseq.vector.types import SyncMeta
-        return SyncMeta(embedder_key="ollama/nomic-embed-text", dimensions=4, last_full_sync=None)
-
-    def _make_absolute_state(self, graph_path="/tmp/test-graph"):
-        from mcp_logseq.vector.types import FileState
-        return {
-            f"{graph_path}/pages/foo.md": FileState(
-                content_hash="abc",
-                last_synced="2024-01-01T00:00:00+00:00",
-                chunk_ids=["foo::0"],
-            ),
-            f"{graph_path}/journals/2024_01_01.md": FileState(
-                content_hash="def",
-                last_synced="2024-01-01T00:00:00+00:00",
-                chunk_ids=["journal::0"],
-            ),
-        }
-
-    def test_search_migrates_absolute_state_keys(self):
-        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
-
+    def test_search_uses_open_readonly(self):
         config = _make_config()
         handler = VectorSearchToolHandler(config)
-        abs_state = self._make_absolute_state(config.graph_path)
-        meta = self._make_meta()
 
         with (
             patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
             patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch.object(_syncer, "trigger", return_value=False),
         ):
-            mock_sm_inst = mock_sm.return_value
-            mock_sm_inst.load.return_value = (abs_state, meta)
-            mock_stale.return_value = MagicMock(stale=False)
-            mock_emb.return_value.embed.return_value = [[0.1] * 4]
-            mock_db.open.return_value.search.return_value = []
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.embed.return_value = [[0.1] * 2560]
+            mock_db.open_readonly.return_value.search.return_value = []
 
             handler.run_tool({"query": "test"})
 
-            # State should have been saved back with migrated keys
-            mock_sm_inst.save.assert_called_once()
-            saved_state = mock_sm_inst.save.call_args[0][0]
-            assert "pages/foo.md" in saved_state
-            assert "journals/2024_01_01.md" in saved_state
-            assert f"{config.graph_path}/pages/foo.md" not in saved_state
+            # Must use open_readonly, never open
+            mock_db.open_readonly.assert_called_once()
+            mock_db.open.assert_not_called()
 
-    def test_status_migrates_absolute_state_keys(self):
-        from mcp_logseq.vector.index import VectorDBStatusToolHandler
-
+    def test_search_shows_error_when_db_not_initialized(self):
         config = _make_config()
-        handler = VectorDBStatusToolHandler(config)
-        abs_state = self._make_absolute_state(config.graph_path)
-        meta = self._make_meta()
+        handler = VectorSearchToolHandler(config)
 
         with (
             patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
-            mock_sm_inst = mock_sm.return_value
-            mock_sm_inst.load.return_value = (abs_state, meta)
-            mock_stale.return_value = MagicMock(stale=False)
-            mock_db.open.return_value.get_stats.return_value = {"total_chunks": 100, "total_pages": 10}
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.embed.return_value = [[0.1] * 2560]
+            mock_db.open_readonly.side_effect = RuntimeError("Vector DB not initialized.")
+
+            results = handler.run_tool({"query": "test"})
+            assert "not initialized" in results[0].text
+
+    def test_search_never_calls_state_save(self):
+        config = _make_config()
+        handler = VectorSearchToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.embed.return_value = [[0.1] * 2560]
+            mock_db.open_readonly.return_value.search.return_value = []
+
+            handler.run_tool({"query": "test"})
+            mock_sm.return_value.save.assert_not_called()
+
+
+class TestSyncVectorDBSubprocess:
+    """sync_vector_db delegates to logseq-sync subprocess."""
+
+    def test_sync_calls_subprocess_once(self):
+        config = _make_config()
+        handler = SyncVectorDBToolHandler(config)
+
+        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
+            mock_sub.run.return_value = MagicMock(
+                returncode=0,
+                stdout="Done in 100ms: +5 added, ~2 updated, -1 deleted, 10 skipped",
+                stderr="",
+            )
+
+            results = handler.run_tool({})
+
+            call_args = mock_sub.run.call_args
+            cmd = call_args[0][0]
+            assert "--once" in cmd
+            assert "--rebuild" not in cmd
+            assert "Done in 100ms" in results[0].text
+
+    def test_sync_calls_subprocess_rebuild(self):
+        config = _make_config()
+        handler = SyncVectorDBToolHandler(config)
+
+        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
+            mock_sub.run.return_value = MagicMock(
+                returncode=0,
+                stdout="Done in 5000ms: +100 added, ~0 updated, -0 deleted, 0 skipped",
+                stderr="",
+            )
+
+            results = handler.run_tool({"rebuild": True})
+
+            call_args = mock_sub.run.call_args
+            cmd = call_args[0][0]
+            assert "--rebuild" in cmd
+            assert "--once" not in cmd
+
+    def test_sync_reports_subprocess_failure(self):
+        config = _make_config()
+        handler = SyncVectorDBToolHandler(config)
+
+        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
+            mock_sub.run.return_value = MagicMock(
+                returncode=1,
+                stdout="",
+                stderr="Error: Embedder changed from 'x' to 'y'",
+            )
+
+            results = handler.run_tool({})
+            assert "Sync failed" in results[0].text
+            assert "Embedder changed" in results[0].text
+
+    def test_sync_reports_timeout(self):
+        import subprocess
+        config = _make_config()
+        handler = SyncVectorDBToolHandler(config)
+
+        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
+            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sub.run.side_effect = subprocess.TimeoutExpired(cmd="logseq-sync", timeout=600)
+
+            results = handler.run_tool({})
+            assert "timed out" in results[0].text
+
+
+class TestVectorDBStatusReadOnly:
+    """vector_db_status is read-only — no writes."""
+
+    def test_status_uses_open_readonly(self):
+        config = _make_config()
+        handler = VectorDBStatusToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_db.open_readonly.return_value.get_stats.return_value = {"total_chunks": 100, "total_pages": 10}
 
             handler.run_tool({})
 
-            # State should have been saved back with migrated keys
-            mock_sm_inst.save.assert_called_once()
-            saved_state = mock_sm_inst.save.call_args[0][0]
-            assert "pages/foo.md" in saved_state
+            mock_db.open_readonly.assert_called_once()
+            mock_db.open.assert_not_called()
 
-    def test_search_skips_save_when_already_relative(self):
-        from mcp_logseq.vector.index import VectorSearchToolHandler, _syncer
-        from mcp_logseq.vector.types import FileState
-
+    def test_status_never_calls_state_save(self):
         config = _make_config()
-        handler = VectorSearchToolHandler(config)
-        relative_state = {
-            "pages/foo.md": FileState(
-                content_hash="abc",
-                last_synced="2024-01-01T00:00:00+00:00",
-                chunk_ids=["foo::0"],
-            )
-        }
-        meta = self._make_meta()
+        handler = VectorDBStatusToolHandler(config)
 
         with (
             patch("mcp_logseq.vector.index.StateManager") as mock_sm,
-            patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
-            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
-            patch.object(_syncer, "trigger", return_value=False),
         ):
-            mock_sm_inst = mock_sm.return_value
-            mock_sm_inst.load.return_value = (relative_state, meta)
-            mock_stale.return_value = MagicMock(stale=False)
-            mock_emb.return_value.embed.return_value = [[0.1] * 4]
-            mock_db.open.return_value.search.return_value = []
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_db.open_readonly.return_value.get_stats.return_value = {"total_chunks": 100, "total_pages": 10}
 
-            handler.run_tool({"query": "test"})
+            handler.run_tool({})
+            mock_sm.return_value.save.assert_not_called()
 
-            # No migration needed — save should NOT be called
-            mock_sm_inst.save.assert_not_called()
+    def test_status_shows_watcher_status(self):
+        config = _make_config()
+        handler = VectorDBStatusToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+            patch("mcp_logseq.vector.index._check_watcher_running", return_value="not running"),
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_db.open_readonly.return_value.get_stats.return_value = {"total_chunks": 100, "total_pages": 10}
+
+            results = handler.run_tool({})
+            assert "Watcher:" in results[0].text
+            assert "not running" in results[0].text
+
+    def test_status_shows_version_mismatch_error(self):
+        config = _make_config()
+        handler = VectorDBStatusToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_db.open_readonly.side_effect = RuntimeError(
+                "Vector DB data exists but cannot be read. Possible LanceDB version mismatch."
+            )
+
+            results = handler.run_tool({})
+            assert "version mismatch" in results[0].text
+
+
+class TestCheckWatcherRunning:
+    def test_returns_not_running_when_no_pid_file(self, tmp_path):
+        assert _check_watcher_running(str(tmp_path)) == "not running"
+
+    def test_returns_not_running_when_stale_pid(self, tmp_path):
+        pid_file = tmp_path / "sync.pid"
+        pid_file.write_text("99999999")  # PID that almost certainly doesn't exist
+        assert _check_watcher_running(str(tmp_path)) == "not running"
+
+    def test_returns_running_for_current_pid(self, tmp_path):
+        import os
+        pid_file = tmp_path / "sync.pid"
+        pid_file.write_text(str(os.getpid()))  # current process is always alive
+        result = _check_watcher_running(str(tmp_path))
+        assert result.startswith("running (PID")

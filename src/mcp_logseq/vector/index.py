@@ -3,12 +3,18 @@ MCP tool handlers for vector search.
 
 Registered conditionally in server.py only when vector.enabled is true.
 Follows the same ToolHandler pattern as tools.py.
+
+Architecture: The MCP server is a read-only consumer of the vector DB.
+All writes go through the logseq-sync CLI (single-writer principle).
 """
 
 from __future__ import annotations
 
 import logging
-import threading
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 from mcp.types import TextContent, Tool
 
@@ -17,57 +23,10 @@ from mcp_logseq.tools import ToolHandler
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
-from mcp_logseq.vector.sync import SyncEngine, check_staleness, _migrate_to_relative_keys
-from mcp_logseq.vector.types import SearchParams, SyncResult
+from mcp_logseq.vector.sync import check_staleness
+from mcp_logseq.vector.types import SearchParams
 
 logger = logging.getLogger("mcp-logseq.vector.index")
-
-
-class BackgroundSyncer:
-    """Runs at most one sync at a time in a daemon thread."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._last_result: SyncResult | None = None
-        self._last_error: str | None = None
-
-    @property
-    def is_running(self) -> bool:
-        return self._lock.locked()
-
-    def trigger(self, config: VectorConfig) -> bool:
-        """Start background sync. Returns True if started, False if already running."""
-        acquired = self._lock.acquire(blocking=False)
-        if not acquired:
-            return False
-        thread = threading.Thread(target=self._run, args=(config,), daemon=True)
-        thread.start()
-        return True
-
-    def _run(self, config: VectorConfig) -> None:
-        db = None
-        try:
-            embedder = create_embedder(config.embedder)
-            db = VectorDB.open(config.db_path, embedder.dimensions)
-            state_mgr = StateManager(config.db_path)
-            engine = SyncEngine(config, db, state_mgr, embedder)
-            self._last_result = engine.sync()
-            self._last_error = None
-            logger.info(
-                f"Background sync complete: +{self._last_result.added} "
-                f"~{self._last_result.updated} -{self._last_result.deleted}"
-            )
-        except Exception as e:
-            self._last_error = str(e)
-            logger.error(f"Background sync failed: {e}", exc_info=True)
-        finally:
-            if db is not None:
-                db.close()
-            self._lock.release()
-
-
-# Module-level singleton — shared across all tool handler instances in this process
-_syncer = BackgroundSyncer()
 
 
 _WEAK_MATCH_THRESHOLD = 0.80  # scores above this are likely tangential; AI should use judgment
@@ -106,6 +65,19 @@ def _format_search_results(results) -> str:
            else "All results are within the expected relevance range.")
     )
     return "\n".join(lines)
+
+
+def _check_watcher_running(db_path: str) -> str:
+    """Check if logseq-sync --watch is running by reading its PID file."""
+    pid_path = Path(db_path) / "sync.pid"
+    if not pid_path.exists():
+        return "not running"
+    try:
+        pid = int(pid_path.read_text().strip())
+        os.kill(pid, 0)  # signal 0 = check if process exists
+        return f"running (PID {pid})"
+    except (ValueError, ProcessLookupError, PermissionError):
+        return "not running"
 
 
 class VectorSearchToolHandler(ToolHandler):
@@ -171,10 +143,6 @@ class VectorSearchToolHandler(ToolHandler):
         try:
             state_mgr = StateManager(self._config.db_path)
             state, meta = state_mgr.load()
-            # Migrate legacy absolute-path keys (e.g. state written by container with different mount)
-            state, migrated = _migrate_to_relative_keys(state, self._config.graph_path)
-            if migrated:
-                state_mgr.save(state, meta)
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading vector DB state: {e}")]
 
@@ -184,7 +152,7 @@ class VectorSearchToolHandler(ToolHandler):
                 text="Vector DB not initialized. Run sync_vector_db first.",
             )]
 
-        # Staleness check — trigger background sync if stale
+        # Staleness check — informational only, no writes
         output_prefix = ""
         try:
             report = check_staleness(self._config.graph_path, state)
@@ -195,15 +163,11 @@ class VectorSearchToolHandler(ToolHandler):
                 if report.deleted_count:
                     parts.append(f"{report.deleted_count} pages deleted")
                 detail = ", ".join(parts)
-                if _syncer.trigger(self._config):
-                    output_prefix = (
-                        f"Note: {detail} since last sync — background sync started. "
-                        f"Results below reflect the current DB state.\n\n"
-                    )
-                else:
-                    output_prefix = (
-                        f"Note: {detail} since last sync — sync already in progress.\n\n"
-                    )
+                output_prefix = (
+                    f"Note: {detail} since last sync. "
+                    f"Ensure logseq-sync --watch is running, or call sync_vector_db. "
+                    f"Results below may be incomplete.\n\n"
+                )
         except Exception as e:
             logger.warning(f"Staleness check failed: {e}")
 
@@ -216,7 +180,9 @@ class VectorSearchToolHandler(ToolHandler):
             return [TextContent(type="text", text=f"Embedding failed: {e}")]
 
         try:
-            db = VectorDB.open(self._config.db_path, meta.dimensions)
+            db = VectorDB.open_readonly(self._config.db_path, meta.dimensions)
+        except RuntimeError as e:
+            return [TextContent(type="text", text=str(e))]
         except Exception as e:
             return [TextContent(type="text", text=f"Cannot open vector DB: {e}")]
 
@@ -267,39 +233,26 @@ class SyncVectorDBToolHandler(ToolHandler):
     def run_tool(self, args: dict) -> list[TextContent]:
         rebuild = bool(args.get("rebuild", False))
 
-        try:
-            embedder = create_embedder(self._config.embedder)
-            # Probe dimensions before opening DB (may raise if Ollama is down)
-            dimensions = embedder.dimensions
-        except RuntimeError as e:
-            return [TextContent(type="text", text=str(e))]
-        except Exception as e:
-            return [TextContent(type="text", text=f"Embedder error: {e}")]
+        cmd = [sys.executable, "-m", "mcp_logseq.bin.logseq_sync"]
+        cmd.append("--rebuild" if rebuild else "--once")
 
         try:
-            db = VectorDB.open(self._config.db_path, dimensions)
-            state_mgr = StateManager(self._config.db_path)
-            engine = SyncEngine(self._config, db, state_mgr, embedder)
-            result = engine.sync(rebuild=rebuild)
-        except RuntimeError as e:
-            return [TextContent(type="text", text=str(e))]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+        except subprocess.TimeoutExpired:
+            return [TextContent(type="text", text="Sync timed out after 10 minutes.")]
         except Exception as e:
-            logger.error(f"Sync failed: {e}", exc_info=True)
             return [TextContent(type="text", text=f"Sync failed: {e}")]
-        finally:
-            try:
-                db.close()
-            except Exception:
-                pass
 
-        lines = [
-            f"Sync complete in {result.duration_ms}ms",
-            f"  Added:   {result.added} pages",
-            f"  Updated: {result.updated} pages",
-            f"  Deleted: {result.deleted} pages",
-            f"  Skipped: {result.skipped} pages (unchanged)",
-        ]
-        return [TextContent(type="text", text="\n".join(lines))]
+        if result.returncode != 0:
+            error = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+            return [TextContent(type="text", text=f"Sync failed:\n{error}")]
+
+        return [TextContent(type="text", text=result.stdout.strip())]
 
 
 class VectorDBStatusToolHandler(ToolHandler):
@@ -318,10 +271,6 @@ class VectorDBStatusToolHandler(ToolHandler):
         try:
             state_mgr = StateManager(self._config.db_path)
             state, meta = state_mgr.load()
-            # Migrate legacy absolute-path keys (e.g. state written by container with different mount)
-            state, migrated = _migrate_to_relative_keys(state, self._config.graph_path)
-            if migrated:
-                state_mgr.save(state, meta)
         except Exception as e:
             return [TextContent(type="text", text=f"Error reading DB state: {e}")]
 
@@ -332,10 +281,13 @@ class VectorDBStatusToolHandler(ToolHandler):
             )]
 
         try:
-            db = VectorDB.open(self._config.db_path, meta.dimensions)
+            db = VectorDB.open_readonly(self._config.db_path, meta.dimensions)
             stats = db.get_stats()
             db.close()
-        except Exception as e:
+        except RuntimeError as e:
+            # open_readonly gives clear diagnostics (version mismatch, not initialized)
+            return [TextContent(type="text", text=str(e))]
+        except Exception:
             stats = {"total_chunks": "?", "total_pages": "?"}
 
         try:
@@ -346,13 +298,16 @@ class VectorDBStatusToolHandler(ToolHandler):
         except Exception:
             staleness = "Unknown"
 
+        watcher = _check_watcher_running(self._config.db_path)
+
         lines = [
-            f"Vector DB Status",
-            f"  Embedder:    {meta.embedder_key}",
-            f"  Dimensions:  {meta.dimensions}",
+            "Vector DB Status",
+            f"  Embedder:     {meta.embedder_key}",
+            f"  Dimensions:   {meta.dimensions}",
             f"  Total chunks: {stats['total_chunks']}",
             f"  Total pages:  {stats['total_pages']}",
-            f"  Last sync:   {meta.last_full_sync or 'never'}",
-            f"  Staleness:   {staleness}",
+            f"  Last sync:    {meta.last_full_sync or 'never'}",
+            f"  Staleness:    {staleness}",
+            f"  Watcher:      {watcher}",
         ]
         return [TextContent(type="text", text="\n".join(lines))]
