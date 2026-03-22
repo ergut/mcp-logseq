@@ -89,7 +89,7 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🛠️ Available Tools
 
-The server provides 15 tools with intelligent markdown parsing:
+The server provides 16 tools with intelligent markdown parsing:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
@@ -108,6 +108,7 @@ The server provides 15 tools with intelligent markdown parsing:
 | **`rename_page`** | Rename with reference updates | "Rename 'Old Name' to 'New Name'" |
 | **`get_page_backlinks`** | Find pages linking to a page | "What links to this page?" |
 | **`insert_nested_block`** | Insert child/sibling blocks | "Add a child block under this task" |
+| **`set_block_properties`** | Set DB-mode class properties on a block | "Set the status of this block to active" *(DB-mode only)* |
 
 ### 🎨 Smart Markdown Parsing (v1.1.0+)
 
@@ -168,6 +169,7 @@ def hello():
 ### Environment Variables
 - **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
+- **`LOGSEQ_DB_MODE`** (optional): Set to `true` to enable DB-mode property support. Only for Logseq DB-mode graphs (beta). Markdown/file-based graph users should leave this unset.
 
 ### Alternative Setup Methods
 
