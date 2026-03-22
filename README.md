@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/images/logo.png" alt="MCP LogSeq" width="200" height="200">
   <h1>MCP server for LogSeq</h1>
-  <p>MCP server to interact with LogSeq via its API. Enables Claude to read, create, and manage LogSeq pages through a comprehensive set of tools.</p>
+  <p>Connect Claude to your LogSeq knowledge base. Read, create, and manage pages — with optional semantic vector search and DB-mode graph support.</p>
 </div>
 
 ## ✨ What You Can Do
@@ -24,11 +24,18 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 "Create a weekly review page from my recent notes"
 ```
 
-**🔍 Smart Research & Analysis** 
+**🔍 Smart Research & Analysis**
 ```
 "Compare my notes on React vs Vue and highlight key differences"
 "Find all references to 'customer feedback' and summarize themes"
 "Create a knowledge map connecting related topics across pages"
+```
+
+**🧠 Semantic Search** *(optional, requires vector setup)*
+```
+"Find everything I wrote about burnout, even if I didn't use that word"
+"What notes relate to my thoughts on deep work?"
+"Search across my Dutch and English notes for ideas about productivity"
 ```
 
 **🤝 Meeting & Documentation Workflow**
@@ -40,9 +47,11 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 
 ### 💡 Key Benefits
 - **Zero Context Switching**: Claude works directly with your LogSeq data
-- **Preserve Your Workflow**: No need to export or copy content manually  
+- **Preserve Your Workflow**: No need to export or copy content manually
 - **Intelligent Organization**: AI-powered page creation, linking, and search
 - **Enhanced Productivity**: Automate repetitive knowledge work
+- **Semantic Vector Search** *(optional)*: Find notes by meaning using local Ollama embeddings — no data leaves your machine
+- **DB-mode Support** *(opt-in)*: Read and write class properties on Logseq DB-mode graphs
 
 ---
 
