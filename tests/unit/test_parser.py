@@ -366,13 +366,15 @@ class TestNumberedListEdgeCases:
             assert child.properties == self.NUMBERED_PROP
 
     def test_numbered_list_batch_format(self):
-        """Verify to_batch_format() includes properties in output."""
+        """Verify to_batch_format() embeds properties in content string."""
         content = "1. Item one\n2. Item two"
         blocks = parse_markdown_to_blocks(content)
         batch = [b.to_batch_format() for b in blocks]
 
-        assert batch[0]["properties"] == self.NUMBERED_PROP
-        assert batch[1]["properties"] == self.NUMBERED_PROP
+        assert batch[0]["content"] == "Item one\nlogseq.order-list-type:: number"
+        assert batch[1]["content"] == "Item two\nlogseq.order-list-type:: number"
+        assert "properties" not in batch[0]
+        assert "properties" not in batch[1]
 
     def test_bullet_list_no_properties_in_batch(self):
         """Bullet items should not have properties key in batch format."""
@@ -643,18 +645,18 @@ class TestBlocksToBatchFormat:
         assert result[0]["children"][0]["content"] == "Child 1"
 
     def test_blocks_with_properties(self):
-        """Test blocks with properties."""
+        """Test blocks with properties embedded in content."""
         blocks = [
             BlockNode(
                 content="Block with props",
-                properties={"priority": "high", "tags": ["test"]},
+                properties={"priority": "high"},
             )
         ]
 
         result = blocks_to_batch_format(blocks)
 
-        assert result[0]["content"] == "Block with props"
-        assert result[0]["properties"] == {"priority": "high", "tags": ["test"]}
+        assert result[0]["content"] == "Block with props\npriority:: high"
+        assert "properties" not in result[0]
 
 
 class TestParseContent:

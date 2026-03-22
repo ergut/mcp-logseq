@@ -27,13 +27,15 @@ class BlockNode:
 
     def to_batch_format(self) -> dict[str, Any]:
         """Convert to Logseq IBatchBlock format."""
-        result: dict[str, Any] = {"content": self.content}
+        content = self.content
+        if self.properties:
+            prop_lines = [f"{k}:: {v}" for k, v in self.properties.items()]
+            content = content + "\n" + "\n".join(prop_lines)
+
+        result: dict[str, Any] = {"content": content}
 
         if self.children:
             result["children"] = [child.to_batch_format() for child in self.children]
-
-        if self.properties:
-            result["properties"] = self.properties
 
         return result
 

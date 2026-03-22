@@ -328,50 +328,6 @@ class LogSeq:
             logger.error(f"Error appending block to page: {str(e)}")
             raise
 
-    def _has_block_properties(self, blocks: list[dict]) -> bool:
-        """Check if any block in the tree has properties to apply."""
-        for block in blocks:
-            if block.get("properties"):
-                return True
-            if self._has_block_properties(block.get("children", [])):
-                return True
-        return False
-
-    def _apply_block_properties(self, page_name: str, input_blocks: list[dict]) -> None:
-        """
-        Apply block-level properties after batch insertion.
-
-        insertBatchBlock ignores the 'properties' dict, so we re-fetch the
-        created blocks and apply properties via updateBlock (which preserves
-        inline properties in content). Walks the input and created trees in
-        parallel to match blocks by position.
-        """
-        if not self._has_block_properties(input_blocks):
-            return
-
-        # Re-fetch the page block tree to get UUIDs
-        page_blocks = self.get_page_blocks(page_name)
-        if not page_blocks:
-            return
-
-        def apply_recursive(input_list: list[dict], created_list: list[dict]) -> None:
-            for inp, created in zip(input_list, created_list):
-                props = inp.get("properties", {})
-                block_uuid = created.get("uuid")
-                content = created.get("content", "")
-                if props and block_uuid:
-                    # Embed properties as inline key:: value lines in content
-                    prop_lines = [f"{key}:: {value}" for key, value in props.items()]
-                    new_content = content + "\n" + "\n".join(prop_lines)
-                    self.update_block(str(block_uuid), new_content)
-                # Recurse into children
-                inp_children = inp.get("children", [])
-                created_children = created.get("children", [])
-                if inp_children and created_children:
-                    apply_recursive(inp_children, created_children)
-
-        apply_recursive(input_blocks, page_blocks)
-
     def create_page_with_blocks(
         self, title: str, blocks: list[dict], properties: dict | None = None
     ) -> dict:
@@ -431,10 +387,6 @@ class LogSeq:
                         # Remove the empty placeholder block. Properties are already
                         # stored at the page entity level via createPage above.
                         self.remove_block(first_block_uuid)
-
-                        # Apply block-level properties (e.g. logseq.order-list-type)
-                        # that insertBatchBlock doesn't handle
-                        self._apply_block_properties(title, blocks)
                 else:
                     # Fallback: append blocks one by one if no first block
                     logger.warning("No first block found, using fallback append method")
@@ -554,10 +506,6 @@ class LogSeq:
                         for block in blocks:
                             self._append_block_recursive(page_name, block)
                         results.append(("blocks_appended", len(blocks)))
-
-                # Apply block-level properties (e.g. logseq.order-list-type)
-                # that insertBatchBlock doesn't handle
-                self._apply_block_properties(page_name, blocks)
 
             # Update properties AFTER blocks are inserted/replaced
             if properties:
