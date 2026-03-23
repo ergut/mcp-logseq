@@ -810,12 +810,12 @@ class TestSearchToolHandler:
         # Verify API was called
         mock_api.search_content.assert_called_once_with("test", {"limit": 20})
 
-        # Verify result
+        # Verify result (markdown-mode formatting, _db_mode defaults to False)
         text = result[0].text
         assert "# Search Results for 'test'" in text
-        assert "📄 Content Blocks (1 found)" in text
+        assert "Content Blocks (1 found)" in text
         assert "Found content" in text
-        assert "📑 Matching Pages (1 found)" in text
+        assert "Matching Pages (1 found)" in text
         assert "Matching Page" in text
         assert "Total results found: 3" in text  # blocks(1) + snippets(1) + pages(1)
 
@@ -856,6 +856,33 @@ class TestSearchToolHandler:
 
         # Verify API was called with correct options
         mock_api.search_content.assert_called_once_with("test", {"limit": 5})
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_db_mode(self, mock_logseq_class):
+        """Test search with DB-mode response format."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [
+                {"page?": True, "fullTitle": "Claude Code sessie", "uuid": "page-uuid",
+                 "content": "Claude Code sessie", "page": "page-uuid"},
+                {"page?": False, "content": "[[Claude Code sessie]]", "uuid": "block-uuid",
+                 "page": "00000001-2026-0323-0000-000000000000"},
+            ],
+            "hasMore?": False,
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = SearchToolHandler()
+        with patch("mcp_logseq.tools._db_mode", True):
+            result = handler.run_tool({"query": "Claude Code sessie"})
+
+        text = result[0].text
+        assert "Matching Pages (1 found)" in text
+        assert "Claude Code sessie" in text
+        assert "Content Blocks (1 found)" in text
+        assert "block-uuid" in text
+        assert "Total results found: 2" in text
 
 
 class TestQueryToolHandler:

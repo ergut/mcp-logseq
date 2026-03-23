@@ -688,6 +688,123 @@ class SearchToolHandler(ToolHandler):
             },
         )
 
+    @staticmethod
+    def _format_db_mode_results(
+        result: dict, limit: int,
+        include_blocks: bool, include_pages: bool, include_files: bool,
+    ) -> list[str]:
+        """Format search results from DB-mode Logseq.
+
+        DB-mode returns a flat 'blocks' array where each item has 'content',
+        'uuid', 'page' (UUID), and 'page?' (bool). Pages and blocks are
+        distinguished by the 'page?' flag.
+        """
+        parts: list[str] = []
+        blocks = result.get("blocks", [])
+
+        # Split into pages and content blocks
+        page_results = [b for b in blocks if b.get("page?")]
+        block_results = [b for b in blocks if not b.get("page?")]
+
+        if include_pages and page_results:
+            parts.append(f"## Matching Pages ({len(page_results)} found)")
+            for page in page_results:
+                name = page.get("fullTitle") or page.get("title") or page.get("content", "")
+                parts.append(f"- {name}")
+            parts.append("")
+
+        if include_blocks and block_results:
+            parts.append(f"## Content Blocks ({len(block_results)} found)")
+            for i, block in enumerate(block_results[:limit]):
+                content = block.get("content", "").strip()
+                # Clean up full-text search highlight markers
+                content = content.replace("$pfts_2lqh>$", "").replace("$<pfts_2lqh$", "")
+                if content:
+                    page_id = block.get("page", "")
+                    uuid = block.get("uuid", "")
+                    if len(content) > 150:
+                        content = content[:150] + "..."
+                    parts.append(f"{i + 1}. {content}")
+                    parts.append(f"   uuid: {uuid}  page: {page_id}")
+            parts.append("")
+
+        if include_files and result.get("files"):
+            parts.append(f"## Matching Files ({len(result['files'])} found)")
+            for f in result["files"]:
+                parts.append(f"- {f}")
+            parts.append("")
+
+        if result.get("hasMore?"):
+            parts.append("*More results available — increase limit to see more*")
+
+        total = len(blocks) + len(result.get("files", []))
+        parts.append(f"\n**Total results found: {total}**")
+        return parts
+
+    @staticmethod
+    def _format_markdown_mode_results(
+        result: dict, limit: int,
+        include_blocks: bool, include_pages: bool, include_files: bool,
+    ) -> list[str]:
+        """Format search results from markdown-mode Logseq.
+
+        Markdown-mode returns separate 'blocks' (with 'block/content'),
+        'pages' (list of strings), 'pages-content' (with 'block/snippet'),
+        and 'files' arrays.
+        """
+        parts: list[str] = []
+
+        if include_blocks and result.get("blocks"):
+            blocks = result["blocks"]
+            parts.append(f"## Content Blocks ({len(blocks)} found)")
+            for i, block in enumerate(blocks[:limit]):
+                content = block.get("block/content", "").strip()
+                if content:
+                    if len(content) > 150:
+                        content = content[:150] + "..."
+                    parts.append(f"{i + 1}. {content}")
+            parts.append("")
+
+        if include_pages and result.get("pages-content"):
+            snippets = result["pages-content"]
+            parts.append(f"## Page Snippets ({len(snippets)} found)")
+            for i, snippet in enumerate(snippets[:limit]):
+                snippet_text = snippet.get("block/snippet", "").strip()
+                if snippet_text:
+                    snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
+                        "$<pfts_2lqh$", ""
+                    )
+                    if len(snippet_text) > 200:
+                        snippet_text = snippet_text[:200] + "..."
+                    parts.append(f"{i + 1}. {snippet_text}")
+            parts.append("")
+
+        if include_pages and result.get("pages"):
+            pages = result["pages"]
+            parts.append(f"## Matching Pages ({len(pages)} found)")
+            for page in pages:
+                parts.append(f"- {page}")
+            parts.append("")
+
+        if include_files and result.get("files"):
+            files = result["files"]
+            parts.append(f"## Matching Files ({len(files)} found)")
+            for f in files:
+                parts.append(f"- {f}")
+            parts.append("")
+
+        if result.get("has-more?"):
+            parts.append("*More results available — increase limit to see more*")
+
+        total = (
+            len(result.get("blocks", []))
+            + len(result.get("pages", []))
+            + len(result.get("pages-content", []))
+            + len(result.get("files", []))
+        )
+        parts.append(f"\n**Total results found: {total}**")
+        return parts
+
     def run_tool(self, args: dict) -> list[TextContent]:
         """Execute search and format results."""
         logger.info(f"Searching with args: {args}")
@@ -719,67 +836,14 @@ class SearchToolHandler(ToolHandler):
             content_parts = []
             content_parts.append(f"# Search Results for '{query}'\n")
 
-            # Block results
-            if include_blocks and result.get("blocks"):
-                blocks = result["blocks"]
-                content_parts.append(f"## 📄 Content Blocks ({len(blocks)} found)")
-                for i, block in enumerate(blocks[:limit]):
-                    # LogSeq returns blocks with 'block/content' key
-                    content = block.get("block/content", "").strip()
-                    if content:
-                        # Truncate long content
-                        if len(content) > 150:
-                            content = content[:150] + "..."
-                        content_parts.append(f"{i + 1}. {content}")
-                content_parts.append("")
-
-            # Page snippet results
-            if include_pages and result.get("pages-content"):
-                snippets = result["pages-content"]
-                content_parts.append(f"## 📝 Page Snippets ({len(snippets)} found)")
-                for i, snippet in enumerate(snippets[:limit]):
-                    # LogSeq returns snippets with 'block/snippet' key
-                    snippet_text = snippet.get("block/snippet", "").strip()
-                    if snippet_text:
-                        # Clean up snippet text
-                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
-                            "$<pfts_2lqh$", ""
-                        )
-                        if len(snippet_text) > 200:
-                            snippet_text = snippet_text[:200] + "..."
-                        content_parts.append(f"{i + 1}. {snippet_text}")
-                content_parts.append("")
-
-            # Page name results
-            if include_pages and result.get("pages"):
-                pages = result["pages"]
-                content_parts.append(f"## 📑 Matching Pages ({len(pages)} found)")
-                for page in pages:
-                    content_parts.append(f"- {page}")
-                content_parts.append("")
-
-            # File results
-            if include_files and result.get("files"):
-                files = result["files"]
-                content_parts.append(f"## 📁 Matching Files ({len(files)} found)")
-                for file_path in files:
-                    content_parts.append(f"- {file_path}")
-                content_parts.append("")
-
-            # Pagination info
-            if result.get("has-more?"):
-                content_parts.append(
-                    "📌 *More results available - increase limit to see more*"
+            if _db_mode:
+                content_parts.extend(
+                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files)
                 )
-
-            # Summary
-            total_results = (
-                len(result.get("blocks", []))
-                + len(result.get("pages", []))
-                + len(result.get("pages-content", []))
-                + len(result.get("files", []))
-            )
-            content_parts.append(f"\n**Total results found: {total_results}**")
+            else:
+                content_parts.extend(
+                    self._format_markdown_mode_results(result, limit, include_blocks, include_pages, include_files)
+                )
 
             response_text = "\n".join(content_parts)
 
