@@ -64,6 +64,7 @@ HORIZONTAL_RULE_PATTERN = re.compile(r"^(\s*)[-*_]{3,}\s*$")
 FENCED_CODE_START = re.compile(r"^(\s*)```(\w*)(.*)$")
 LOGSEQ_PROPERTY_PATTERN = re.compile(r"^\s*\w[\w-]*::\s")
 FENCED_CODE_END = re.compile(r"^(\s*)```\s*$")
+TABLE_ROW_PATTERN = re.compile(r"^\s*\|.+\|\s*$")
 
 
 def _serialize_frontmatter_value(obj: Any) -> Any:
@@ -275,6 +276,11 @@ class MarkdownParser:
                 or CAPITALIZED_MARKER_PATTERN.match(line)
             ):
                 i = self._parse_list_item(lines, i)
+                continue
+
+            # Check for markdown table
+            if TABLE_ROW_PATTERN.match(line):
+                i = self._parse_table(lines, i)
                 continue
 
             # Check for Logseq inline property (key:: value) — group consecutives into one block
@@ -503,6 +509,34 @@ class MarkdownParser:
 
         return list_block, i
 
+    def _parse_table(self, lines: list[str], start: int) -> int:
+        """
+        Parse a markdown table (contiguous lines matching | ... |).
+
+        Preserves newlines between rows so Logseq renders the table correctly.
+
+        Returns the index of the next line to process.
+        """
+        table_lines = []
+        i = start
+
+        while i < len(lines):
+            line = lines[i]
+            if TABLE_ROW_PATTERN.match(line):
+                table_lines.append(line.rstrip())
+                i += 1
+            elif not line.strip():
+                # Empty line ends the table
+                break
+            else:
+                break
+
+        if table_lines:
+            table_content = "\n".join(table_lines)
+            self._add_block(BlockNode(content=table_content, level=0))
+
+        return i
+
     def _parse_paragraph(self, lines: list[str], start: int) -> int:
         """
         Parse a paragraph (consecutive non-special lines).
@@ -529,6 +563,7 @@ class MarkdownParser:
                 or HORIZONTAL_RULE_PATTERN.match(line)
                 or FENCED_CODE_START.match(line)
                 or LOGSEQ_PROPERTY_PATTERN.match(line)
+                or TABLE_ROW_PATTERN.match(line)
             ):
                 break
 
