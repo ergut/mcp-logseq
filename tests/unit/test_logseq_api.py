@@ -663,3 +663,80 @@ class TestLogSeqAPI:
         # Children inserted under root's uuid
         assert call_order[1] == ("insert", "Child1", "uuid-Parent")
         assert call_order[2] == ("insert", "Child2", "uuid-Parent")
+
+
+class TestGetBlock:
+    """Test cases for the get_block API method."""
+
+    @responses.activate
+    def test_get_block_success(self, logseq_client):
+        """Test successful block retrieval."""
+        block_data = {
+            "uuid": "abc-123",
+            "content": "Test block",
+            "properties": {},
+            "children": [],
+        }
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=block_data,
+            status=200,
+        )
+
+        result = logseq_client.get_block("abc-123")
+        assert result["uuid"] == "abc-123"
+        assert result["content"] == "Test block"
+
+        # Verify the API was called with correct method and args
+        request_body = json.loads(responses.calls[0].request.body)
+        assert request_body["method"] == "logseq.Editor.getBlock"
+        assert request_body["args"] == ["abc-123", {"includeChildren": True}]
+
+    @responses.activate
+    def test_get_block_without_children(self, logseq_client):
+        """Test block retrieval without children."""
+        block_data = {
+            "uuid": "abc-123",
+            "content": "Test block",
+            "properties": {},
+        }
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json=block_data,
+            status=200,
+        )
+
+        result = logseq_client.get_block("abc-123", include_children=False)
+        assert result["uuid"] == "abc-123"
+
+        request_body = json.loads(responses.calls[0].request.body)
+        assert request_body["args"] == ["abc-123", {"includeChildren": False}]
+
+    @responses.activate
+    def test_get_block_not_found(self, logseq_client):
+        """Test block retrieval when block does not exist."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body="null",
+            content_type="application/json",
+            status=200,
+        )
+
+        with pytest.raises(ValueError, match="Block 'bad-uuid' not found"):
+            logseq_client.get_block("bad-uuid")
+
+    @responses.activate
+    def test_get_block_api_error(self, logseq_client):
+        """Test block retrieval when API returns an error."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={"error": "Internal server error"},
+            status=500,
+        )
+
+        with pytest.raises(Exception):
+            logseq_client.get_block("abc-123")

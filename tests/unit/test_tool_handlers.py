@@ -8,6 +8,7 @@ from mcp_logseq.tools import (
     DeletePageToolHandler,
     DeleteBlockToolHandler,
     UpdateBlockToolHandler,
+    GetBlockToolHandler,
     UpdatePageToolHandler,
     SearchToolHandler,
     QueryToolHandler,
@@ -1541,3 +1542,133 @@ class TestInsertNestedBlockToolHandler:
 
         with pytest.raises(RuntimeError, match="parent_block_uuid and content arguments required"):
             handler.run_tool({"parent_block_uuid": "uuid"})
+
+
+class TestGetBlockToolHandler:
+    """Test cases for GetBlockToolHandler."""
+
+    def test_get_tool_description(self):
+        """Test tool description schema."""
+        handler = GetBlockToolHandler()
+        tool = handler.get_tool_description()
+
+        assert tool.name == "get_block"
+        assert "Get a single block" in tool.description
+        assert tool.inputSchema["required"] == ["block_uuid"]
+        assert "include_children" in tool.inputSchema["properties"]
+        assert "format" in tool.inputSchema["properties"]
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_success_text_format(self, mock_logseq_class):
+        """Test successful block retrieval in text format."""
+        mock_api = Mock()
+        mock_api.get_block.return_value = {
+            "uuid": "abc-123",
+            "content": "Parent block content",
+            "properties": {},
+            "children": [
+                {
+                    "uuid": "child-1",
+                    "content": "Child block 1",
+                    "properties": {},
+                    "children": [],
+                }
+            ],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123"})
+
+        mock_api.get_block.assert_called_once_with("abc-123", include_children=True)
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "Parent block content" in result[0].text
+        assert "Child block 1" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_success_json_format(self, mock_logseq_class):
+        """Test successful block retrieval in JSON format."""
+        block_data = {
+            "uuid": "abc-123",
+            "content": "Block content",
+            "properties": {"priority": "high"},
+            "children": [],
+        }
+        mock_api = Mock()
+        mock_api.get_block.return_value = block_data
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123", "format": "json"})
+
+        assert len(result) == 1
+        import json
+        parsed = json.loads(result[0].text)
+        assert parsed["uuid"] == "abc-123"
+        assert parsed["properties"]["priority"] == "high"
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_without_children(self, mock_logseq_class):
+        """Test block retrieval with include_children=false."""
+        mock_api = Mock()
+        mock_api.get_block.return_value = {
+            "uuid": "abc-123",
+            "content": "Leaf block",
+            "properties": {},
+            "children": [],
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "abc-123", "include_children": False})
+
+        mock_api.get_block.assert_called_once_with("abc-123", include_children=False)
+        assert "Leaf block" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    def test_run_tool_missing_block_uuid(self):
+        """Test that omitting block_uuid raises RuntimeError."""
+        handler = GetBlockToolHandler()
+
+        with pytest.raises(RuntimeError, match="block_uuid argument required"):
+            handler.run_tool({})
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_block_not_found(self, mock_logseq_class):
+        """Test that a ValueError (block not found) returns an error TextContent."""
+        mock_api = Mock()
+        mock_api.get_block.side_effect = ValueError("Block 'bad-uuid' not found")
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetBlockToolHandler()
+        result = handler.run_tool({"block_uuid": "bad-uuid"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "Error: Block 'bad-uuid' not found" in result[0].text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_generic_exception(self, mock_logseq_class, caplog):
+        """Test that a generic exception returns a failed TextContent and logs the error."""
+        import logging
+
+        mock_api = Mock()
+        mock_api.get_block.side_effect = Exception("Unexpected API failure")
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetBlockToolHandler()
+
+        with caplog.at_level(logging.ERROR, logger="mcp-logseq"):
+            result = handler.run_tool({"block_uuid": "abc-123"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        assert "Failed to get block 'abc-123'" in result[0].text
+        assert "Unexpected API failure" in result[0].text
+        assert "Failed to get block" in caplog.text
