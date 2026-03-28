@@ -146,7 +146,7 @@ class LogSeq:
             response = requests.post(
                 url,
                 headers=self._get_headers(),
-                json={"method": "logseq.search", "args": [query, search_options]},
+                json={"method": "logseq.App.search", "args": [query, search_options]},
                 verify=self.verify_ssl,
                 timeout=self.timeout,
             )

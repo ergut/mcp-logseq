@@ -241,7 +241,7 @@ class TestLogSeqAPI:
         body = responses.calls[0].request.body
         assert body is not None
         request_data = json.loads(body)
-        assert request_data["method"] == "logseq.search"
+        assert request_data["method"] == "logseq.App.search"
         assert request_data["args"] == ["test query", {}]
 
     @responses.activate
