@@ -53,6 +53,7 @@ vector = [
     "lancedb>=0.6",
     "watchdog>=4.0",
     "pyarrow>=14.0",
+    "portalocker>=2.0",
 ]
 
 [project.scripts]
