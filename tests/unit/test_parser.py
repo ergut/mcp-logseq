@@ -875,3 +875,63 @@ PRIORITY2 Second priority
         assert blocks[0].content == "DONE Task"
         assert len(blocks[0].children) == 0
         assert blocks[1].content == "Unrelated list"
+
+
+class TestMarkdownTable:
+    """Tests for markdown table parsing."""
+
+    def test_table_preserves_newlines(self):
+        """Table rows should be joined with newlines, not spaces."""
+        content = """| Supplement | Dosage | Purpose |
+|------------|--------|---------|
+| Vitamin D | 2000 IU | Bone health |
+| Omega-3 | 1g | Heart health |"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert "\n" in blocks[0].content
+        assert "| Supplement | Dosage | Purpose |" in blocks[0].content
+        assert "| Vitamin D | 2000 IU | Bone health |" in blocks[0].content
+
+    def test_table_after_paragraph(self):
+        """Table following a paragraph should be a separate block."""
+        content = """*Supplement Stack*
+
+| Supplement | Dosage |
+|------------|--------|
+| Vitamin D | 2000 IU |"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 2
+        assert blocks[0].content == "*Supplement Stack*"
+        assert blocks[1].content.startswith("| Supplement")
+        assert "\n" in blocks[1].content
+
+    def test_table_under_heading(self):
+        """Table under a heading should be a child block."""
+        content = """## Supplements
+
+| Name | Dose |
+|------|------|
+| Zinc | 15mg |"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "## Supplements"
+        assert len(blocks[0].children) == 1
+        assert "\n" in blocks[0].children[0].content
+
+    def test_table_batch_format_preserves_newlines(self):
+        """End-to-end: table content in batch format keeps newlines."""
+        content = """| A | B |
+|---|---|
+| 1 | 2 |"""
+
+        parsed = parse_content(content)
+        batch = parsed.to_batch_format()
+
+        assert len(batch) == 1
+        assert "\n" in batch[0]["content"]
