@@ -8,6 +8,9 @@ from mcp_logseq.tools import (
     GetPageContentToolHandler,
     DeletePageToolHandler,
     UpdatePageToolHandler,
+    DeleteBlockToolHandler,
+    UpdateBlockToolHandler,
+    GetBlockToolHandler,
     SearchToolHandler,
     QueryToolHandler,
     FindPagesByPropertyToolHandler,
@@ -243,7 +246,39 @@ def mock_logseq_responses():
             "content": "Child block content",
             "parent": "parent-block-uuid-456",
             "properties": {}
-        }
+        },
+        "get_block_success": {
+            "uuid": "abc-123",
+            "content": "Parent block content",
+            "properties": {"priority": "high"},
+            "children": [
+                {
+                    "uuid": "child-1",
+                    "content": "Child block 1",
+                    "properties": {},
+                    "children": [],
+                },
+                {
+                    "uuid": "child-2",
+                    "content": "Child block 2",
+                    "properties": {},
+                    "children": [
+                        {
+                            "uuid": "grandchild-1",
+                            "content": "Grandchild block",
+                            "properties": {},
+                            "children": [],
+                        }
+                    ],
+                },
+            ],
+        },
+        "get_block_no_children": {
+            "uuid": "abc-123",
+            "content": "Leaf block content",
+            "properties": {},
+            "children": [],
+        },
     }
 
 
@@ -256,6 +291,9 @@ def tool_handlers():
         "get_page_content": GetPageContentToolHandler(),
         "delete_page": DeletePageToolHandler(),
         "update_page": UpdatePageToolHandler(),
+        "delete_block": DeleteBlockToolHandler(),
+        "update_block": UpdateBlockToolHandler(),
+        "get_block": GetBlockToolHandler(),
         "search": SearchToolHandler(),
         "query": QueryToolHandler(),
         "find_pages_by_property": FindPagesByPropertyToolHandler(),

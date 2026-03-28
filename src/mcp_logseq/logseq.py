@@ -936,6 +936,45 @@ class LogSeq:
             pass
         return None
 
+    def get_block(self, block_uuid: str, include_children: bool = True) -> Any:
+        """Get a LogSeq block by UUID, optionally including its children tree.
+
+        Args:
+            block_uuid: UUID of the block to retrieve.
+            include_children: Whether to include nested children (default True).
+
+        Returns:
+            Block dict with content, properties, uuid, children, etc.
+        """
+        url = self.get_base_url()
+        logger.info(f"Getting block '{block_uuid}' (children={include_children})")
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.getBlock",
+                    "args": [block_uuid, {"includeChildren": include_children}],
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if result is None:
+                raise ValueError(f"Block '{block_uuid}' not found")
+
+            logger.info(f"Successfully retrieved block '{block_uuid}'")
+            return result
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting block '{block_uuid}': {str(e)}")
+            raise
+
     def delete_block(self, block_uuid: str) -> Any:
         """Delete a LogSeq block by UUID."""
         url = self.get_base_url()

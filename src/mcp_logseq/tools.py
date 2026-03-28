@@ -651,6 +651,89 @@ class UpdateBlockToolHandler(ToolHandler):
             )]
 
 
+class GetBlockToolHandler(ToolHandler):
+    """Retrieve a single block by UUID, including its content, properties, and children."""
+
+    def __init__(self):
+        super().__init__("get_block")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Get a single block by its UUID. Returns the block content, properties, and child blocks (recursively). Useful for inspecting a specific block after finding its UUID via search or query.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the block to retrieve",
+                    },
+                    "include_children": {
+                        "type": "boolean",
+                        "description": "Whether to include child blocks recursively (default: true)",
+                        "default": True,
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "Output format (text or json)",
+                        "enum": ["text", "json"],
+                        "default": "text",
+                    },
+                },
+                "required": ["block_uuid"],
+            },
+        )
+
+    def run_tool(self, args: dict) -> list[TextContent]:
+        if "block_uuid" not in args:
+            raise RuntimeError("block_uuid argument required")
+
+        block_uuid = args["block_uuid"]
+        include_children = args.get("include_children", True)
+        output_format = args.get("format", "text")
+
+        try:
+            api = _make_api()
+            result = api.get_block(block_uuid, include_children=include_children)
+
+            if output_format == "json":
+                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+            # Format as readable text using the same tree formatter as get_page_content
+            content_parts = []
+
+            # Fetch DB-mode class properties when enabled
+            db_properties = {}
+            if _db_mode:
+                try:
+                    db_properties = api.get_blocks_db_properties([result])
+                    logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
+                except Exception as e:
+                    logger.warning(f"Could not fetch DB-mode properties: {e}")
+
+            block_lines = GetPageContentToolHandler._format_block_tree(
+                result, 0, -1, db_properties
+            )
+            content_parts.extend(block_lines)
+
+            if not content_parts:
+                return [TextContent(
+                    type="text",
+                    text=f"Block '{block_uuid}' exists but has no content.",
+                )]
+
+            return [TextContent(type="text", text="\n".join(content_parts))]
+
+        except ValueError as e:
+            return [TextContent(type="text", text=f"Error: {str(e)}")]
+        except Exception as e:
+            logger.error(f"Failed to get block: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to get block '{block_uuid}': {str(e)}",
+            )]
+
+
 class SearchToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("search")
