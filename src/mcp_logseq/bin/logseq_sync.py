@@ -18,12 +18,12 @@ from __future__ import annotations
 
 import argparse
 import atexit
-import fcntl
 import os
 import sys
 import time
 from pathlib import Path
 
+import portalocker
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,9 +48,9 @@ def _acquire_sync_lock(db_path: str):
     lock_path = Path(db_path) / "sync.lock"
     lock_file = open(lock_path, "w")
     try:
-        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        portalocker.lock(lock_file, portalocker.LOCK_EX | portalocker.LOCK_NB)
         return lock_file
-    except OSError:
+    except portalocker.LockException:
         lock_file.close()
         print(
             "Error: another sync process is already running. "
@@ -63,7 +63,7 @@ def _acquire_sync_lock(db_path: str):
 def _release_sync_lock(lock_file):
     """Release the inter-process file lock."""
     try:
-        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        portalocker.unlock(lock_file)
         lock_file.close()
     except Exception:
         pass
@@ -87,17 +87,17 @@ def _run_sync(config, rebuild: bool = False) -> None:
     from mcp_logseq.vector.state import StateManager
     from mcp_logseq.vector.sync import SyncEngine
 
-    print(f"Connecting to Ollama ({config.embedder.model})...")
-    try:
-        embedder = create_embedder(config.embedder)
-        dimensions = embedder.dimensions
-        print(f"Embedder ready: {embedder.key} ({dimensions} dims)")
-    except RuntimeError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
     lock_file = _acquire_sync_lock(config.db_path)
     try:
+        print(f"Connecting to Ollama ({config.embedder.model})...")
+        try:
+            embedder = create_embedder(config.embedder)
+            dimensions = embedder.dimensions
+            print(f"Embedder ready: {embedder.key} ({dimensions} dims)")
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         db = VectorDB.open(config.db_path, dimensions)
         state_mgr = StateManager(config.db_path)
         engine = SyncEngine(config, db, state_mgr, embedder)
