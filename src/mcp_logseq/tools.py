@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -39,6 +40,34 @@ def _make_api() -> logseq.LogSeq:
         port=_api_port,
         verify_ssl=_api_verify_ssl,
     )
+
+
+# Regex matching [[uuid]] references in DB-mode block content
+_UUID_REF_PATTERN = re.compile(r"\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]")
+
+
+def _collect_block_uuids(blocks: list[dict]) -> set[str]:
+    """Recursively collect all page-reference UUIDs from block content strings."""
+    uuids: set[str] = set()
+    for block in blocks:
+        content = block.get("content", "")
+        uuids.update(_UUID_REF_PATTERN.findall(content))
+        children = block.get("children", [])
+        if children:
+            uuids.update(_collect_block_uuids(children))
+    return uuids
+
+
+def _resolve_block_refs(content: str, uuid_map: dict[str, str]) -> str:
+    """Replace [[uuid]] patterns in content with [[Page Name]] using a pre-resolved map."""
+    def _replace(match: re.Match) -> str:
+        uuid = match.group(1)
+        name = uuid_map.get(uuid)
+        if name:
+            return f"[[{name}]]"
+        return match.group(0)  # Keep original if not resolved
+
+    return _UUID_REF_PATTERN.sub(_replace, content)
 
 
 class ToolHandler:
@@ -233,6 +262,7 @@ class GetPageContentToolHandler(ToolHandler):
     def _format_block_tree(
         block: dict, indent_level: int = 0, max_depth: int = -1,
         db_properties: dict[str, dict[str, str]] | None = None,
+        uuid_map: dict[str, str] | None = None,
     ) -> list[str]:
         """
         Recursively format a block and its children with proper indentation.
@@ -241,6 +271,8 @@ class GetPageContentToolHandler(ToolHandler):
             block: Block dict with 'content', 'children', and optional 'properties', 'marker'
             indent_level: Current indentation level (0-based)
             max_depth: Maximum depth to recurse (-1 for unlimited)
+            db_properties: DB-mode class properties keyed by block UUID
+            uuid_map: Mapping of page UUIDs to page names for resolving [[uuid]] refs
 
         Returns:
             List of formatted lines for this block and its children
@@ -249,6 +281,10 @@ class GetPageContentToolHandler(ToolHandler):
 
         # Get block content
         content = block.get("content", "").strip()
+
+        # Resolve [[uuid]] references to [[Page Name]] if a map is provided
+        if uuid_map and content:
+            content = _resolve_block_refs(content, uuid_map)
         if not content:
             return lines
 
@@ -284,7 +320,7 @@ class GetPageContentToolHandler(ToolHandler):
         if children and (max_depth == -1 or indent_level < max_depth):
             for child in children:
                 child_lines = GetPageContentToolHandler._format_block_tree(
-                    child, indent_level + 1, max_depth, db_properties
+                    child, indent_level + 1, max_depth, db_properties, uuid_map
                 )
                 lines.extend(child_lines)
 
@@ -312,6 +348,11 @@ class GetPageContentToolHandler(ToolHandler):
                         "description": "Maximum nesting depth to display (default: -1 for unlimited)",
                         "default": -1,
                     },
+                    "resolve_refs": {
+                        "type": "boolean",
+                        "description": "Resolve [[uuid]] page references to [[Page Name]] in DB mode (default: true)",
+                        "default": True,
+                    },
                 },
                 "required": ["page_name"],
             },
@@ -337,6 +378,18 @@ class GetPageContentToolHandler(ToolHandler):
 
             # Handle JSON format request
             if args.get("format") == "json":
+                # In DB mode with resolve_refs, enrich JSON with resolved page names
+                if _db_mode and args.get("resolve_refs", True):
+                    blocks = result.get("blocks", [])
+                    page_uuids = _collect_block_uuids(blocks)
+                    if page_uuids:
+                        try:
+                            uuid_map = api.resolve_page_uuids(list(page_uuids))
+                            if uuid_map:
+                                result = dict(result)
+                                result["resolved_refs"] = uuid_map
+                        except Exception as e:
+                            logger.warning(f"Could not resolve refs for JSON: {e}")
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
             # Format as readable text
@@ -347,6 +400,7 @@ class GetPageContentToolHandler(ToolHandler):
 
             # Fetch DB-mode class properties (only when LOGSEQ_DB_MODE is enabled)
             db_properties = {}
+            uuid_map: dict[str, str] = {}
             if _db_mode:
                 try:
                     db_properties = api.get_blocks_db_properties(blocks)
@@ -354,13 +408,23 @@ class GetPageContentToolHandler(ToolHandler):
                 except Exception as e:
                     logger.warning(f"Could not fetch DB-mode properties: {e}")
 
+                # Resolve [[uuid]] page references to readable names
+                resolve_refs = args.get("resolve_refs", True)
+                if resolve_refs:
+                    try:
+                        page_uuids = _collect_block_uuids(blocks)
+                        if page_uuids:
+                            uuid_map = api.resolve_page_uuids(list(page_uuids))
+                    except Exception as e:
+                        logger.warning(f"Could not resolve page refs: {e}")
+
             # Blocks content - use recursive formatter
             max_depth = args.get("max_depth", -1)
             if blocks:
                 for block in blocks:
                     if isinstance(block, dict):
                         block_lines = self._format_block_tree(
-                            block, 0, max_depth, db_properties
+                            block, 0, max_depth, db_properties, uuid_map
                         )
                         content_parts.extend(block_lines)
                     elif isinstance(block, str) and block.strip():

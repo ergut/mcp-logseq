@@ -975,6 +975,44 @@ class LogSeq:
             logger.error(f"Error getting block '{block_uuid}': {str(e)}")
             raise
 
+    def resolve_page_uuids(self, uuids: list[str]) -> dict[str, str]:
+        """Resolve a list of page UUIDs to their human-readable names.
+
+        Batch-resolves by calling logseq.Editor.getPage once per unique UUID.
+        Results are returned as a dict mapping UUID -> page name.
+        UUIDs that cannot be resolved are silently omitted.
+
+        Args:
+            uuids: List of page UUID strings to resolve.
+
+        Returns:
+            Dict mapping UUID string to page name string.
+        """
+        url = self.get_base_url()
+        resolved = {}
+
+        for uuid in set(uuids):
+            try:
+                response = requests.post(
+                    url,
+                    headers=self._get_headers(),
+                    json={"method": "logseq.Editor.getPage", "args": [uuid]},
+                    verify=self.verify_ssl,
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                page = response.json()
+
+                if page and isinstance(page, dict):
+                    name = page.get("originalName") or page.get("name")
+                    if name:
+                        resolved[uuid] = name
+            except Exception as e:
+                logger.warning(f"Could not resolve page UUID '{uuid}': {e}")
+
+        logger.info(f"Resolved {len(resolved)}/{len(set(uuids))} page UUIDs")
+        return resolved
+
     def delete_block(self, block_uuid: str) -> Any:
         """Delete a LogSeq block by UUID."""
         url = self.get_base_url()
