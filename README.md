@@ -194,6 +194,32 @@ def hello():
 - **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
 - **`LOGSEQ_DB_MODE`** (optional): Set to `true` to enable DB-mode property support. Only for Logseq DB-mode graphs (beta). Markdown/file-based graph users should leave this unset.
+- **`LOGSEQ_EXCLUDE_TAGS`** (optional): Comma-separated tags — pages with these tags are hidden from all tools. See [Privacy & Access Control](#-privacy--access-control) below.
+
+### Privacy & Access Control
+
+Pages tagged with excluded tags are completely hidden from AI — they won't appear in listings, searches, or queries, and attempting to read them directly returns an access-denied error.
+
+**Quick setup via env var:**
+```bash
+LOGSEQ_EXCLUDE_TAGS=private,secret
+```
+
+**Via config file** (also used for [vector search](VECTOR_SEARCH.md)):
+```json
+{
+  "logseq_graph_path": "/path/to/your/logseq/pages",
+  "exclude_tags": ["private", "secret"]
+}
+```
+Point to it with `LOGSEQ_CONFIG_FILE=/path/to/config.json`.
+
+In your Logseq pages, tag any page you want to protect:
+```
+tags:: private
+```
+
+The exclusion applies to all tools: `list_pages`, `get_page_content`, `search`, `query`, and the optional vector search. If you also use vector search, `exclude_tags` at the root is automatically merged into the vector index exclusion list — private pages are never embedded.
 
 ### Alternative Setup Methods
 

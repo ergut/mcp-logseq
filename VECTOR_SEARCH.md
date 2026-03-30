@@ -66,6 +66,7 @@ mkdir -p ~/.logseq-vector
 ```json
 {
   "logseq_graph_path": "~/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents",
+  "exclude_tags": ["private"],
   "vector": {
     "enabled": true,
     "db_path": "~/.logseq-vector/db",
@@ -75,7 +76,7 @@ mkdir -p ~/.logseq-vector
       "base_url": "http://localhost:11434"
     },
     "include_journals": true,
-    "exclude_tags": ["private"],
+    "exclude_tags": ["no-index"],
     "min_chunk_length": 50
   }
 }
@@ -92,11 +93,12 @@ This keeps everything in one place:
 | Field | Required | Description |
 | --- | --- | --- |
 | `logseq_graph_path` | ✅ | Path to your Logseq graph directory (contains `pages/` and `journals/`) |
+| `exclude_tags` | no | **Project-level privacy filter** — pages with these tags are hidden from all tools (list, search, query, get content) *and* excluded from the vector index. Use this for pages with sensitive content (e.g. API keys, personal notes). |
 | `vector.enabled` | ✅ | Must be `true` to activate vector tools |
 | `vector.db_path` | ✅ | Where to store the vector DB — keep it local, not in iCloud |
 | `vector.embedder.model` | ✅ | Ollama model name — must match what you pulled |
 | `vector.include_journals` | no | Index journal pages (default: `true`) |
-| `vector.exclude_tags` | no | Skip pages with these tags (default: `[]`) |
+| `vector.exclude_tags` | no | Additional tags to skip from the vector index only (additive with top-level `exclude_tags`). Use for noise filtering — e.g. large reference dumps that pollute semantic search but are fine to read directly. (default: `[]`) |
 | `vector.min_chunk_length` | no | Minimum characters per chunk (default: `50`) |
 
 **Important:** keep `db_path` outside your iCloud-synced Logseq folder. The DB is a generated binary artifact — syncing it to iCloud wastes bandwidth and can cause corruption.
@@ -271,5 +273,5 @@ Large graphs with `qwen3-embedding:8b` take ~20s per batch of 32 chunks. A graph
 
 Run `vector_db_status` to check chunk and page counts. If a page is missing, it may have been skipped due to:
 - All chunks being under `min_chunk_length`
-- The page having a tag listed in `exclude_tags`
+- The page having a tag listed in `exclude_tags` (top-level or `vector.exclude_tags`)
 - A timeout during the initial sync (run `--once` again to pick it up)

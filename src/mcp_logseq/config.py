@@ -7,6 +7,7 @@ If not set, or if vector.enabled is false/missing, vector tools are not loaded.
 Example config.json:
 {
   "logseq_graph_path": "/path/to/logseq/pages",
+  "exclude_tags": ["private", "secret"],
   "vector": {
     "enabled": true,
     "db_path": "~/.logseq-vector",
@@ -107,3 +108,41 @@ def load_vector_config() -> VectorConfig | None:
         min_chunk_length=vector_raw.get("min_chunk_length", 50),
         watch_debounce_ms=vector_raw.get("watch_debounce_ms", 5000),
     )
+
+
+def load_exclude_tags() -> list[str]:
+    """
+    Load top-level exclude_tags from LOGSEQ_EXCLUDE_TAGS env var or config file root.
+    Priority: env var > config file > [] (no filtering).
+    Never raises.
+    """
+    env_val = os.getenv("LOGSEQ_EXCLUDE_TAGS", "").strip()
+    if env_val:
+        tags = [t.strip() for t in env_val.split(",") if t.strip()]
+        if tags:
+            logger.info(f"Loaded {len(tags)} exclude_tags from LOGSEQ_EXCLUDE_TAGS")
+            return tags
+
+    config_path = os.getenv("LOGSEQ_CONFIG_FILE")
+    if not config_path:
+        return []
+    config_path = os.path.expanduser(config_path)
+    if not os.path.exists(config_path):
+        return []
+    try:
+        with open(config_path) as f:
+            raw = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to parse config file for exclude_tags {config_path}: {e}")
+        return []
+
+    raw_tags = raw.get("exclude_tags", [])
+    if isinstance(raw_tags, list):
+        tags = [str(t).strip() for t in raw_tags if str(t).strip()]
+    elif isinstance(raw_tags, str):
+        tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+    else:
+        tags = []
+    if tags:
+        logger.info(f"Loaded {len(tags)} exclude_tags from config file root")
+    return tags

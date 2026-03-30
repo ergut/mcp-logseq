@@ -100,8 +100,13 @@ logger.info("Tool handlers registration complete")
 # Conditional vector tool registration — only when LOGSEQ_CONFIG_FILE is set
 # and vector.enabled is true in the config file
 try:
-    from .config import load_vector_config
+    from .config import load_vector_config, load_exclude_tags
     vector_config = load_vector_config()
+    # Merge top-level exclude_tags into vector config (additive union)
+    top_level_exclude = load_exclude_tags()
+    if vector_config and top_level_exclude:
+        merged = list(dict.fromkeys(top_level_exclude + vector_config.exclude_tags))
+        vector_config.exclude_tags = merged
     if vector_config and vector_config.enabled:
         from .vector.index import (
             VectorDBStatusToolHandler,

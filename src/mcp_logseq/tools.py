@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import urlparse
 from . import logseq
 from . import parser
+from .config import load_exclude_tags
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
@@ -30,6 +31,7 @@ else:
     _api_verify_ssl = _api_protocol == "https"
 
 _db_mode = os.getenv("LOGSEQ_DB_MODE", "").lower() in ("1", "true", "yes")
+_exclude_tags: list[str] = load_exclude_tags()
 
 
 def _make_api() -> logseq.LogSeq:
@@ -68,6 +70,24 @@ def _resolve_block_refs(content: str, uuid_map: dict[str, str]) -> str:
         return match.group(0)  # Keep original if not resolved
 
     return _UUID_REF_PATTERN.sub(_replace, content)
+
+
+def _extract_tags(properties: dict) -> list[str]:
+    """Extract tags from a Logseq properties dict (list or comma-string form)."""
+    raw = properties.get("tags", [])
+    if isinstance(raw, str):
+        return [t.strip() for t in raw.split(",") if t.strip()]
+    elif isinstance(raw, list):
+        return [str(t).strip() for t in raw if str(t).strip()]
+    return []
+
+
+def _is_page_excluded(page: dict, exclude_tags: list[str]) -> bool:
+    """Return True if the page has any tag in exclude_tags."""
+    if not exclude_tags:
+        return False
+    props = page.get("properties") or {}
+    return any(t in exclude_tags for t in _extract_tags(props))
 
 
 class ToolHandler:
@@ -220,6 +240,9 @@ class ListPagesToolHandler(ToolHandler):
                 # Skip if it's a journal page and we don't want to include those
                 is_journal = page.get("journal?", False)
                 if is_journal and not include_journals:
+                    continue
+                # Security: pages with excluded tags are invisible
+                if _is_page_excluded(page, _exclude_tags):
                     continue
 
                 # Get page information
@@ -375,6 +398,13 @@ class GetPageContentToolHandler(ToolHandler):
                         type="text", text=f"Page '{args['page_name']}' not found."
                     )
                 ]
+
+            # Security: block access to excluded pages — fail loudly
+            if _exclude_tags and _is_page_excluded(result.get("page", {}), _exclude_tags):
+                raise RuntimeError(
+                    f"Access denied: page '{args['page_name']}' is restricted "
+                    f"and cannot be read by this assistant."
+                )
 
             # Handle JSON format request
             if args.get("format") == "json":
@@ -836,9 +866,31 @@ class SearchToolHandler(ToolHandler):
         )
 
     @staticmethod
+    def _build_excluded_page_names(api, exclude_tags: list[str]) -> set[str]:
+        """Return lowercased names of pages that have excluded tags.
+
+        Makes one extra api.list_pages() call. Fails open on error to avoid
+        breaking search entirely when exclude_tags is configured.
+        """
+        if not exclude_tags:
+            return set()
+        try:
+            pages = api.list_pages()
+            return {
+                (page.get("originalName") or page.get("name", "")).lower()
+                for page in pages
+                if _is_page_excluded(page, exclude_tags)
+                and (page.get("originalName") or page.get("name"))
+            }
+        except Exception as e:
+            logger.warning(f"Could not build excluded page names for search filtering: {e}")
+            return set()
+
+    @staticmethod
     def _format_db_mode_results(
         result: dict, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
+        excluded_page_names: set[str] = frozenset(),
     ) -> list[str]:
         """Format search results from DB-mode Logseq.
 
@@ -854,11 +906,17 @@ class SearchToolHandler(ToolHandler):
         block_results = [b for b in blocks if not b.get("page?")]
 
         if include_pages and page_results:
-            parts.append(f"## Matching Pages ({len(page_results)} found)")
-            for page in page_results:
-                name = page.get("fullTitle") or page.get("title") or page.get("content", "")
-                parts.append(f"- {name}")
-            parts.append("")
+            visible_pages = [
+                p for p in page_results
+                if (p.get("fullTitle") or p.get("title") or p.get("content", "")).lower()
+                not in excluded_page_names
+            ]
+            if visible_pages:
+                parts.append(f"## Matching Pages ({len(visible_pages)} found)")
+                for page in visible_pages:
+                    name = page.get("fullTitle") or page.get("title") or page.get("content", "")
+                    parts.append(f"- {name}")
+                parts.append("")
 
         if include_blocks and block_results:
             parts.append(f"## Content Blocks ({len(block_results)} found)")
@@ -892,6 +950,7 @@ class SearchToolHandler(ToolHandler):
     def _format_markdown_mode_results(
         result: dict, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
+        excluded_page_names: set[str] = frozenset(),
     ) -> list[str]:
         """Format search results from markdown-mode Logseq.
 
@@ -914,24 +973,29 @@ class SearchToolHandler(ToolHandler):
 
         if include_pages and result.get("pages-content"):
             snippets = result["pages-content"]
-            parts.append(f"## Page Snippets ({len(snippets)} found)")
-            for i, snippet in enumerate(snippets[:limit]):
-                snippet_text = snippet.get("block/snippet", "").strip()
-                if snippet_text:
-                    snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
-                        "$<pfts_2lqh$", ""
-                    )
-                    if len(snippet_text) > 200:
-                        snippet_text = snippet_text[:200] + "..."
-                    parts.append(f"{i + 1}. {snippet_text}")
-            parts.append("")
+            if not excluded_page_names:
+                # Only show snippets when no exclusion is active — snippets carry no
+                # page identifier so we cannot verify they are safe to show
+                parts.append(f"## Page Snippets ({len(snippets)} found)")
+                for i, snippet in enumerate(snippets[:limit]):
+                    snippet_text = snippet.get("block/snippet", "").strip()
+                    if snippet_text:
+                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
+                            "$<pfts_2lqh$", ""
+                        )
+                        if len(snippet_text) > 200:
+                            snippet_text = snippet_text[:200] + "..."
+                        parts.append(f"{i + 1}. {snippet_text}")
+                parts.append("")
 
         if include_pages and result.get("pages"):
             pages = result["pages"]
-            parts.append(f"## Matching Pages ({len(pages)} found)")
-            for page in pages:
-                parts.append(f"- {page}")
-            parts.append("")
+            visible_pages = [p for p in pages if p.lower() not in excluded_page_names]
+            if visible_pages:
+                parts.append(f"## Matching Pages ({len(visible_pages)} found)")
+                for page in visible_pages:
+                    parts.append(f"- {page}")
+                parts.append("")
 
         if include_files and result.get("files"):
             files = result["files"]
@@ -979,17 +1043,20 @@ class SearchToolHandler(ToolHandler):
                     )
                 ]
 
+            # Build excluded page name set (one extra API call only when needed)
+            excluded_page_names = self._build_excluded_page_names(api, _exclude_tags)
+
             # Format results
             content_parts = []
             content_parts.append(f"# Search Results for '{query}'\n")
 
             if _db_mode:
                 content_parts.extend(
-                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files)
+                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names)
                 )
             else:
                 content_parts.extend(
-                    self._format_markdown_mode_results(result, limit, include_blocks, include_pages, include_files)
+                    self._format_markdown_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names)
                 )
 
             response_text = "\n".join(content_parts)
@@ -1103,6 +1170,15 @@ class QueryToolHandler(ToolHandler):
                 if result_type == "blocks_only" and not self._is_block(item):
                     continue
                 filtered_results.append(item)
+
+            # Security: filter page objects with excluded tags
+            if _exclude_tags:
+                exclude_filtered = []
+                for item in filtered_results:
+                    if self._is_page(item) and _is_page_excluded(item, _exclude_tags):
+                        continue
+                    exclude_filtered.append(item)
+                filtered_results = exclude_filtered
 
             if not filtered_results:
                 filter_msg = f" (filtered to {result_type})" if result_type != "all" else ""
