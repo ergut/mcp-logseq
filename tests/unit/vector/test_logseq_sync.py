@@ -30,12 +30,9 @@ def test_acquire_lock_conflict_exits(tmp_path, capsys):
     portalocker.lock(holder, portalocker.LOCK_EX | portalocker.LOCK_NB)
 
     try:
-        with patch("sys.exit") as mock_exit:
+        with pytest.raises(RuntimeError) as exc:
             _acquire_sync_lock(str(tmp_path))
-            mock_exit.assert_called_once_with(1)
-
-        captured = capsys.readouterr()
-        assert "another sync process is already running" in captured.err
+        assert "Another sync process is already running" in str(exc.value)
     finally:
         portalocker.unlock(holder)
         holder.close()

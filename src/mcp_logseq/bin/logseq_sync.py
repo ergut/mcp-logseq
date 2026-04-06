@@ -52,12 +52,10 @@ def _acquire_sync_lock(db_path: str):
         return lock_file
     except portalocker.LockException:
         lock_file.close()
-        print(
-            "Error: another sync process is already running. "
-            "Wait for it to finish or check for stale sync.lock.",
-            file=sys.stderr,
+        raise RuntimeError(
+            "Another sync process is already running. "
+            "Wait for it to finish or check for stale sync.lock."
         )
-        sys.exit(1)
 
 
 def _release_sync_lock(lock_file):
@@ -87,7 +85,13 @@ def _run_sync(config, rebuild: bool = False) -> None:
     from mcp_logseq.vector.state import StateManager
     from mcp_logseq.vector.sync import SyncEngine
 
-    lock_file = _acquire_sync_lock(config.db_path)
+    lock_file = None
+    try:
+        lock_file = _acquire_sync_lock(config.db_path)
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
     try:
         print(f"Connecting to Ollama ({config.embedder.model})...")
         try:
@@ -114,7 +118,8 @@ def _run_sync(config, rebuild: bool = False) -> None:
 
         db.close()
     finally:
-        _release_sync_lock(lock_file)
+        if lock_file is not None:
+            _release_sync_lock(lock_file)
 
     print(
         f"Done in {result.duration_ms}ms: "
