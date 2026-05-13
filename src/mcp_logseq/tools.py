@@ -24,6 +24,26 @@ _api_protocol = _parsed_url.scheme or "http"
 _api_host = _parsed_url.hostname or "127.0.0.1"
 _api_port = _parsed_url.port or 12315
 
+def _parse_positive_float_env(name: str, default: float) -> float:
+    raw_value = os.getenv(name, "").strip()
+    if not raw_value:
+        return default
+
+    try:
+        value = float(raw_value)
+    except ValueError as e:
+        raise ValueError(f"{name} must be a positive number of seconds") from e
+
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive number of seconds")
+
+    return value
+
+
+_api_connect_timeout = _parse_positive_float_env("LOGSEQ_API_CONNECT_TIMEOUT", 3)
+_api_read_timeout = _parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6)
+_api_timeout = (_api_connect_timeout, _api_read_timeout)
+
 _verify_ssl_env = os.getenv("LOGSEQ_VERIFY_SSL")
 if _verify_ssl_env is not None:
     _api_verify_ssl = _verify_ssl_env.lower() not in ("0", "false", "no")
@@ -41,6 +61,7 @@ def _make_api() -> logseq.LogSeq:
         host=_api_host,
         port=_api_port,
         verify_ssl=_api_verify_ssl,
+        timeout=_api_timeout,
     )
 
 

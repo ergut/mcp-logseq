@@ -13,13 +13,14 @@ class LogSeq:
         host: str = "127.0.0.1",
         port: int = 12315,
         verify_ssl: bool = False,
+        timeout: tuple[float, float] | None = None,
     ):
         self.api_key = api_key
         self.protocol = protocol
         self.host = host
         self.port = port
         self.verify_ssl = verify_ssl
-        self.timeout = (3, 6)
+        self.timeout = timeout or (3, 6)
 
     def get_base_url(self) -> str:
         return f"{self.protocol}://{self.host}:{self.port}/api"

@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock
 from mcp.types import TextContent
+import mcp_logseq.tools as tools
 from mcp_logseq.tools import (
     CreatePageToolHandler,
     ListPagesToolHandler,
@@ -19,6 +20,35 @@ from mcp_logseq.tools import (
     GetPageBacklinksToolHandler,
     InsertNestedBlockToolHandler,
 )
+
+
+class TestToolConfiguration:
+    """Test cases for module-level tool configuration."""
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_parse_positive_float_env_uses_default(self):
+        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
+
+    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "60"})
+    def test_parse_positive_float_env_uses_override(self):
+        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 60
+
+    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "0"})
+    def test_parse_positive_float_env_rejects_non_positive_values(self):
+        with pytest.raises(ValueError, match="LOGSEQ_API_READ_TIMEOUT"):
+            tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6)
+
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_make_api_passes_configured_timeout(self, mock_logseq_class):
+        original_timeout = tools._api_timeout
+        try:
+            tools._api_timeout = (3, 60)
+
+            tools._make_api()
+
+            assert mock_logseq_class.call_args.kwargs["timeout"] == (3, 60)
+        finally:
+            tools._api_timeout = original_timeout
 
 
 class TestCreatePageToolHandler:
