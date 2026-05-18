@@ -510,17 +510,15 @@ class LogSeq:
                             self._append_block_recursive(page_name, block)
                         results.append(("blocks_appended", len(blocks)))
 
-            # Update properties AFTER blocks are inserted/replaced
+            # Update properties AFTER blocks are inserted/replaced.
+            # Use upsertBlockProperty on the first block (the page properties
+            # pre-block in file-mode Logseq). setPageProperties was used here
+            # previously but it appends a new block body instead of updating
+            # the existing page-level property lines in-place, which makes the
+            # new properties invisible to Logseq's query/property system.
             if properties:
-                if mode == "append":
-                    existing_props = self._get_page_level_properties(page_name)
-                    merged_props = {**existing_props, **properties}
-                    self._set_page_level_properties(page_name, merged_props)
-                    results.append(("properties", merged_props))
-                else:
-                    # Replace mode - set only the new properties
-                    self._set_page_level_properties(page_name, properties)
-                    results.append(("properties", properties))
+                self._update_page_properties(page_name, properties)
+                results.append(("properties", properties))
 
             return {"updates": results, "page": page_name}
 

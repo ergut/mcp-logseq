@@ -85,163 +85,246 @@ class TestUpdatePageProperties:
     """Test property persistence during page updates."""
 
     @responses.activate
-    def test_update_page_append_mode_merges_properties(self, logseq_client):
-        """Test that append mode merges new properties with existing ones."""
-        # Mock list_pages for validation
+    def test_update_page_properties_only_updates_in_place(self, logseq_client):
+        """
+        Regression: update_page with properties-only (no content) must update
+        page-level properties in-place via upsertBlockProperty on the first
+        block — NOT append them as a new content block via setPageProperties.
+
+        Sequence of expected API calls:
+          1. list_pages       — page existence check
+          2. getPageBlocksTree — find first block UUID for upsertBlockProperty
+          3. upsertBlockProperty × N — one call per updated property key
+        """
+        import json
+
+        url = "http://127.0.0.1:12315/api"
+
+        # 1. list_pages — page exists
         responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"name": "Test Page", "originalName": "Test Page"}],
+            responses.POST, url,
+            json=[{"name": "Some Page", "originalName": "Some Page"}],
             status=200,
         )
 
-        # Mock getPageBlocksTree for getting last block
+        # 2. getPageBlocksTree — returns existing blocks; first block is the
+        #    page-properties pre-block
         responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
+            responses.POST, url,
             json=[
                 {
-                    "uuid": "block-1",
-                    "content": "Existing",
-                    "properties": {"priority": "low"},
-                }
+                    "uuid": "prop-block-uuid",
+                    "content": "",
+                    "properties": {
+                        "status": "initial",
+                        "source": "human",
+                        "tags": ["mcp-test"],
+                    },
+                },
+                {
+                    "uuid": "content-block-uuid",
+                    "content": "This page was created to test property update behavior.",
+                    "properties": {},
+                },
             ],
             status=200,
         )
 
-        # Mock insertBatchBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-2"}],
-            status=200,
+        # 3. upsertBlockProperty — one per updated key (status, source)
+        responses.add(responses.POST, url, json=None, status=200)  # status
+        responses.add(responses.POST, url, json=None, status=200)  # source
+
+        # Call update with properties only — no content, no blocks
+        logseq_client.update_page_with_blocks(
+            "Some Page",
+            [],
+            properties={"status": "updated", "source": "ai-generated"},
+            mode="append",
         )
 
-        # Mock getPage for _get_page_level_properties (returns existing page-level props)
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"name": "Test Page", "properties": {"priority": "low", "status": "old"}},
-            status=200,
+        # Must NOT have called setPageProperties (that's the broken path that
+        # appends properties as a new block body instead of updating in-place)
+        set_props_calls = [
+            c for c in responses.calls
+            if "setPageProperties" in str(c.request.body)
+        ]
+        assert len(set_props_calls) == 0, (
+            "setPageProperties must NOT be called — it appends properties as "
+            "a block body instead of updating page-level properties in-place"
         )
 
-        # Mock setPageProperties for _set_page_level_properties
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
+        # Must NOT have called appendBlockInPage (another sign of wrong path)
+        append_calls = [
+            c for c in responses.calls
+            if "appendBlockInPage" in str(c.request.body)
+        ]
+        assert len(append_calls) == 0, (
+            "appendBlockInPage must NOT be called for a properties-only update"
         )
 
-        # Update with new properties in append mode
+        # Must have called upsertBlockProperty for each updated key
+        upsert_calls = [
+            c for c in responses.calls
+            if "upsertBlockProperty" in str(c.request.body)
+        ]
+        assert len(upsert_calls) == 2, (
+            f"Expected 2 upsertBlockProperty calls (one per key), got {len(upsert_calls)}"
+        )
+
+        # Each call must target the first (properties) block
+        for call in upsert_calls:
+            body = json.loads(call.request.body)
+            assert body["args"][0] == "prop-block-uuid", (
+                "upsertBlockProperty must target the first block (the page "
+                f"properties pre-block), not '{body['args'][0]}'"
+            )
+
+        # Verify the correct key/value pairs were sent
+        updated = {
+            json.loads(c.request.body)["args"][1]: json.loads(c.request.body)["args"][2]
+            for c in upsert_calls
+        }
+        assert updated["status"] == "updated"
+        assert updated["source"] == "ai-generated"
+
+    @responses.activate
+    def test_update_page_append_mode_merges_properties(self, logseq_client):
+        """
+        Append mode updates only the specified property keys via
+        upsertBlockProperty, leaving unspecified keys intact on the first block.
+
+        API call sequence:
+          1. list_pages
+          2. getPageBlocksTree — last block UUID for insertBatchBlock
+          3. insertBatchBlock  — add the new content block
+          4. getPageBlocksTree — first block UUID for upsertBlockProperty
+          5. upsertBlockProperty × 2 (priority, tags)
+        """
+        import json
+
+        url = "http://127.0.0.1:12315/api"
+
+        # 1. list_pages
+        responses.add(responses.POST, url,
+            json=[{"name": "Test Page", "originalName": "Test Page"}], status=200)
+
+        # 2. getPageBlocksTree — for finding last block to insert after
+        responses.add(responses.POST, url,
+            json=[{"uuid": "block-1", "content": "Existing",
+                   "properties": {"priority": "low", "status": "old"}}],
+            status=200)
+
+        # 3. insertBatchBlock
+        responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
+
+        # 4. getPageBlocksTree — for _update_page_properties (first block UUID)
+        responses.add(responses.POST, url,
+            json=[{"uuid": "block-1", "content": "Existing",
+                   "properties": {"priority": "low", "status": "old"}}],
+            status=200)
+
+        # 5a. upsertBlockProperty — priority
+        responses.add(responses.POST, url, json=None, status=200)
+        # 5b. upsertBlockProperty — tags
+        responses.add(responses.POST, url, json=None, status=200)
+
         new_properties = {"priority": "high", "tags": ["urgent"]}
         blocks = [{"content": "New content"}]
         result = logseq_client.update_page_with_blocks(
             "Test Page", blocks, properties=new_properties, mode="append"
         )
 
-        # Verify properties were merged
+        # Result dict contains only the supplied properties (not the full merged set)
         updates = dict(result["updates"])
-        merged_props = updates["properties"]
-        assert merged_props["priority"] == "high"  # Overwritten
-        assert merged_props["status"] == "old"  # Preserved
-        assert merged_props["tags"] == ["urgent"]  # Added
+        assert updates["properties"] == {"priority": "high", "tags": ["urgent"]}
 
-        # Verify setPageProperties was called (page-level, not block-level)
-        import json
-        set_props_calls = [
-            call for call in responses.calls
-            if "setPageProperties" in str(call.request.body)
-        ]
-        assert len(set_props_calls) == 1
-        body = json.loads(set_props_calls[0].request.body)
-        assert body["method"] == "logseq.Editor.setPageProperties"
-        assert body["args"][0] == "Test Page"
-
-        # Verify upsertBlockProperty was NOT called (would be block-level)
+        # upsertBlockProperty must be called for each supplied key (not setPageProperties)
         upsert_calls = [
-            call for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
+            c for c in responses.calls
+            if "upsertBlockProperty" in str(c.request.body)
         ]
-        assert len(upsert_calls) == 0
+        assert len(upsert_calls) == 2
+        upserted = {
+            json.loads(c.request.body)["args"][1]: json.loads(c.request.body)["args"][2]
+            for c in upsert_calls
+        }
+        assert upserted["priority"] == "high"
+        assert upserted["tags"] == ["urgent"]
+        # "status" must NOT be touched — Logseq preserves it implicitly
+        assert "status" not in upserted
+
+        # setPageProperties must NOT be called
+        assert not any(
+            "setPageProperties" in str(c.request.body) for c in responses.calls
+        )
 
     @responses.activate
     def test_update_page_replace_mode_replaces_properties(self, logseq_client):
-        """Test that replace mode replaces all properties."""
-        # Mock list_pages for validation
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"name": "Test Page", "originalName": "Test Page"}],
-            status=200,
-        )
+        """
+        Replace mode clears existing blocks, adds new content, then sets
+        properties via upsertBlockProperty on the new first block.
 
-        # Mock getPageBlocksTree for clearing
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[
-                {
-                    "uuid": "block-1",
-                    "content": "Old",
-                    "properties": {"priority": "low", "status": "old"},
-                }
-            ],
-            status=200,
-        )
+        API call sequence:
+          1. list_pages
+          2. getPageBlocksTree — for clear_page_content
+          3. removeBlock       — clear existing block
+          4. appendBlockInPage — add first new content block
+          5. getPageBlocksTree — first block UUID for upsertBlockProperty
+          6. upsertBlockProperty × 1 (priority)
+        """
+        import json
 
-        # Mock removeBlock
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
+        url = "http://127.0.0.1:12315/api"
 
-        # Mock appendBlockInPage
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json={"uuid": "block-2", "content": "New"},
-            status=200,
-        )
+        # 1. list_pages
+        responses.add(responses.POST, url,
+            json=[{"name": "Test Page", "originalName": "Test Page"}], status=200)
 
-        # Mock setPageProperties for _set_page_level_properties
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=True,
-            status=200,
-        )
+        # 2. getPageBlocksTree — for clear_page_content
+        responses.add(responses.POST, url,
+            json=[{"uuid": "block-1", "content": "Old",
+                   "properties": {"priority": "low", "status": "old"}}],
+            status=200)
 
-        # Update with new properties in replace mode
+        # 3. removeBlock
+        responses.add(responses.POST, url, json=True, status=200)
+
+        # 4. appendBlockInPage — first new block after clearing
+        responses.add(responses.POST, url,
+            json={"uuid": "block-2", "content": "New content"}, status=200)
+
+        # 5. getPageBlocksTree — for _update_page_properties (first block UUID)
+        responses.add(responses.POST, url,
+            json=[{"uuid": "block-2", "content": "New content", "properties": {}}],
+            status=200)
+
+        # 6. upsertBlockProperty — priority
+        responses.add(responses.POST, url, json=None, status=200)
+
         new_properties = {"priority": "high"}
         blocks = [{"content": "New content"}]
         result = logseq_client.update_page_with_blocks(
             "Test Page", blocks, properties=new_properties, mode="replace"
         )
 
-        # Verify only new properties are set (no merge)
+        # Result contains only the new properties
         updates = dict(result["updates"])
         assert updates["properties"] == {"priority": "high"}
         assert "status" not in updates["properties"]
 
-        # Verify setPageProperties was called (page-level, not block-level)
-        import json
-        set_props_calls = [
-            call for call in responses.calls
-            if "setPageProperties" in str(call.request.body)
-        ]
-        assert len(set_props_calls) == 1
-        body = json.loads(set_props_calls[0].request.body)
-        assert body["method"] == "logseq.Editor.setPageProperties"
-
-        # Verify upsertBlockProperty was NOT called
+        # upsertBlockProperty must be used — NOT setPageProperties
         upsert_calls = [
-            call for call in responses.calls
-            if "upsertBlockProperty" in str(call.request.body)
+            c for c in responses.calls
+            if "upsertBlockProperty" in str(c.request.body)
         ]
-        assert len(upsert_calls) == 0
+        assert len(upsert_calls) == 1
+        body = json.loads(upsert_calls[0].request.body)
+        assert body["args"][1] == "priority"
+        assert body["args"][2] == "high"
+
+        assert not any(
+            "setPageProperties" in str(c.request.body) for c in responses.calls
+        )
 
     @responses.activate
     def test_update_page_with_empty_properties_dict(self, logseq_client):
