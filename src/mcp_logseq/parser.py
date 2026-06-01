@@ -358,19 +358,27 @@ class MarkdownParser:
         Logseq block content may contain newlines; splitting these delimiters into
         separate blocks breaks KaTeX rendering.
         """
-        math_lines = [lines[start].rstrip()]
+        math_block, i = self._parse_display_math_node(lines, start)
+        self._add_block(math_block)
+
+        return i
+
+    def _parse_display_math_node(
+        self, lines: list[str], start: int
+    ) -> tuple[BlockNode, int]:
+        """Parse a $$...$$ display math block into one block node."""
+        math_lines = [lines[start].strip()]
         i = start + 1
 
         while i < len(lines):
-            math_lines.append(lines[i].rstrip())
+            math_lines.append(lines[i].strip())
             if DISPLAY_MATH_DELIMITER.match(lines[i]):
+                i += 1
                 break
             i += 1
 
         math_content = "\n".join(math_lines)
-        self._add_block(BlockNode(content=math_content, level=0))
-
-        return i + 1
+        return BlockNode(content=math_content, level=0), i
 
     def _parse_blockquote(self, lines: list[str], start: int) -> int:
         """
@@ -464,7 +472,10 @@ class MarkdownParser:
                 break
 
             # Nested content - parse recursively
-            if TABLE_ROW_PATTERN.match(next_line):
+            if DISPLAY_MATH_DELIMITER.match(next_line):
+                nested_block, i = self._parse_display_math_node(lines, i)
+                list_block.children.append(nested_block)
+            elif TABLE_ROW_PATTERN.match(next_line):
                 nested_block, i = self._parse_table_node(lines, i)
                 list_block.children.append(nested_block)
             elif (
@@ -524,7 +535,10 @@ class MarkdownParser:
                 break
 
             # Deeper nested content
-            if TABLE_ROW_PATTERN.match(next_line):
+            if DISPLAY_MATH_DELIMITER.match(next_line):
+                nested_block, i = self._parse_display_math_node(lines, i)
+                list_block.children.append(nested_block)
+            elif TABLE_ROW_PATTERN.match(next_line):
                 nested_block, i = self._parse_table_node(lines, i)
                 list_block.children.append(nested_block)
             elif (

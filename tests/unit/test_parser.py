@@ -461,6 +461,52 @@ $$
         assert len(blocks[0].children) == 1
         assert blocks[0].children[0].content == "$$\na^2 + b^2 = c^2\n$$"
 
+    def test_display_math_under_list_item_preserves_newlines(self):
+        """Display math under a list item should be one child block."""
+        content = """- Parent
+  $$
+  a^2 + b^2 = c^2
+  $$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        assert blocks[0].children[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_nested_list_item_preserves_newlines(self):
+        """Display math under a nested list item should be one grandchild block."""
+        content = """- Parent
+  - Child
+    $$
+    a^2 + b^2 = c^2
+    $$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        child = blocks[0].children[0]
+        assert child.content == "Child"
+        assert len(child.children) == 1
+        assert child.children[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_list_item_batch_format_preserves_newlines(self):
+        """End-to-end: nested display math in batch format keeps newlines."""
+        content = """- Parent
+  $$
+  a^2 + b^2 = c^2
+  $$
+"""
+        parsed = parse_content(content)
+        batch = parsed.to_batch_format()
+
+        assert len(batch) == 1
+        assert len(batch[0]["children"]) == 1
+        assert batch[0]["children"][0]["content"] == "$$\na^2 + b^2 = c^2\n$$"
+
 
 class TestParseMarkdownOther:
     """Tests for other markdown elements."""
