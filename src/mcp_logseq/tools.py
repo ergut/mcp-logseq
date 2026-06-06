@@ -1562,6 +1562,10 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
                 page_info, blocks = item[0], item[1]
 
+                # Guard against None page entity (can occur in Logseq DB mode)
+                if not isinstance(page_info, dict):
+                    continue
+
                 # Get page name
                 ref_page_name = page_info.get('originalName') or page_info.get('name', '<unknown>')
                 block_count = len(blocks) if blocks else 0

@@ -1439,6 +1439,38 @@ class TestGetPageBacklinksToolHandler:
         assert "1 reference" in text
 
     @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_none_page_entity_no_crash(self, mock_logseq_class):
+        """Regression test for #45: None page_info in DB-mode results must not crash.
+
+        Logseq DB mode can return [None, [blocks]] as an item in the linked
+        references list.  The handler must silently skip such items and still
+        return results for valid items.
+        """
+        mock_api = Mock()
+        mock_api.get_page_linked_references.return_value = [
+            # DB-mode can produce a None where the page entity should be
+            [None, [{"content": "orphan block content"}]],
+            # A valid item that must still appear in the output
+            [
+                {"originalName": "ValidPage"},
+                [{"content": "Valid reference content"}],
+            ],
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = GetPageBacklinksToolHandler()
+        # Must not raise AttributeError / TypeError
+        result = handler.run_tool({"page_name": "TargetPage"})
+
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
+        text = result[0].text
+        # Valid item must be present
+        assert "ValidPage" in text
+        # None item must be silently skipped (no traceback, no crash)
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
     def test_run_tool_missing_args(self):
         """Test tool with missing page_name argument."""
         handler = GetPageBacklinksToolHandler()
