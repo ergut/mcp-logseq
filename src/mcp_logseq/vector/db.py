@@ -237,9 +237,12 @@ class VectorDB:
 
     def get_stats(self) -> dict:
         try:
+            import pyarrow.compute as pc
+
             total = self._table.count_rows()
-            pages_result = self._table.search().select(["page"]).to_list()
-            unique_pages = len({r["page"] for r in pages_result})
+            # Fetch only the page column via Arrow (no Python dict conversion per row)
+            pages_arrow = self._table.search().select(["page"]).to_arrow()
+            unique_pages = pc.count_distinct(pages_arrow.column("page")).as_py()
             return {"total_chunks": total, "total_pages": unique_pages}
         except Exception as e:
             logger.warning(f"Could not get stats: {e}")
