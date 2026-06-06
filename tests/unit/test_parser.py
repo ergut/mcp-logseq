@@ -658,6 +658,37 @@ class TestBlocksToBatchFormat:
         assert result[0]["content"] == "Block with props\npriority:: high"
         assert "properties" not in result[0]
 
+    def test_list_property_uses_comma_separated_not_python_repr(self):
+        """List-valued block properties must NOT produce Python repr like ['tag']."""
+        node = BlockNode(content="block", properties={"tags": ["mcp-test", "other"]})
+        fmt = node.to_batch_format()
+        # Must be comma-separated Logseq format
+        assert fmt["content"] == "block\ntags:: mcp-test, other"
+        # Must NOT contain Python single-quote list repr
+        assert "['mcp-test'" not in fmt["content"]
+        assert "['mcp-test', 'other']" not in fmt["content"]
+
+    def test_single_item_list_property_no_brackets(self):
+        """Single-item list should serialize as plain value without list syntax."""
+        node = BlockNode(content="block", properties={"tags": ["mcp-test"]})
+        fmt = node.to_batch_format()
+        assert fmt["content"] == "block\ntags:: mcp-test"
+        # Must NOT be Python repr ['mcp-test']
+        assert "['mcp-test']" not in fmt["content"]
+
+    def test_string_property_unchanged_by_fix(self):
+        """String block properties (existing behaviour) are unaffected."""
+        node = BlockNode(content="item", properties={"logseq.order-list-type": "number"})
+        fmt = node.to_batch_format()
+        assert fmt["content"] == "item\nlogseq.order-list-type:: number"
+
+    def test_empty_list_property(self):
+        """Empty list property serializes as empty string (not '[]')."""
+        node = BlockNode(content="block", properties={"tags": []})
+        fmt = node.to_batch_format()
+        assert fmt["content"] == "block\ntags:: "
+        assert "[]" not in fmt["content"]
+
 
 class TestParseContent:
     """Tests for the main parse_content entry point."""

@@ -16,6 +16,20 @@ import yaml
 logger = logging.getLogger("mcp-logseq")
 
 
+def _format_block_prop_value(value: Any) -> str:
+    """
+    Serialize a block property value for Logseq's ``key:: value`` inline syntax.
+
+    Python lists are converted to Logseq's comma-separated convention
+    (e.g. ``["a", "b"]`` → ``"a, b"``), preventing the Python repr
+    notation ``['a', 'b']`` from leaking into the markdown file.
+    All other values are converted with ``str()``.
+    """
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
 @dataclass
 class BlockNode:
     """Represents a Logseq block with potential children."""
@@ -29,7 +43,7 @@ class BlockNode:
         """Convert to Logseq IBatchBlock format."""
         content = self.content
         if self.properties:
-            prop_lines = [f"{k}:: {v}" for k, v in self.properties.items()]
+            prop_lines = [f"{k}:: {_format_block_prop_value(v)}" for k, v in self.properties.items()]
             content = content + "\n" + "\n".join(prop_lines)
 
         result: dict[str, Any] = {"content": content}
