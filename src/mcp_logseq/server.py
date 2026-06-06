@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import sys
@@ -150,7 +151,7 @@ async def call_tool(
 
     try:
         logger.debug(f"Running tool {name}")
-        result = tool_handler.run_tool(arguments)
+        result = await asyncio.to_thread(tool_handler.run_tool, arguments)
         logger.debug(f"Tool result: {result}")
         return result
     except Exception as e:

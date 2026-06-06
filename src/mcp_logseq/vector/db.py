@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -175,6 +176,7 @@ class VectorDB:
             return []
 
         top_k = params.top_k
+        logger.debug(f"search: mode={params.mode} top_k={top_k} filter_page={params.filter_page!r} filter_tags={params.filter_tags!r}")
 
         try:
             if params.mode == "keyword":
@@ -208,7 +210,10 @@ class VectorDB:
         where = self._build_filter(params)
         if where:
             q = q.where(where)
+        logger.debug("_vector_search: to_list start")
+        _t0 = time.perf_counter()
         rows = q.to_list()
+        logger.debug(f"_vector_search: to_list done in {(time.perf_counter() - _t0) * 1000:.1f}ms, {len(rows)} rows")
         return [_row_to_result(r, r.get("_distance", 0.0)) for r in rows]
 
     def _keyword_search(self, params: SearchParams, top_k: int) -> list[SearchResult]:
@@ -216,7 +221,10 @@ class VectorDB:
         where = self._build_filter(params)
         if where:
             q = q.where(where)
+        logger.debug("_keyword_search: to_list start")
+        _t0 = time.perf_counter()
         rows = q.to_list()
+        logger.debug(f"_keyword_search: to_list done in {(time.perf_counter() - _t0) * 1000:.1f}ms, {len(rows)} rows")
         return [_row_to_result(r, r.get("_score", 0.0)) for r in rows]
 
     def _hybrid_search(self, params: SearchParams, top_k: int) -> list[SearchResult]:
@@ -232,14 +240,24 @@ class VectorDB:
         where = self._build_filter(params)
         if where:
             q = q.where(where)
+        logger.debug("_hybrid_search: to_list start")
+        _t0 = time.perf_counter()
         rows = q.to_list()
+        logger.debug(f"_hybrid_search: to_list done in {(time.perf_counter() - _t0) * 1000:.1f}ms, {len(rows)} rows")
         return [_row_to_result(r, r.get("_relevance_score", 0.0)) for r in rows]
 
     def get_stats(self) -> dict:
         try:
+            import pyarrow.compute as pc
+
+            _t0 = time.perf_counter()
             total = self._table.count_rows()
-            pages_result = self._table.search().select(["page"]).to_list()
-            unique_pages = len({r["page"] for r in pages_result})
+            logger.debug(f"get_stats: count_rows={total} in {(time.perf_counter() - _t0) * 1000:.1f}ms")
+            # Fetch only the page column via Arrow (no Python dict conversion per row)
+            _t1 = time.perf_counter()
+            pages_arrow = self._table.search().select(["page"]).to_arrow()
+            unique_pages = pc.count_distinct(pages_arrow.column("page")).as_py()
+            logger.debug(f"get_stats: unique_pages={unique_pages} in {(time.perf_counter() - _t1) * 1000:.1f}ms")
             return {"total_chunks": total, "total_pages": unique_pages}
         except Exception as e:
             logger.warning(f"Could not get stats: {e}")
