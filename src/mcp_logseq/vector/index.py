@@ -14,6 +14,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from mcp.types import TextContent, Tool
@@ -172,15 +173,21 @@ class VectorSearchToolHandler(ToolHandler):
             logger.warning(f"Staleness check failed: {e}")
 
         try:
+            logger.debug(f"vector_search: embedding start (embedder={meta.embedder_key})")
+            _t_emb = time.perf_counter()
             embedder = create_embedder(self._config.embedder)
             query_vector = embedder.embed([query])[0]
+            logger.debug(f"vector_search: embedding done in {(time.perf_counter() - _t_emb) * 1000:.1f}ms")
         except RuntimeError as e:
             return [TextContent(type="text", text=str(e))]
         except Exception as e:
             return [TextContent(type="text", text=f"Embedding failed: {e}")]
 
         try:
+            logger.debug(f"vector_search: opening table at {self._config.db_path}")
+            _t_open = time.perf_counter()
             db = VectorDB.open_readonly(self._config.db_path, meta.dimensions)
+            logger.debug(f"vector_search: table opened in {(time.perf_counter() - _t_open) * 1000:.1f}ms")
         except RuntimeError as e:
             return [TextContent(type="text", text=str(e))]
         except Exception as e:
@@ -196,7 +203,10 @@ class VectorSearchToolHandler(ToolHandler):
         )
 
         try:
+            logger.debug(f"vector_search: query start (mode={search_mode})")
+            _t_q = time.perf_counter()
             results = db.search(params)
+            logger.debug(f"vector_search: query done in {(time.perf_counter() - _t_q) * 1000:.1f}ms, {len(results)} results")
         except Exception as e:
             return [TextContent(type="text", text=f"Search failed: {e}")]
         finally:
@@ -281,8 +291,13 @@ class VectorDBStatusToolHandler(ToolHandler):
             )]
 
         try:
+            logger.debug(f"vector_db_status: opening table at {self._config.db_path}")
+            _t_open = time.perf_counter()
             db = VectorDB.open_readonly(self._config.db_path, meta.dimensions)
+            logger.debug(f"vector_db_status: table opened in {(time.perf_counter() - _t_open) * 1000:.1f}ms")
+            _t_stats = time.perf_counter()
             stats = db.get_stats()
+            logger.debug(f"vector_db_status: get_stats done in {(time.perf_counter() - _t_stats) * 1000:.1f}ms")
             db.close()
         except RuntimeError as e:
             # open_readonly gives clear diagnostics (version mismatch, not initialized)
