@@ -79,6 +79,7 @@ FENCED_CODE_START = re.compile(r"^(\s*)```(\w*)(.*)$")
 LOGSEQ_PROPERTY_PATTERN = re.compile(r"^\s*\w[\w-]*::\s")
 FENCED_CODE_END = re.compile(r"^(\s*)```\s*$")
 TABLE_ROW_PATTERN = re.compile(r"^\s*\|.+\|\s*$")
+DISPLAY_MATH_DELIMITER = re.compile(r"^\s*\$\$\s*$")
 
 
 def _serialize_frontmatter_value(obj: Any) -> Any:
@@ -263,6 +264,11 @@ class MarkdownParser:
                 i = self._parse_fenced_code(lines, i)
                 continue
 
+            # Check for display math block
+            if DISPLAY_MATH_DELIMITER.match(line):
+                i = self._parse_display_math(lines, i)
+                continue
+
             # Check for heading
             heading_level = _get_heading_level(line)
             if heading_level > 0:
@@ -359,6 +365,35 @@ class MarkdownParser:
 
         return i + 1
 
+    def _parse_display_math(self, lines: list[str], start: int) -> int:
+        """
+        Parse a $$...$$ display math block as a single Logseq block.
+
+        Logseq block content may contain newlines; splitting these delimiters into
+        separate blocks breaks KaTeX rendering.
+        """
+        math_block, i = self._parse_display_math_node(lines, start)
+        self._add_block(math_block)
+
+        return i
+
+    def _parse_display_math_node(
+        self, lines: list[str], start: int
+    ) -> tuple[BlockNode, int]:
+        """Parse a $$...$$ display math block into one block node."""
+        math_lines = [lines[start].strip()]
+        i = start + 1
+
+        while i < len(lines):
+            math_lines.append(lines[i].strip())
+            if DISPLAY_MATH_DELIMITER.match(lines[i]):
+                i += 1
+                break
+            i += 1
+
+        math_content = "\n".join(math_lines)
+        return BlockNode(content=math_content, level=0), i
+
     def _parse_blockquote(self, lines: list[str], start: int) -> int:
         """
         Parse blockquote lines.
@@ -451,7 +486,13 @@ class MarkdownParser:
                 break
 
             # Nested content - parse recursively
-            if (
+            if DISPLAY_MATH_DELIMITER.match(next_line):
+                nested_block, i = self._parse_display_math_node(lines, i)
+                list_block.children.append(nested_block)
+            elif TABLE_ROW_PATTERN.match(next_line):
+                nested_block, i = self._parse_table_node(lines, i)
+                list_block.children.append(nested_block)
+            elif (
                 CHECKBOX_PATTERN.match(next_line)
                 or BULLET_PATTERN.match(next_line)
                 or NUMBERED_PATTERN.match(next_line)
@@ -508,7 +549,13 @@ class MarkdownParser:
                 break
 
             # Deeper nested content
-            if (
+            if DISPLAY_MATH_DELIMITER.match(next_line):
+                nested_block, i = self._parse_display_math_node(lines, i)
+                list_block.children.append(nested_block)
+            elif TABLE_ROW_PATTERN.match(next_line):
+                nested_block, i = self._parse_table_node(lines, i)
+                list_block.children.append(nested_block)
+            elif (
                 CHECKBOX_PATTERN.match(next_line)
                 or BULLET_PATTERN.match(next_line)
                 or NUMBERED_PATTERN.match(next_line)
@@ -531,25 +578,29 @@ class MarkdownParser:
 
         Returns the index of the next line to process.
         """
+        table_block, i = self._parse_table_node(lines, start)
+        if table_block.content:
+            self._add_block(table_block)
+
+        return i
+
+    def _parse_table_node(self, lines: list[str], start: int) -> tuple[BlockNode, int]:
+        """Parse contiguous markdown table rows into one block node."""
         table_lines = []
         i = start
 
         while i < len(lines):
             line = lines[i]
             if TABLE_ROW_PATTERN.match(line):
-                table_lines.append(line.rstrip())
+                table_lines.append(line.strip())
                 i += 1
             elif not line.strip():
-                # Empty line ends the table
                 break
             else:
                 break
 
-        if table_lines:
-            table_content = "\n".join(table_lines)
-            self._add_block(BlockNode(content=table_content, level=0))
-
-        return i
+        table_content = "\n".join(table_lines)
+        return BlockNode(content=table_content, level=0), i
 
     def _parse_paragraph(self, lines: list[str], start: int) -> int:
         """
@@ -576,6 +627,7 @@ class MarkdownParser:
                 or BLOCKQUOTE_PATTERN.match(line)
                 or HORIZONTAL_RULE_PATTERN.match(line)
                 or FENCED_CODE_START.match(line)
+                or DISPLAY_MATH_DELIMITER.match(line)
                 or LOGSEQ_PROPERTY_PATTERN.match(line)
                 or TABLE_ROW_PATTERN.match(line)
             ):

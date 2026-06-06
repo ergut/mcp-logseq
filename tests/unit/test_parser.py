@@ -432,6 +432,82 @@ console.log("hello");
         assert "```javascript" in blocks[0].children[0].content
 
 
+class TestParseMarkdownDisplayMath:
+    """Tests for display math block parsing."""
+
+    def test_display_math_preserves_newlines(self):
+        """Display math delimiters and body should stay in one block."""
+        content = """$$
+a^2 + b^2 = c^2
+$$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_heading(self):
+        """Display math under a heading should be a child block."""
+        content = """# Geometry
+
+$$
+a^2 + b^2 = c^2
+$$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "# Geometry"
+        assert len(blocks[0].children) == 1
+        assert blocks[0].children[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_list_item_preserves_newlines(self):
+        """Display math under a list item should be one child block."""
+        content = """- Parent
+  $$
+  a^2 + b^2 = c^2
+  $$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        assert blocks[0].children[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_nested_list_item_preserves_newlines(self):
+        """Display math under a nested list item should be one grandchild block."""
+        content = """- Parent
+  - Child
+    $$
+    a^2 + b^2 = c^2
+    $$
+"""
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        child = blocks[0].children[0]
+        assert child.content == "Child"
+        assert len(child.children) == 1
+        assert child.children[0].content == "$$\na^2 + b^2 = c^2\n$$"
+
+    def test_display_math_under_list_item_batch_format_preserves_newlines(self):
+        """End-to-end: nested display math in batch format keeps newlines."""
+        content = """- Parent
+  $$
+  a^2 + b^2 = c^2
+  $$
+"""
+        parsed = parse_content(content)
+        batch = parsed.to_batch_format()
+
+        assert len(batch) == 1
+        assert len(batch[0]["children"]) == 1
+        assert batch[0]["children"][0]["content"] == "$$\na^2 + b^2 = c^2\n$$"
+
+
 class TestParseMarkdownOther:
     """Tests for other markdown elements."""
 
@@ -966,3 +1042,49 @@ class TestMarkdownTable:
 
         assert len(batch) == 1
         assert "\n" in batch[0]["content"]
+
+    def test_table_under_list_item_preserves_newlines(self):
+        """Table under a list item should be one child block."""
+        content = """- Parent
+  | A | B |
+  |---|---|
+  | 1 | 2 |"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        assert blocks[0].children[0].content == "| A | B |\n|---|---|\n| 1 | 2 |"
+
+    def test_table_under_nested_list_item_preserves_newlines(self):
+        """Table under a nested list item should be one grandchild block."""
+        content = """- Parent
+  - Child
+    | A | B |
+    |---|---|
+    | 1 | 2 |"""
+
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Parent"
+        assert len(blocks[0].children) == 1
+        child = blocks[0].children[0]
+        assert child.content == "Child"
+        assert len(child.children) == 1
+        assert child.children[0].content == "| A | B |\n|---|---|\n| 1 | 2 |"
+
+    def test_table_under_list_item_batch_format_preserves_newlines(self):
+        """End-to-end: nested table content in batch format keeps newlines."""
+        content = """- Parent
+  | A | B |
+  |---|---|
+  | 1 | 2 |"""
+
+        parsed = parse_content(content)
+        batch = parsed.to_batch_format()
+
+        assert len(batch) == 1
+        assert len(batch[0]["children"]) == 1
+        assert "\n" in batch[0]["children"][0]["content"]
