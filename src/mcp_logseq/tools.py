@@ -860,6 +860,12 @@ class SearchToolHandler(ToolHandler):
                         "description": "Include file name results",
                         "default": False,
                     },
+                    "format": {
+                        "type": "string",
+                        "description": "Output format (text or json). JSON includes block UUIDs and page identifiers for deep linking.",
+                        "enum": ["text", "json"],
+                        "default": "text",
+                    },
                 },
                 "required": ["query"],
             },
@@ -1016,6 +1022,61 @@ class SearchToolHandler(ToolHandler):
         parts.append(f"\n**Total results found: {total}**")
         return parts
 
+    @staticmethod
+    def _build_json_results(
+        result: dict, query: str, limit: int,
+        include_blocks: bool, include_pages: bool, include_files: bool,
+        excluded_page_names: set[str] = frozenset(),
+    ) -> dict:
+        """Build structured search results with UUIDs and page identifiers.
+
+        Applies the same exclusion filtering, include flags, and limit as the
+        text formatters, but preserves the raw fields (uuid, page) so callers
+        can build logseq:// deep links without follow-up calls.
+        """
+        out: dict = {"query": query, "mode": "db" if _db_mode else "markdown"}
+
+        if _db_mode:
+            blocks = result.get("blocks", [])
+            if include_pages:
+                out["pages"] = [
+                    p for p in blocks
+                    if p.get("page?")
+                    and (p.get("fullTitle") or p.get("title") or p.get("content", "")).lower()
+                    not in excluded_page_names
+                ]
+            if include_blocks:
+                block_results = []
+                for block in [b for b in blocks if not b.get("page?")][:limit]:
+                    block = dict(block)
+                    content = block.get("content", "")
+                    block["content"] = content.replace("$pfts_2lqh>$", "").replace(
+                        "$<pfts_2lqh$", ""
+                    )
+                    block_results.append(block)
+                out["blocks"] = block_results
+            if include_files:
+                out["files"] = result.get("files", [])
+            out["has_more"] = bool(result.get("hasMore?"))
+        else:
+            if include_blocks:
+                out["blocks"] = result.get("blocks", [])[:limit]
+            if include_pages:
+                out["pages"] = [
+                    p for p in result.get("pages", [])
+                    if p.lower() not in excluded_page_names
+                ]
+                if not excluded_page_names:
+                    # Snippets carry no page identifier, so they cannot be
+                    # exclusion-filtered — only expose them when no exclusion
+                    # is active (same rule as text mode)
+                    out["pages_content"] = result.get("pages-content", [])[:limit]
+            if include_files:
+                out["files"] = result.get("files", [])
+            out["has_more"] = bool(result.get("has-more?"))
+
+        return out
+
     def run_tool(self, args: dict) -> list[TextContent]:
         """Execute search and format results."""
         logger.info(f"Searching with args: {args}")
@@ -1045,6 +1106,12 @@ class SearchToolHandler(ToolHandler):
 
             # Build excluded page name set (one extra API call only when needed)
             excluded_page_names = self._build_excluded_page_names(api, _exclude_tags)
+
+            if args.get("format") == "json":
+                json_result = self._build_json_results(
+                    result, query, limit, include_blocks, include_pages, include_files, excluded_page_names
+                )
+                return [TextContent(type="text", text=json.dumps(json_result, indent=2))]
 
             # Format results
             content_parts = []
@@ -1098,6 +1165,12 @@ class QueryToolHandler(ToolHandler):
                         "description": "Filter results by type",
                         "enum": ["all", "pages_only", "blocks_only"],
                         "default": "all"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "Output format (text or json). JSON returns raw result objects including block UUIDs and page info for deep linking.",
+                        "enum": ["text", "json"],
+                        "default": "text"
                     }
                 },
                 "required": ["query"]
@@ -1189,6 +1262,14 @@ class QueryToolHandler(ToolHandler):
 
             # Apply limit
             limited_results = filtered_results[:limit]
+
+            if args.get("format") == "json":
+                json_result = {
+                    "query": query,
+                    "total": len(filtered_results),
+                    "results": limited_results,
+                }
+                return [TextContent(type="text", text=json.dumps(json_result, indent=2))]
 
             # Format results
             content_parts = []
