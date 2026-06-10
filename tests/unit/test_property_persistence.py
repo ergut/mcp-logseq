@@ -17,6 +17,7 @@ class TestCreatePageProperties:
     def _add_create_mocks(self, page_json=None, with_remove=True):
         """Register HTTP mocks for a create_page_with_blocks call with blocks."""
         url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, body="null", status=200, content_type="application/json")  # getPage existence check
         responses.add(responses.POST, url, json=page_json or {"uuid": "page-uuid", "name": "Test Page"}, status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-1", "content": ""}], status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
@@ -33,7 +34,7 @@ class TestCreatePageProperties:
         logseq_client.create_page_with_blocks("Test Page", blocks, properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["method"] == "logseq.Editor.createPage"
         # Properties are in the 2nd arg — page entity level, not block level
         assert body["args"][1] == {"priority": "high", "status": "active"}
@@ -55,7 +56,7 @@ class TestCreatePageProperties:
         logseq_client.create_page_with_blocks("Test Page", blocks, properties=None)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["method"] == "logseq.Editor.createPage"
         assert body["args"][1] == {}  # empty dict when no properties
 
@@ -76,7 +77,7 @@ class TestCreatePageProperties:
         logseq_client.create_page_with_blocks("Test Page", blocks, properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["method"] == "logseq.Editor.createPage"
         assert body["args"][1]["tags"] == ["project", "urgent", "backend"]
 
@@ -287,6 +288,7 @@ class TestPropertyTypes:
     def _add_create_mocks(self):
         """Register the 4 HTTP mocks needed for a create_page_with_blocks call with blocks."""
         url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, body="null", status=200, content_type="application/json")  # getPage existence check
         responses.add(responses.POST, url, json={"uuid": "page-uuid"}, status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-1"}], status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
@@ -301,7 +303,7 @@ class TestPropertyTypes:
         logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["args"][1] == {"title": "My Title", "author": "John Doe"}
 
     @responses.activate
@@ -313,7 +315,7 @@ class TestPropertyTypes:
         logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["args"][1]["priority"] == 5
         assert body["args"][1]["score"] == 9.5
 
@@ -326,7 +328,7 @@ class TestPropertyTypes:
         logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["args"][1]["metadata"] == {"author": "John", "date": "2024-01-01"}
 
 
@@ -451,6 +453,7 @@ class TestPropertyValueNormalization:
     def test_create_page_with_tags_dict_normalizes(self, logseq_client):
         """End-to-end: tags dict is normalized to an array in the createPage call."""
         url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, body="null", status=200, content_type="application/json")  # getPage existence check
         responses.add(responses.POST, url, json={"uuid": "page-uuid"}, status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-1"}], status=200)
         responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)
@@ -460,7 +463,7 @@ class TestPropertyValueNormalization:
         logseq_client.create_page_with_blocks("Test", [{"content": "Content"}], properties)
 
         import json
-        body = json.loads(responses.calls[0].request.body)
+        body = json.loads(responses.calls[1].request.body)
         assert body["method"] == "logseq.Editor.createPage"
         # Normalized to a list, not the raw dict
         assert isinstance(body["args"][1]["tags"], list)

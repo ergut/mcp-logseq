@@ -157,7 +157,7 @@ class TestCreatePageToolHandler:
         handler = CreatePageToolHandler()
         args = {"title": "Existing Page", "content": "# Some content"}
 
-        with pytest.raises(RuntimeError, match="already exists"):
+        with pytest.raises(ValueError, match="already exists"):
             handler.run_tool(args)
 
         mock_api.create_page_with_blocks.assert_not_called()
@@ -172,7 +172,7 @@ class TestCreatePageToolHandler:
 
         handler = CreatePageToolHandler()
 
-        with pytest.raises(RuntimeError, match="update_page"):
+        with pytest.raises(ValueError, match="update_page"):
             handler.run_tool({"title": "Existing Page"})
 
 

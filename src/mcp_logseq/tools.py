@@ -184,7 +184,7 @@ Introduction paragraph.
             # existing name ("Page(1)", "Page 2"), which silently fragments
             # content when a timed-out create_page is retried (issue #58).
             if api.page_exists(title):
-                raise RuntimeError(
+                raise ValueError(
                     f"Page '{title}' already exists. Use update_page to modify "
                     "it (mode='append' or mode='replace'), or get_page_content "
                     "to inspect it. If a previous create_page call timed out, "
