@@ -114,6 +114,66 @@ class TestLogSeqAPI:
             logseq_client.create_page("Test Page", "")
 
     @responses.activate
+    def test_page_exists_true(self, logseq_client):
+        """page_exists returns True when getPage returns a page entity."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={"name": "test page", "originalName": "Test Page", "uuid": "abc"},
+            status=200,
+        )
+
+        assert logseq_client.page_exists("Test Page") is True
+
+        body = responses.calls[0].request.body
+        assert body is not None
+        request_data = json.loads(body)
+        assert request_data["method"] == "logseq.Editor.getPage"
+        assert request_data["args"] == ["Test Page"]
+
+    @responses.activate
+    def test_page_exists_false_on_empty_dict(self, logseq_client):
+        """page_exists treats non-null falsy responses (e.g. {}) as missing."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={},
+            status=200,
+        )
+
+        assert logseq_client.page_exists("Nope") is False
+
+    @responses.activate
+    def test_create_page_with_blocks_rejects_existing_page(self, logseq_client):
+        """create_page_with_blocks itself guards against duplicating a page."""
+        # getPage returns an existing entity
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={"name": "test page", "uuid": "abc"},
+            status=200,
+        )
+
+        with pytest.raises(ValueError, match="already exists"):
+            logseq_client.create_page_with_blocks("Test Page", [{"content": "x"}])
+
+        # Only the existence check ran — no createPage call was made
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_page_exists_false(self, logseq_client):
+        """page_exists returns False when getPage returns null."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body="null",
+            status=200,
+            content_type="application/json",
+        )
+
+        assert logseq_client.page_exists("Nope") is False
+
+    @responses.activate
     def test_list_pages_success(self, logseq_client, mock_logseq_responses):
         """Test successful page listing."""
         responses.add(

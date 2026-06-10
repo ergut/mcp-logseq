@@ -67,6 +67,27 @@ class LogSeq:
             logger.error(f"Error creating page: {str(e)}")
             raise
 
+    def page_exists(self, page_name: str) -> bool:
+        """Check whether a page with the given name already exists."""
+        url = self.get_base_url()
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={"method": "logseq.Editor.getPage", "args": [page_name]},
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            # Treat any falsy payload (null, {}) as "missing", matching
+            # get_page_content's defensive check on getPage responses.
+            return bool(response.json())
+
+        except Exception as e:
+            logger.error(f"Error checking if page exists: {str(e)}")
+            raise
+
     def list_pages(self) -> Any:
         """List all pages in the LogSeq graph."""
         url = self.get_base_url()
@@ -347,6 +368,12 @@ class LogSeq:
         """
         url = self.get_base_url()
         logger.info(f"Creating page '{title}' with {len(blocks)} blocks")
+
+        # Guard against duplicates at the write layer: Logseq auto-numbers
+        # pages with an existing name ("Page(1)", "Page 2"), which silently
+        # fragments content when a timed-out create is retried (issue #58).
+        if self.page_exists(title):
+            raise ValueError(f"Page '{title}' already exists")
 
         try:
             # Normalize properties for the createPage API.
