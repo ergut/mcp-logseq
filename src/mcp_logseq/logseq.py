@@ -67,6 +67,25 @@ class LogSeq:
             logger.error(f"Error creating page: {str(e)}")
             raise
 
+    def page_exists(self, page_name: str) -> bool:
+        """Check whether a page with the given name already exists."""
+        url = self.get_base_url()
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={"method": "logseq.Editor.getPage", "args": [page_name]},
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return response.json() is not None
+
+        except Exception as e:
+            logger.error(f"Error checking if page exists: {str(e)}")
+            raise
+
     def list_pages(self) -> Any:
         """List all pages in the LogSeq graph."""
         url = self.get_base_url()

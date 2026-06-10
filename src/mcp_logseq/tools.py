@@ -126,6 +126,10 @@ class CreatePageToolHandler(ToolHandler):
             name=self.name,
             description="""Create a new page in Logseq with properly structured blocks.
 
+Fails if a page with the same title already exists (use update_page to modify
+existing pages). This makes retries safe: re-sending a create_page that timed
+out will not create numbered duplicates like "Page(1)".
+
 Markdown content is automatically parsed into Logseq's block hierarchy:
 - Headings (# ## ###) create nested sections
 - Lists (- or 1.) become proper block trees  
@@ -175,6 +179,17 @@ Introduction paragraph.
 
         try:
             api = _make_api()
+
+            # Refuse to create a duplicate: Logseq auto-numbers pages with an
+            # existing name ("Page(1)", "Page 2"), which silently fragments
+            # content when a timed-out create_page is retried (issue #58).
+            if api.page_exists(title):
+                raise RuntimeError(
+                    f"Page '{title}' already exists. Use update_page to modify "
+                    "it (mode='append' or mode='replace'), or get_page_content "
+                    "to inspect it. If a previous create_page call timed out, "
+                    "the page may already contain the content you sent."
+                )
 
             # Parse the content
             parsed = (

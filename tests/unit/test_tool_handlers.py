@@ -46,6 +46,7 @@ class TestCreatePageToolHandler:
         """Test successful page creation with markdown content."""
         # Setup mock
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_logseq_class.return_value = mock_api
 
         handler = CreatePageToolHandler()
@@ -69,6 +70,7 @@ class TestCreatePageToolHandler:
     def test_run_tool_with_frontmatter(self, mock_logseq_class):
         """Test page creation with YAML frontmatter."""
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_logseq_class.return_value = mock_api
 
         handler = CreatePageToolHandler()
@@ -86,6 +88,7 @@ class TestCreatePageToolHandler:
     def test_run_tool_with_explicit_properties(self, mock_logseq_class):
         """Test page creation with explicit properties argument."""
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_logseq_class.return_value = mock_api
 
         handler = CreatePageToolHandler()
@@ -107,6 +110,7 @@ class TestCreatePageToolHandler:
     def test_run_tool_empty_page(self, mock_logseq_class):
         """Test creating empty page (title only)."""
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_logseq_class.return_value = mock_api
 
         handler = CreatePageToolHandler()
@@ -132,6 +136,7 @@ class TestCreatePageToolHandler:
     def test_run_tool_api_error(self, mock_logseq_class):
         """Test tool with API error."""
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_api.create_page_with_blocks.side_effect = Exception("API Error")
         mock_logseq_class.return_value = mock_api
 
@@ -140,6 +145,35 @@ class TestCreatePageToolHandler:
 
         with pytest.raises(Exception, match="API Error"):
             handler.run_tool(args)
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_existing_page_errors_without_creating(self, mock_logseq_class):
+        """create_page must not create a duplicate when the page already exists."""
+        mock_api = Mock()
+        mock_api.page_exists.return_value = True
+        mock_logseq_class.return_value = mock_api
+
+        handler = CreatePageToolHandler()
+        args = {"title": "Existing Page", "content": "# Some content"}
+
+        with pytest.raises(RuntimeError, match="already exists"):
+            handler.run_tool(args)
+
+        mock_api.create_page_with_blocks.assert_not_called()
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_existing_page_error_mentions_update_page(self, mock_logseq_class):
+        """The duplicate-page error should point the client at update_page."""
+        mock_api = Mock()
+        mock_api.page_exists.return_value = True
+        mock_logseq_class.return_value = mock_api
+
+        handler = CreatePageToolHandler()
+
+        with pytest.raises(RuntimeError, match="update_page"):
+            handler.run_tool({"title": "Existing Page"})
 
 
 class TestListPagesToolHandler:

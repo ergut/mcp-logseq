@@ -114,6 +114,37 @@ class TestLogSeqAPI:
             logseq_client.create_page("Test Page", "")
 
     @responses.activate
+    def test_page_exists_true(self, logseq_client):
+        """page_exists returns True when getPage returns a page entity."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            json={"name": "test page", "originalName": "Test Page", "uuid": "abc"},
+            status=200,
+        )
+
+        assert logseq_client.page_exists("Test Page") is True
+
+        body = responses.calls[0].request.body
+        assert body is not None
+        request_data = json.loads(body)
+        assert request_data["method"] == "logseq.Editor.getPage"
+        assert request_data["args"] == ["Test Page"]
+
+    @responses.activate
+    def test_page_exists_false(self, logseq_client):
+        """page_exists returns False when getPage returns null."""
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:12315/api",
+            body="null",
+            status=200,
+            content_type="application/json",
+        )
+
+        assert logseq_client.page_exists("Nope") is False
+
+    @responses.activate
     def test_list_pages_success(self, logseq_client, mock_logseq_responses):
         """Test successful page listing."""
         responses.add(
