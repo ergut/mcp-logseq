@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from unittest.mock import patch, Mock
 from mcp.types import TextContent
@@ -885,6 +887,86 @@ class TestSearchToolHandler:
         assert "block-uuid" in text
         assert "Total results found: 2" in text
 
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_json_format_markdown_mode(self, mock_logseq_class):
+        """Test JSON format preserves block UUIDs in markdown mode."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [
+                {"block/content": "TODO task one", "block/uuid": "uuid-1", "block/page": 42},
+            ],
+            "pages": ["Project Page"],
+            "pages-content": [{"block/snippet": "Snippet content"}],
+            "files": [],
+            "has-more?": False,
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = SearchToolHandler()
+        result = handler.run_tool({"query": "TODO", "format": "json"})
+
+        data = json.loads(result[0].text)
+        assert data["query"] == "TODO"
+        assert data["mode"] == "markdown"
+        assert data["blocks"][0]["block/uuid"] == "uuid-1"
+        assert data["pages"] == ["Project Page"]
+        assert data["pages_content"][0]["block/snippet"] == "Snippet content"
+        assert data["has_more"] is False
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_json_format_db_mode(self, mock_logseq_class):
+        """Test JSON format preserves UUIDs and page refs in DB mode."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [
+                {"page?": True, "fullTitle": "Some Page", "uuid": "page-uuid",
+                 "content": "Some Page", "page": "page-uuid"},
+                {"page?": False, "content": "$pfts_2lqh>$match$<pfts_2lqh$ text",
+                 "uuid": "block-uuid", "page": "parent-page-uuid"},
+            ],
+            "hasMore?": True,
+        }
+        mock_logseq_class.return_value = mock_api
+
+        handler = SearchToolHandler()
+        with patch("mcp_logseq.tools._db_mode", True):
+            result = handler.run_tool({"query": "match", "format": "json"})
+
+        data = json.loads(result[0].text)
+        assert data["mode"] == "db"
+        assert data["pages"][0]["uuid"] == "page-uuid"
+        assert data["blocks"][0]["uuid"] == "block-uuid"
+        assert data["blocks"][0]["page"] == "parent-page-uuid"
+        assert data["blocks"][0]["content"] == "match text"
+        assert data["has_more"] is True
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_json_format_respects_exclusions(self, mock_logseq_class):
+        """Test JSON format filters excluded pages and hides snippets."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [],
+            "pages": ["Secret Page", "Public Page"],
+            "pages-content": [{"block/snippet": "secret snippet"}],
+            "files": [],
+            "has-more?": False,
+        }
+        mock_api.list_pages.return_value = [
+            {"originalName": "Secret Page", "properties": {"tags": ["private"]}},
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = SearchToolHandler()
+        with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+            result = handler.run_tool({"query": "secret", "format": "json"})
+
+        data = json.loads(result[0].text)
+        assert data["pages"] == ["Public Page"]
+        assert "pages_content" not in data
+
 
 class TestQueryToolHandler:
     """Test cases for QueryToolHandler."""
@@ -1017,6 +1099,49 @@ class TestQueryToolHandler:
 
         with pytest.raises(RuntimeError, match="query argument required"):
             handler.run_tool({})
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_json_format(self, mock_logseq_class):
+        """Test JSON format returns raw items with UUIDs and page info."""
+        mock_api = Mock()
+        mock_api.query_dsl.return_value = [
+            {"content": "TODO write docs", "uuid": "block-uuid-1",
+             "page": {"id": 7, "name": "project", "originalName": "Project"}},
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = QueryToolHandler()
+        result = handler.run_tool({"query": "(task TODO)", "format": "json"})
+
+        data = json.loads(result[0].text)
+        assert data["query"] == "(task TODO)"
+        assert data["total"] == 1
+        assert data["results"][0]["uuid"] == "block-uuid-1"
+        assert data["results"][0]["page"]["originalName"] == "Project"
+
+    @patch.dict('os.environ', {'LOGSEQ_API_TOKEN': 'test_token'})
+    @patch('mcp_logseq.tools.logseq.LogSeq')
+    def test_run_tool_json_format_applies_limit_and_filters(self, mock_logseq_class):
+        """Test JSON format respects limit and result_type filtering."""
+        mock_api = Mock()
+        mock_api.query_dsl.return_value = [
+            {"originalName": "Page A"},
+            {"content": "Block one", "uuid": "u1"},
+            {"content": "Block two", "uuid": "u2"},
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        handler = QueryToolHandler()
+        result = handler.run_tool({
+            "query": "(task TODO)", "format": "json",
+            "result_type": "blocks_only", "limit": 1,
+        })
+
+        data = json.loads(result[0].text)
+        assert data["total"] == 2
+        assert len(data["results"]) == 1
+        assert data["results"][0]["uuid"] == "u1"
 
 
 class TestFindPagesByPropertyToolHandler:
