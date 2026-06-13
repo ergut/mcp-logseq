@@ -500,6 +500,12 @@ class MarkdownParser:
             ):
                 nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
                 list_block.children.append(nested_block)
+            elif LOGSEQ_PROPERTY_PATTERN.match(next_line):
+                # Inline Logseq property — attach to parent list block's properties
+                # so the property belongs to the bullet, not a phantom child block.
+                key, _, value = next_line.strip().partition("::")
+                list_block.properties[key.strip()] = value.strip()
+                i += 1
             else:
                 # Continuation text or other content under this list item
                 nested_block = BlockNode(content=next_line.strip(), level=next_indent)
@@ -563,6 +569,12 @@ class MarkdownParser:
             ):
                 nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
                 list_block.children.append(nested_block)
+            elif LOGSEQ_PROPERTY_PATTERN.match(next_line):
+                # Inline Logseq property — attach to parent list block's properties
+                # so the property belongs to the bullet, not a phantom child block.
+                key, _, value = next_line.strip().partition("::")
+                list_block.properties[key.strip()] = value.strip()
+                i += 1
             else:
                 nested_block = BlockNode(content=next_line.strip(), level=next_indent)
                 list_block.children.append(nested_block)
