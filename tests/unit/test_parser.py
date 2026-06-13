@@ -386,6 +386,116 @@ class TestNumberedListEdgeCases:
         assert "properties" not in batch[1]
 
 
+class TestInlinePropertiesOnListItems:
+    """Tests for inline ``key:: value`` properties under list items.
+
+    Regression coverage for: when markdown has a ``key:: value`` line indented
+    directly under a bullet, the property should attach to the parent bullet's
+    properties dict — not become a separate empty child block.
+    """
+
+    def test_single_property_attaches_to_parent_bullet(self):
+        """A single inline property under a bullet attaches to that bullet."""
+        content = "- Title content\n  tags:: foo, bar"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].content == "Title content"
+        assert blocks[0].properties == {"tags": "foo, bar"}
+        # No phantom empty child block.
+        assert blocks[0].children == []
+
+    def test_multiple_properties_attach_to_same_parent(self):
+        """Multiple consecutive property lines all attach to the parent bullet."""
+        content = (
+            "- Title content\n"
+            "  status:: open\n"
+            "  priority:: high\n"
+            "  tags:: foo, bar\n"
+        )
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == {
+            "status": "open",
+            "priority": "high",
+            "tags": "foo, bar",
+        }
+        assert blocks[0].children == []
+
+    def test_property_and_child_block_coexist(self):
+        """Property attaches to parent; subsequent child bullet is a real child."""
+        content = (
+            "- Title content\n"
+            "  tags:: foo\n"
+            "  - actual child bullet\n"
+        )
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        assert blocks[0].properties == {"tags": "foo"}
+        assert len(blocks[0].children) == 1
+        assert blocks[0].children[0].content == "actual child bullet"
+
+    def test_property_on_nested_bullet(self):
+        """Property under a nested bullet attaches to that nested bullet, not the outer one."""
+        content = (
+            "- Outer\n"
+            "  - Nested\n"
+            "    tags:: nested-only\n"
+        )
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        outer = blocks[0]
+        assert outer.content == "Outer"
+        assert "tags" not in outer.properties
+        assert len(outer.children) == 1
+
+        nested = outer.children[0]
+        assert nested.content == "Nested"
+        assert nested.properties == {"tags": "nested-only"}
+
+    def test_property_serializes_in_batch_format(self):
+        """Properties attached to a bullet serialize as ``key:: value`` lines in batch format."""
+        content = "- Title content\n  tags:: foo, bar\n  status:: open"
+        blocks = parse_markdown_to_blocks(content)
+        batch = blocks[0].to_batch_format()
+
+        assert "Title content" in batch["content"]
+        assert "tags:: foo, bar" in batch["content"]
+        assert "status:: open" in batch["content"]
+        # No phantom child block in batch output either.
+        assert "children" not in batch
+
+    def test_property_does_not_create_phantom_child(self):
+        """The bug this guards: property line must NOT become a separate empty child block.
+
+        Before the fix, ``- title\\n  tags:: foo`` produced two blocks:
+        the title bullet and a separate empty child whose only content was the
+        ``tags:: foo`` line. Logseq then attached the property to that phantom
+        child, leaving the title untagged.
+        """
+        content = "- Title\n  tags:: hub"
+        blocks = parse_markdown_to_blocks(content)
+
+        # Single block — no phantom child.
+        assert len(blocks) == 1
+        assert len(blocks[0].children) == 0
+        # Property is on the parent bullet, not buried in a child.
+        assert blocks[0].properties.get("tags") == "hub"
+
+    def test_numbered_list_item_preserves_existing_properties(self):
+        """Numbered list items carry ``logseq.order-list-type``; inline props should add, not replace."""
+        content = "1. Numbered item\n   tags:: foo"
+        blocks = parse_markdown_to_blocks(content)
+
+        assert len(blocks) == 1
+        # Both the numbered-list marker property AND the inline tags property are present.
+        assert blocks[0].properties.get("logseq.order-list-type") == "number"
+        assert blocks[0].properties.get("tags") == "foo"
+
+
 class TestParseMarkdownCodeBlocks:
     """Tests for code block parsing."""
 
