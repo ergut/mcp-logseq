@@ -312,7 +312,12 @@ def test_set_block_properties_denies():
 # Task 7: Silent filtering in list/search/query/find_pages_by_property
 # =============================================================================
 
-from mcp_logseq.tools import ListPagesToolHandler, SearchToolHandler, QueryToolHandler
+from mcp_logseq.tools import (
+    ListPagesToolHandler,
+    SearchToolHandler,
+    QueryToolHandler,
+    FindPagesByPropertyToolHandler,
+)
 
 
 def test_list_pages_hides_blocked_namespace():
@@ -363,5 +368,17 @@ def test_query_hides_blocked_page_objects():
     ]
     with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
         out = QueryToolHandler().run_tool({"query": "(page-property x)"})[0].text
+        assert "work/x" in out
+        assert "finance/q3" not in out
+
+
+def test_find_pages_by_property_hides_blocked_pages():
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = FindPagesByPropertyToolHandler().run_tool({"property_name": "status"})[0].text
         assert "work/x" in out
         assert "finance/q3" not in out

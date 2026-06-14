@@ -1384,9 +1384,7 @@ class QueryToolHandler(ToolHandler):
                 for item in filtered_results:
                     if self._is_page(item):
                         name = item.get("originalName") or item.get("name", "")
-                        if _is_page_excluded(item, _exclude_tags) or _is_namespace_blocked(
-                            name, _include_namespaces, _exclude_namespaces
-                        ):
+                        if _is_page_blocked(item, name):
                             continue
                     filtered.append(item)
                 filtered_results = filtered
@@ -1512,9 +1510,7 @@ class FindPagesByPropertyToolHandler(ToolHandler):
                 for item in result:
                     if isinstance(item, dict):
                         name = item.get("originalName") or item.get("name", "")
-                        if _is_page_excluded(item, _exclude_tags) or _is_namespace_blocked(
-                            name, _include_namespaces, _exclude_namespaces
-                        ):
+                        if _is_page_blocked(item, name):
                             continue
                     kept.append(item)
                 result = kept
