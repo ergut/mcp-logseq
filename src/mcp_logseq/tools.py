@@ -1792,6 +1792,7 @@ class GetPageBacklinksToolHandler(ToolHandler):
             content_parts.append(f"# Backlinks for '{page_name}'\n")
 
             total_refs = 0
+            shown_pages = 0
 
             for item in result:
                 if not isinstance(item, list) or len(item) < 2:
@@ -1812,6 +1813,7 @@ class GetPageBacklinksToolHandler(ToolHandler):
                 # properties happen to be present.
                 if _is_page_blocked(page_info, ref_page_name):
                     continue
+                shown_pages += 1
                 block_count = len(blocks) if blocks else 0
                 total_refs += block_count
 
@@ -1829,8 +1831,9 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
                 content_parts.append("")
 
-            # Summary
-            page_count = len(result)
+            # Summary: count only referrers that survived filtering, so the
+            # footer never reveals that hidden (blocked) referrers exist.
+            page_count = shown_pages
             content_parts.append(f"---\n**Total: {page_count} page{'s' if page_count != 1 else ''}, {total_refs} reference{'s' if total_refs != 1 else ''}**")
 
             return [TextContent(type="text", text="\n".join(content_parts))]

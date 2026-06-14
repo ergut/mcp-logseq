@@ -410,6 +410,10 @@ def test_get_page_backlinks_filters_blocked_referrers():
 
     assert "work/x" in out
     assert "finance/q3" not in out
+    # Footer count must reflect only the 1 shown page, not the 2 raw entries —
+    # an overcount would leak the existence of the hidden referrer.
+    assert "Total: 1 page," in out
+    assert "Total: 2 pages" not in out
 
 
 def test_vector_results_filtered_by_namespace():
