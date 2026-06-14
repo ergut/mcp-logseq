@@ -1805,6 +1805,13 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
                 # Get page name
                 ref_page_name = page_info.get('originalName') or page_info.get('name', '<unknown>')
+
+                # Security: silently skip referencing pages blocked by namespace.
+                # page_info rarely carries 'properties' so tag filtering falls back
+                # to namespace-only; pass page_info anyway so tag check fires if
+                # properties happen to be present.
+                if _is_page_blocked(page_info, ref_page_name):
+                    continue
                 block_count = len(blocks) if blocks else 0
                 total_refs += block_count
 

@@ -384,6 +384,34 @@ def test_find_pages_by_property_hides_blocked_pages():
         assert "finance/q3" not in out
 
 
+def test_get_page_backlinks_filters_blocked_referrers():
+    """Backlinks from blocked namespaces must be silently omitted from the result.
+
+    The queried page itself is allowed (work/projects passes the pre-flight).
+    The API returns two referencing entries: one from a blocked page
+    (finance/q3, in excluded namespace 'finance') and one from an allowed page
+    (work/x).  Only work/x should appear in the output.
+    """
+    fake = Mock()
+    # Real shape: [[PageEntity, [BlockEntity, ...]], ...]
+    fake.get_page_linked_references.return_value = [
+        [
+            {"originalName": "finance/q3"},
+            [{"content": "See [[work/projects]] for context"}],
+        ],
+        [
+            {"originalName": "work/x"},
+            [{"content": "Linked from [[work/projects]]"}],
+        ],
+    ]
+
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = GetPageBacklinksToolHandler().run_tool({"page_name": "work/projects"})[0].text
+
+    assert "work/x" in out
+    assert "finance/q3" not in out
+
+
 def test_vector_results_filtered_by_namespace():
     pytest.importorskip("mcp_logseq.vector.index")
     from mcp_logseq.vector.index import _filter_results_by_namespace
