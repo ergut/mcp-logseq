@@ -306,3 +306,62 @@ def test_set_block_properties_denies():
             SetBlockPropertiesToolHandler().run_tool(
                 {"block_uuid": "u7", "properties": {"k": "v"}}
             )
+
+
+# =============================================================================
+# Task 7: Silent filtering in list/search/query/find_pages_by_property
+# =============================================================================
+
+from mcp_logseq.tools import ListPagesToolHandler, SearchToolHandler, QueryToolHandler
+
+
+def test_list_pages_hides_blocked_namespace():
+    pages = [
+        {"originalName": "work/projects", "properties": {}},
+        {"originalName": "finance/q3", "properties": {}},
+    ]
+    fake = Mock()
+    fake.list_pages.return_value = pages
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = ListPagesToolHandler().run_tool({})[0].text
+        assert "work/projects" in out
+        assert "finance/q3" not in out
+
+
+def test_list_pages_strict_allowlist_hides_unnamespaced():
+    pages = [
+        {"originalName": "work/projects", "properties": {}},
+        {"originalName": "Fikirler", "properties": {}},
+    ]
+    fake = Mock()
+    fake.list_pages.return_value = pages
+    with _ns(include=["work"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = ListPagesToolHandler().run_tool({})[0].text
+        assert "work/projects" in out
+        assert "Fikirler" not in out
+
+
+def test_search_excludes_blocked_namespace_pages():
+    fake = Mock()
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        names = SearchToolHandler._build_excluded_page_names(
+            fake, [], ["finance"], []
+        )
+        assert "finance/q3" in names
+        assert "work/x" not in names
+
+
+def test_query_hides_blocked_page_objects():
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"originalName": "finance/q3"},
+        {"originalName": "work/x"},
+    ]
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(page-property x)"})[0].text
+        assert "work/x" in out
+        assert "finance/q3" not in out

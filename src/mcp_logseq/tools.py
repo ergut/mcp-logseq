@@ -347,8 +347,9 @@ class ListPagesToolHandler(ToolHandler):
                 is_journal = page.get("journal?", False)
                 if is_journal and not include_journals:
                     continue
-                # Security: pages with excluded tags are invisible
-                if _is_page_excluded(page, _exclude_tags):
+                # Security: pages blocked by tag OR namespace are invisible
+                name_for_check = page.get("originalName") or page.get("name", "")
+                if _is_page_blocked(page, name_for_check):
                     continue
 
                 # Get page information
@@ -994,24 +995,33 @@ class SearchToolHandler(ToolHandler):
         )
 
     @staticmethod
-    def _build_excluded_page_names(api, exclude_tags: list[str]) -> set[str]:
-        """Return lowercased names of pages that have excluded tags.
+    def _build_excluded_page_names(
+        api,
+        exclude_tags: list[str],
+        exclude_namespaces: list[str],
+        include_namespaces: list[str],
+    ) -> set[str]:
+        """Return lowercased names of pages blocked by tag or namespace rules.
 
-        Makes one extra api.list_pages() call. Fails open on error to avoid
-        breaking search entirely when exclude_tags is configured.
+        Makes one extra api.list_pages() call when any rule is configured.
+        Fails open on error to avoid breaking search entirely.
         """
-        if not exclude_tags:
+        if not exclude_tags and not exclude_namespaces and not include_namespaces:
             return set()
         try:
             pages = api.list_pages()
-            return {
-                (page.get("originalName") or page.get("name", "")).lower()
-                for page in pages
-                if _is_page_excluded(page, exclude_tags)
-                and (page.get("originalName") or page.get("name"))
-            }
+            blocked = set()
+            for page in pages:
+                name = page.get("originalName") or page.get("name", "")
+                if not name:
+                    continue
+                if _is_page_excluded(page, exclude_tags) or _is_namespace_blocked(
+                    name, include_namespaces, exclude_namespaces
+                ):
+                    blocked.add(name.lower())
+            return blocked
         except Exception as e:
-            logger.warning(f"Could not build excluded page names for search filtering: {e}")
+            logger.warning(f"Could not build blocked page names for search filtering: {e}")
             return set()
 
     @staticmethod
@@ -1227,7 +1237,9 @@ class SearchToolHandler(ToolHandler):
                 ]
 
             # Build excluded page name set (one extra API call only when needed)
-            excluded_page_names = self._build_excluded_page_names(api, _exclude_tags)
+            excluded_page_names = self._build_excluded_page_names(
+                api, _exclude_tags, _exclude_namespaces, _include_namespaces
+            )
 
             if args.get("format") == "json":
                 json_result = self._build_json_results(
@@ -1366,14 +1378,18 @@ class QueryToolHandler(ToolHandler):
                     continue
                 filtered_results.append(item)
 
-            # Security: filter page objects with excluded tags
-            if _exclude_tags:
-                exclude_filtered = []
+            # Security: filter page objects blocked by tag OR namespace
+            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+                filtered = []
                 for item in filtered_results:
-                    if self._is_page(item) and _is_page_excluded(item, _exclude_tags):
-                        continue
-                    exclude_filtered.append(item)
-                filtered_results = exclude_filtered
+                    if self._is_page(item):
+                        name = item.get("originalName") or item.get("name", "")
+                        if _is_page_excluded(item, _exclude_tags) or _is_namespace_blocked(
+                            name, _include_namespaces, _exclude_namespaces
+                        ):
+                            continue
+                    filtered.append(item)
+                filtered_results = filtered
 
             if not filtered_results:
                 filter_msg = f" (filtered to {result_type})" if result_type != "all" else ""
@@ -1489,6 +1505,19 @@ class FindPagesByPropertyToolHandler(ToolHandler):
                 else:
                     msg = f"No pages found with property '{property_name}'"
                 return [TextContent(type="text", text=msg)]
+
+            # Security: drop pages blocked by tag OR namespace before limiting
+            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+                kept = []
+                for item in result:
+                    if isinstance(item, dict):
+                        name = item.get("originalName") or item.get("name", "")
+                        if _is_page_excluded(item, _exclude_tags) or _is_namespace_blocked(
+                            name, _include_namespaces, _exclude_namespaces
+                        ):
+                            continue
+                    kept.append(item)
+                result = kept
 
             # Apply limit
             limited_results = result[:limit]
