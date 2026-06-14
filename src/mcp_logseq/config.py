@@ -8,6 +8,8 @@ Example config.json:
 {
   "logseq_graph_path": "/path/to/logseq/pages",
   "exclude_tags": ["private", "secret"],
+  "include_namespaces": ["work", "projects"],
+  "exclude_namespaces": ["work/secret"],
   "vector": {
     "enabled": true,
     "db_path": "~/.logseq-vector",
@@ -110,18 +112,19 @@ def load_vector_config() -> VectorConfig | None:
     )
 
 
-def load_exclude_tags() -> list[str]:
+def _load_csv_config(env_var: str, config_key: str) -> list[str]:
+    """Load a comma/list config value from an env var or the config file root.
+
+    Priority: env var > config file root key > [] (no value).
+    env var: comma-separated string. config file: list or comma-separated string.
+    Strips whitespace and drops empties. Never raises.
     """
-    Load top-level exclude_tags from LOGSEQ_EXCLUDE_TAGS env var or config file root.
-    Priority: env var > config file > [] (no filtering).
-    Never raises.
-    """
-    env_val = os.getenv("LOGSEQ_EXCLUDE_TAGS", "").strip()
+    env_val = os.getenv(env_var, "").strip()
     if env_val:
-        tags = [t.strip() for t in env_val.split(",") if t.strip()]
-        if tags:
-            logger.info(f"Loaded {len(tags)} exclude_tags from LOGSEQ_EXCLUDE_TAGS")
-            return tags
+        items = [t.strip() for t in env_val.split(",") if t.strip()]
+        if items:
+            logger.info(f"Loaded {len(items)} entries from {env_var}")
+            return items
 
     config_path = os.getenv("LOGSEQ_CONFIG_FILE")
     if not config_path:
@@ -133,16 +136,31 @@ def load_exclude_tags() -> list[str]:
         with open(config_path) as f:
             raw = json.load(f)
     except Exception as e:
-        logger.warning(f"Failed to parse config file for exclude_tags {config_path}: {e}")
+        logger.warning(f"Failed to parse config file for {config_key} {config_path}: {e}")
         return []
 
-    raw_tags = raw.get("exclude_tags", [])
-    if isinstance(raw_tags, list):
-        tags = [str(t).strip() for t in raw_tags if str(t).strip()]
-    elif isinstance(raw_tags, str):
-        tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+    raw_val = raw.get(config_key, [])
+    if isinstance(raw_val, list):
+        items = [str(t).strip() for t in raw_val if str(t).strip()]
+    elif isinstance(raw_val, str):
+        items = [t.strip() for t in raw_val.split(",") if t.strip()]
     else:
-        tags = []
-    if tags:
-        logger.info(f"Loaded {len(tags)} exclude_tags from config file root")
-    return tags
+        items = []
+    if items:
+        logger.info(f"Loaded {len(items)} entries for '{config_key}' from config file root")
+    return items
+
+
+def load_exclude_tags() -> list[str]:
+    """Load top-level exclude_tags. Priority: env var > config file > []."""
+    return _load_csv_config("LOGSEQ_EXCLUDE_TAGS", "exclude_tags")
+
+
+def load_include_namespaces() -> list[str]:
+    """Load allow-list namespaces. Priority: env var > config file > []."""
+    return _load_csv_config("LOGSEQ_INCLUDE_NAMESPACES", "include_namespaces")
+
+
+def load_exclude_namespaces() -> list[str]:
+    """Load deny-list namespaces. Priority: env var > config file > []."""
+    return _load_csv_config("LOGSEQ_EXCLUDE_NAMESPACES", "exclude_namespaces")
