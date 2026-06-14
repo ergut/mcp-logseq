@@ -237,3 +237,60 @@ def test_rename_page_denies_target():
     with _ns(include=["work"]):
         with pytest.raises(AccessDenied):
             RenamePageToolHandler().run_tool({"old_name": "work/x", "new_name": "personal/x"})
+
+
+from mcp_logseq.tools import (
+    GetBlockToolHandler,
+    UpdateBlockToolHandler,
+    DeleteBlockToolHandler,
+    InsertNestedBlockToolHandler,
+)
+
+
+def _api_with_block_page(page_name):
+    """Mock _make_api so get_block_page_name returns a fixed page."""
+    fake = Mock()
+    fake.get_block_page_name.return_value = page_name
+    return patch("mcp_logseq.tools._make_api", return_value=fake)
+
+
+def test_get_block_denies_when_page_excluded():
+    with _ns(exclude=["finance"]), _api_with_block_page("finance/q3"):
+        with pytest.raises(AccessDenied):
+            GetBlockToolHandler().run_tool({"block_uuid": "u1"})
+
+
+def test_update_block_denies_outside_allowlist():
+    with _ns(include=["work"]), _api_with_block_page("personal/x"):
+        with pytest.raises(AccessDenied):
+            UpdateBlockToolHandler().run_tool({"block_uuid": "u2", "content": "c"})
+
+
+def test_delete_block_denies():
+    with _ns(exclude=["finance"]), _api_with_block_page("finance/q3"):
+        with pytest.raises(AccessDenied):
+            DeleteBlockToolHandler().run_tool({"block_uuid": "u3"})
+
+
+def test_insert_nested_block_denies():
+    with _ns(include=["work"]), _api_with_block_page("personal/x"):
+        with pytest.raises(AccessDenied):
+            InsertNestedBlockToolHandler().run_tool(
+                {"parent_block_uuid": "u4", "content": "c"}
+            )
+
+
+def test_block_denied_when_page_unresolvable_and_rules_set():
+    with _ns(include=["work"]), _api_with_block_page(None):
+        with pytest.raises(AccessDenied):
+            DeleteBlockToolHandler().run_tool({"block_uuid": "u5"})
+
+
+def test_block_allowed_when_no_rules():
+    fake = Mock()
+    fake.get_block_page_name.return_value = None
+    fake.delete_block.return_value = {"ok": True}
+    with _ns(), patch("mcp_logseq.tools._make_api", return_value=fake):
+        result = DeleteBlockToolHandler().run_tool({"block_uuid": "u6"})
+        assert "Successfully deleted" in result[0].text
+        fake.get_block_page_name.assert_not_called()

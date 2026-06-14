@@ -787,12 +787,15 @@ class DeleteBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             api.delete_block(block_uuid)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully deleted block '{block_uuid}'"
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -839,12 +842,15 @@ class UpdateBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             api.update_block(block_uuid, content)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully updated block '{block_uuid}'"
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -901,6 +907,7 @@ class GetBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             result = api.get_block(block_uuid, include_children=include_children)
 
             if output_format == "json":
@@ -931,6 +938,8 @@ class GetBlockToolHandler(ToolHandler):
 
             return [TextContent(type="text", text="\n".join(content_parts))]
 
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -1846,6 +1855,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, parent_uuid)
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,
@@ -1873,6 +1883,8 @@ class InsertNestedBlockToolHandler(ToolHandler):
                 text=success_msg
             )]
 
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -1927,6 +1939,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             results = []
 
             for prop_name, value in properties.items():
@@ -1944,6 +1957,8 @@ class SetBlockPropertiesToolHandler(ToolHandler):
                 text=f"Set properties on block {block_uuid}:\n" + "\n".join(results),
             )]
 
+        except AccessDenied:
+            raise
         except Exception as e:
             logger.error(f"Failed to set block properties: {str(e)}")
             return [TextContent(
