@@ -2,7 +2,7 @@ import json
 import pytest
 import responses
 import requests
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from mcp_logseq.logseq import LogSeq
 
 
@@ -806,3 +806,37 @@ class TestGetBlock:
 
         with pytest.raises(Exception):
             logseq_client.get_block("abc-123")
+
+
+# ---------------------------------------------------------------------------
+# Standalone tests for get_block_page_name / _get_page_name_by_id
+# ---------------------------------------------------------------------------
+
+def _api():
+    return LogSeq(api_key="t")
+
+
+def test_get_block_page_name_from_inline_name():
+    api = _api()
+    with patch.object(api, "get_block", return_value={"page": {"originalName": "work/projects"}}):
+        assert api.get_block_page_name("uuid-1") == "work/projects"
+
+
+def test_get_block_page_name_resolves_by_id():
+    api = _api()
+    with patch.object(api, "get_block", return_value={"page": {"id": 42}}), \
+         patch.object(api, "_get_page_name_by_id", return_value="finance/q3") as m:
+        assert api.get_block_page_name("uuid-2") == "finance/q3"
+        m.assert_called_once_with(42)
+
+
+def test_get_block_page_name_none_when_no_page():
+    api = _api()
+    with patch.object(api, "get_block", return_value={"content": "x"}):
+        assert api.get_block_page_name("uuid-3") is None
+
+
+def test_get_block_page_name_none_when_block_missing():
+    api = _api()
+    with patch.object(api, "get_block", side_effect=ValueError("not found")):
+        assert api.get_block_page_name("uuid-4") is None

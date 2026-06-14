@@ -1091,6 +1091,47 @@ class LogSeq:
             logger.error(f"Error getting block '{block_uuid}': {str(e)}")
             raise
 
+    def _get_page_name_by_id(self, page_id) -> str | None:
+        """Resolve a page's human-readable name from its db id (or uuid)."""
+        url = self.get_base_url()
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={"method": "logseq.Editor.getPage", "args": [page_id]},
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            page = response.json()
+            if page and isinstance(page, dict):
+                return page.get("originalName") or page.get("name")
+        except Exception as e:
+            logger.warning(f"Could not resolve page name for id '{page_id}': {e}")
+        return None
+
+    def get_block_page_name(self, block_uuid: str) -> str | None:
+        """Resolve the name of the page that owns a given block.
+
+        Returns None if the page cannot be determined.
+        """
+        try:
+            block = self.get_block(block_uuid, include_children=False)
+        except Exception as e:
+            logger.warning(f"Could not fetch block '{block_uuid}' for page resolution: {e}")
+            return None
+        if not block or not isinstance(block, dict):
+            return None
+        page_ref = block.get("page")
+        if isinstance(page_ref, dict):
+            name = page_ref.get("originalName") or page_ref.get("name")
+            if name:
+                return name
+            page_id = page_ref.get("id")
+            if page_id is not None:
+                return self._get_page_name_by_id(page_id)
+        return None
+
     def resolve_page_uuids(self, uuids: list[str]) -> dict[str, str]:
         """Resolve a list of page UUIDs to their human-readable names.
 
