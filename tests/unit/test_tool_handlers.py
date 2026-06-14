@@ -1,3 +1,4 @@
+import importlib
 import json
 
 import pytest
@@ -35,6 +36,10 @@ class TestToolConfiguration:
     def test_parse_positive_float_env_uses_override(self):
         assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 60
 
+    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "2.5"})
+    def test_parse_positive_float_env_accepts_float_override(self):
+        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 2.5
+
     @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "0"})
     def test_parse_positive_float_env_non_positive_falls_back_to_default(self):
         with patch.object(tools.logger, "warning") as mock_warning:
@@ -65,6 +70,66 @@ class TestToolConfiguration:
             assert mock_logseq_class.call_args.kwargs["timeout"] == (3, 60)
         finally:
             tools._api_timeout = original_timeout
+
+
+class TestTimeoutEnvVars:
+    """Module-level timeout globals are wired from env vars at import time.
+
+    These reload the tools module under a patched environment to exercise the
+    actual ``_api_connect_timeout`` / ``_api_read_timeout`` / ``_api_timeout``
+    wiring (the unit tests above only call ``_parse_positive_float_env``
+    directly). The autouse fixture restores a clean module afterwards so the
+    reload does not leak timeout state into other tests.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _restore_tools_module(self):
+        yield
+        with patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"}, clear=True):
+            importlib.reload(tools)
+
+    @staticmethod
+    def _reload(env):
+        with patch.dict(
+            "os.environ", {"LOGSEQ_API_TOKEN": "test_token", **env}, clear=True
+        ):
+            importlib.reload(tools)
+        return tools
+
+    def test_module_level_defaults(self):
+        reloaded = self._reload({})
+        assert reloaded._api_connect_timeout == 3
+        assert reloaded._api_read_timeout == 6
+        assert reloaded._api_timeout == (3, 6)
+
+    def test_connect_timeout_override(self):
+        reloaded = self._reload({"LOGSEQ_API_CONNECT_TIMEOUT": "10"})
+        assert reloaded._api_connect_timeout == 10.0
+        assert reloaded._api_timeout == (10.0, 6)
+
+    def test_read_timeout_override(self):
+        reloaded = self._reload({"LOGSEQ_API_READ_TIMEOUT": "30"})
+        assert reloaded._api_read_timeout == 30.0
+        assert reloaded._api_timeout == (3, 30.0)
+
+    def test_float_overrides(self):
+        reloaded = self._reload(
+            {"LOGSEQ_API_CONNECT_TIMEOUT": "2.5", "LOGSEQ_API_READ_TIMEOUT": "15.0"}
+        )
+        assert reloaded._api_timeout == (2.5, 15.0)
+
+    def test_invalid_override_falls_back_to_default(self):
+        reloaded = self._reload({"LOGSEQ_API_CONNECT_TIMEOUT": "not-a-number"})
+        assert reloaded._api_connect_timeout == 3
+        assert reloaded._api_timeout == (3, 6)
+
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_make_api_passes_env_timeouts_end_to_end(self, mock_logseq_class):
+        reloaded = self._reload(
+            {"LOGSEQ_API_CONNECT_TIMEOUT": "2.5", "LOGSEQ_API_READ_TIMEOUT": "15.0"}
+        )
+        reloaded._make_api()
+        assert mock_logseq_class.call_args.kwargs["timeout"] == (2.5, 15.0)
 
 
 class TestCreatePageToolHandler:
