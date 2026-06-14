@@ -30,7 +30,7 @@ from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
 from mcp_logseq.vector.sync import check_staleness
-from mcp_logseq.vector.types import SearchParams
+from mcp_logseq.vector.types import SearchParams, SearchResult
 
 logger = logging.getLogger("mcp-logseq.vector.index")
 
@@ -46,7 +46,9 @@ def _relevance_label(score: float) -> str:
     return "weak match"
 
 
-def _filter_results_by_namespace(results, include, exclude):
+def _filter_results_by_namespace(
+    results: list[SearchResult], include: list[str], exclude: list[str]
+) -> list[SearchResult]:
     """Drop vector search results whose page is blocked by namespace rules."""
     if not include and not exclude:
         return results
