@@ -244,6 +244,7 @@ from mcp_logseq.tools import (
     UpdateBlockToolHandler,
     DeleteBlockToolHandler,
     InsertNestedBlockToolHandler,
+    SetBlockPropertiesToolHandler,
 )
 
 
@@ -294,3 +295,14 @@ def test_block_allowed_when_no_rules():
         result = DeleteBlockToolHandler().run_tool({"block_uuid": "u6"})
         assert "Successfully deleted" in result[0].text
         fake.get_block_page_name.assert_not_called()
+
+
+def test_set_block_properties_denies():
+    # set_block_properties only runs in DB mode; patch _db_mode so the handler
+    # reaches the enforcement call rather than returning the DB-mode guard early.
+    with _ns(exclude=["finance"]), _api_with_block_page("finance/q3"), \
+            patch("mcp_logseq.tools._db_mode", True):
+        with pytest.raises(AccessDenied):
+            SetBlockPropertiesToolHandler().run_tool(
+                {"block_uuid": "u7", "properties": {"k": "v"}}
+            )
