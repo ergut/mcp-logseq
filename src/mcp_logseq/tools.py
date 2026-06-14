@@ -31,11 +31,19 @@ def _parse_positive_float_env(name: str, default: float) -> float:
 
     try:
         value = float(raw_value)
-    except ValueError as e:
-        raise ValueError(f"{name} must be a positive number of seconds") from e
+    except ValueError:
+        logger.warning(
+            f"{name} must be a positive number of seconds, got {raw_value!r}; "
+            f"falling back to default {default}"
+        )
+        return default
 
     if value <= 0:
-        raise ValueError(f"{name} must be a positive number of seconds")
+        logger.warning(
+            f"{name} must be a positive number of seconds, got {raw_value!r}; "
+            f"falling back to default {default}"
+        )
+        return default
 
     return value
 

@@ -34,9 +34,16 @@ class TestToolConfiguration:
         assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 60
 
     @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "0"})
-    def test_parse_positive_float_env_rejects_non_positive_values(self):
-        with pytest.raises(ValueError, match="LOGSEQ_API_READ_TIMEOUT"):
-            tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6)
+    def test_parse_positive_float_env_non_positive_falls_back_to_default(self):
+        with patch.object(tools.logger, "warning") as mock_warning:
+            assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
+        mock_warning.assert_called_once()
+
+    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "fast"})
+    def test_parse_positive_float_env_invalid_falls_back_to_default(self):
+        with patch.object(tools.logger, "warning") as mock_warning:
+            assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
+        mock_warning.assert_called_once()
 
     @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_make_api_passes_configured_timeout(self, mock_logseq_class):
