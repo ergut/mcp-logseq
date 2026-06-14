@@ -664,6 +664,33 @@ class LogSeq:
             logger.error(f"Could not set page-level properties for '{page_name}': {e}")
             raise
 
+    def _resolve_first_block(self, page_name: str) -> dict:
+        """
+        Return the page's first block, creating an empty anchor block if none exists.
+
+        On file graphs, page properties live in the first block. A properties-only
+        update (no content) — especially in replace mode, which clears existing
+        blocks first — can leave the page with no block to write to. In that case
+        we create an empty anchor block, which is exactly how Logseq represents
+        page properties on a fresh page (the page-properties pre-block).
+
+        Raises:
+            RuntimeError: if no block exists and an anchor could not be created,
+                so the caller never reports a write that didn't happen.
+        """
+        page_blocks = self.get_page_blocks(page_name)
+        if page_blocks and page_blocks[0].get("uuid"):
+            return page_blocks[0]
+
+        anchor = self.append_block_in_page(page_name, "")
+        if anchor and anchor.get("uuid"):
+            return anchor
+
+        raise RuntimeError(
+            f"Could not resolve or create a first block on page '{page_name}' "
+            f"to store properties"
+        )
+
     def _update_page_properties(self, page_name: str, properties: dict) -> None:
         """
         Update page properties by setting them on the first block.
@@ -672,16 +699,7 @@ class LogSeq:
         using the `property:: value` syntax. This method updates properties
         by calling upsertBlockProperty on the first block.
         """
-        # Get first block of the page
-        page_blocks = self.get_page_blocks(page_name)
-        if not page_blocks:
-            logger.warning(f"Page '{page_name}' has no blocks, cannot set properties")
-            return
-
-        first_block_uuid = page_blocks[0].get("uuid")
-        if not first_block_uuid:
-            logger.warning(f"Could not get first block UUID for page '{page_name}'")
-            return
+        first_block_uuid = self._resolve_first_block(page_name)["uuid"]
 
         # Set each property using upsertBlockProperty. Keys not listed here are
         # left untouched, which gives append-mode its merge semantics natively.
@@ -700,16 +718,8 @@ class LogSeq:
         set, then upserts the new ones. This preserves replace-mode semantics for
         file graphs.
         """
-        page_blocks = self.get_page_blocks(page_name)
-        if not page_blocks:
-            logger.warning(f"Page '{page_name}' has no blocks, cannot set properties")
-            return
-
-        first_block = page_blocks[0]
-        first_block_uuid = first_block.get("uuid")
-        if not first_block_uuid:
-            logger.warning(f"Could not get first block UUID for page '{page_name}'")
-            return
+        first_block = self._resolve_first_block(page_name)
+        first_block_uuid = first_block["uuid"]
 
         # Remove existing properties that are not part of the new set
         existing_props = first_block.get("properties", {}) or {}

@@ -224,6 +224,42 @@ class TestUpdatePageProperties:
         assert upsert_keys == {"priority"}
 
     @responses.activate
+    def test_file_mode_replace_properties_only_creates_anchor_block(self, logseq_client):
+        """File graphs: a properties-only replace must still persist the properties.
+
+        Regression: replace clears all blocks, leaving the page with no first
+        block. The property write previously logged a warning and returned while
+        the tool still reported success, wiping content and silently dropping the
+        properties. An empty anchor block must be created so the properties land.
+        """
+        url = "http://127.0.0.1:12315/api"
+        responses.add(responses.POST, url, json=[{"name": "Test Page", "originalName": "Test Page"}], status=200)  # list_pages
+        responses.add(responses.POST, url, json=[{"uuid": "block-1", "content": "Old", "properties": {"status": "old"}}], status=200)  # clear: get blocks
+        responses.add(responses.POST, url, json=True, status=200)  # removeBlock
+        responses.add(responses.POST, url, json=[], status=200)  # _resolve_first_block: page now empty
+        responses.add(responses.POST, url, json={"uuid": "anchor-1", "content": ""}, status=200)  # appendBlockInPage anchor
+        responses.add(responses.POST, url, json=True, status=200)  # upsertBlockProperty (repeats)
+
+        result = logseq_client.update_page_with_blocks(
+            "Test Page", [], properties={"priority": "high"}, mode="replace",
+        )
+
+        assert dict(result["updates"])["properties"] == {"priority": "high"}
+
+        import json
+        # An anchor block was created to hold the page properties
+        anchor_calls = self._calls_for("appendBlockInPage")
+        assert len(anchor_calls) == 1
+        assert json.loads(anchor_calls[0].request.body)["args"][0] == "Test Page"
+
+        # The properties were actually written to that anchor block
+        upserts = self._calls_for("upsertBlockProperty")
+        assert len(upserts) == 1
+        body = json.loads(upserts[0].request.body)
+        assert body["args"][0] == "anchor-1"
+        assert body["args"][1] == "priority"
+
+    @responses.activate
     def test_update_page_with_empty_properties_dict(self, logseq_client):
         """Test that empty properties dict doesn't cause errors."""
         # Mock list_pages for validation
