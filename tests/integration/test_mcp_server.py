@@ -78,6 +78,7 @@ class TestMCPServerIntegration:
         """Test successful tool call execution through handler."""
         # Setup mock
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_logseq_class.return_value = mock_api
 
         # Test create_page tool directly through handler (new version)
@@ -105,6 +106,7 @@ class TestMCPServerIntegration:
         """Test tool call when handler raises an exception."""
         # Setup mock to raise exception (new handler uses create_page_with_blocks)
         mock_api = Mock()
+        mock_api.page_exists.return_value = False
         mock_api.create_page_with_blocks.side_effect = Exception("API Error")
         mock_logseq_class.return_value = mock_api
 

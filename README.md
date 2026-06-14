@@ -172,6 +172,18 @@ def hello():
 - **`append`** (default): Add new content after existing blocks
 - **`replace`**: Clear page and replace with new content
 
+### 🔁 Safe Retries & Large Writes
+
+`create_page` fails with a clear error if a page with the same title already exists, instead of letting Logseq silently create numbered duplicates (`Page(1)`, `Page 2`, ...). This makes retries after a timeout safe: if a previous `create_page` call timed out but actually committed, the retry tells you the page exists rather than fragmenting your content across ghost pages.
+
+For large writes, prefer this pattern over one giant `create_page` call:
+
+1. Create the page with little or no content (`create_page` with just the title and properties)
+2. Append content in smaller chunks with `update_page` (`mode: append`)
+3. Read back with `get_page_content` to verify the result
+
+If you hit the "already exists" error mid-ingest, use `get_page_content` to see what landed, then continue with `update_page` instead of re-creating.
+
 ---
 
 ## ⚙️ Prerequisites
