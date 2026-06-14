@@ -1586,6 +1586,14 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
             api = _make_api()
             result = api.get_pages_from_namespace(args["namespace"])
 
+            # Security: silently drop pages blocked by tag OR namespace, e.g. an
+            # excluded sub-namespace (work/secret) under an allowed parent (work).
+            if result:
+                result = [
+                    p for p in result
+                    if not _is_page_blocked(p, p.get('originalName') or p.get('name') or '')
+                ]
+
             if not result:
                 return [TextContent(
                     type="text",
@@ -1640,6 +1648,23 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
         try:
             api = _make_api()
             result = api.get_pages_tree_from_namespace(args["namespace"])
+
+            # Security: silently prune nodes blocked by tag OR namespace, e.g. an
+            # excluded sub-namespace (work/secret) under an allowed parent (work).
+            def prune_blocked(nodes):
+                kept = []
+                for node in nodes:
+                    name = node.get('originalName') or node.get('name') or ''
+                    if _is_page_blocked(node, name):
+                        continue
+                    children = node.get('children', [])
+                    if children:
+                        node = {**node, 'children': prune_blocked(children)}
+                    kept.append(node)
+                return kept
+
+            if result:
+                result = prune_blocked(result)
 
             if not result:
                 return [TextContent(

@@ -428,3 +428,41 @@ def test_vector_results_filtered_by_namespace():
     kept = _filter_results_by_namespace(results, include=["work"], exclude=[])
     pages = [r.page for r in kept]
     assert pages == ["work/x"]  # strict allow-list drops finance and unnamespaced
+
+
+def test_get_pages_from_namespace_filters_excluded_subnamespace():
+    fake = Mock()
+    fake.get_pages_from_namespace.return_value = [
+        {"originalName": "work/projects"},
+        {"originalName": "work/secret/keys"},
+    ]
+    with _ns(include=["work"], exclude=["work/secret"]), patch(
+        "mcp_logseq.tools._make_api", return_value=fake
+    ):
+        out = GetPagesFromNamespaceToolHandler().run_tool({"namespace": "work"})[0].text
+        assert "work/projects" in out
+        assert "work/secret/keys" not in out
+
+
+def test_get_pages_tree_from_namespace_prunes_excluded_subnamespace():
+    fake = Mock()
+    fake.get_pages_tree_from_namespace.return_value = [
+        {
+            "originalName": "work",
+            "children": [
+                {"originalName": "work/projects", "children": []},
+                {
+                    "originalName": "work/secret",
+                    "children": [
+                        {"originalName": "work/secret/keys", "children": []},
+                    ],
+                },
+            ],
+        },
+    ]
+    with _ns(include=["work"], exclude=["work/secret"]), patch(
+        "mcp_logseq.tools._make_api", return_value=fake
+    ):
+        out = GetPagesTreeFromNamespaceToolHandler().run_tool({"namespace": "work"})[0].text
+        assert "work/projects" in out
+        assert "work/secret" not in out  # whole subtree pruned (also covers .../keys)
