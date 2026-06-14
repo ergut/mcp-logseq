@@ -266,6 +266,8 @@ Introduction paragraph.
         content = args.get("content", "")
         explicit_properties = args.get("properties", {})
 
+        _enforce_namespace_access(title)
+
         try:
             api = _make_api()
 
@@ -601,6 +603,8 @@ class DeletePageToolHandler(ToolHandler):
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
+        _enforce_namespace_access(args["page_name"])
+
         try:
             api = _make_api()
             result = api.delete_page(args["page_name"])
@@ -701,6 +705,8 @@ YAML frontmatter in content will be merged with explicit properties.""",
                     text="Error: Either 'content' or 'properties' must be provided for update",
                 )
             ]
+
+        _enforce_namespace_access(page_name)
 
         try:
             api = _make_api()
@@ -1676,6 +1682,9 @@ class RenamePageToolHandler(ToolHandler):
 
         old_name = args["old_name"]
         new_name = args["new_name"]
+
+        _enforce_namespace_access(old_name)
+        _enforce_namespace_access(new_name)
 
         try:
             api = _make_api()

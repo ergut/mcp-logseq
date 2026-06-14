@@ -162,6 +162,10 @@ from mcp_logseq.tools import (
     GetPageBacklinksToolHandler,
     GetPagesFromNamespaceToolHandler,
     GetPagesTreeFromNamespaceToolHandler,
+    CreatePageToolHandler,
+    UpdatePageToolHandler,
+    DeletePageToolHandler,
+    RenamePageToolHandler,
 )
 
 
@@ -203,3 +207,33 @@ def test_get_pages_tree_from_namespace_denies():
     with _ns(include=["work"]):
         with pytest.raises(AccessDenied):
             GetPagesTreeFromNamespaceToolHandler().run_tool({"namespace": "finance"})
+
+
+def test_create_page_denies_excluded_namespace():
+    with _ns(exclude=["finance"]):
+        with pytest.raises(AccessDenied):
+            CreatePageToolHandler().run_tool({"title": "finance/new", "content": "x"})
+
+
+def test_update_page_denies_outside_allowlist():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            UpdatePageToolHandler().run_tool({"page_name": "personal/x", "content": "y"})
+
+
+def test_delete_page_denies():
+    with _ns(exclude=["finance"]):
+        with pytest.raises(AccessDenied):
+            DeletePageToolHandler().run_tool({"page_name": "finance/q3"})
+
+
+def test_rename_page_denies_source():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            RenamePageToolHandler().run_tool({"old_name": "personal/x", "new_name": "work/x"})
+
+
+def test_rename_page_denies_target():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            RenamePageToolHandler().run_tool({"old_name": "work/x", "new_name": "personal/x"})
