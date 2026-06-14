@@ -30,8 +30,14 @@ def mock_api_key():
 
 @pytest.fixture
 def logseq_client(mock_api_key):
-    """Create a LogSeq client instance for testing."""
+    """Create a LogSeq client instance for testing (file graph)."""
     return LogSeq(api_key=mock_api_key)
+
+
+@pytest.fixture
+def logseq_client_db(mock_api_key):
+    """Create a LogSeq client instance in DB-graph mode for testing."""
+    return LogSeq(api_key=mock_api_key, db_mode=True)
 
 
 @pytest.fixture
