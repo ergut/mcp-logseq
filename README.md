@@ -209,6 +209,8 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 - **`LOGSEQ_API_READ_TIMEOUT`** (optional): HTTP read timeout in seconds (default: `6`)
 - **`LOGSEQ_DB_MODE`** (optional): Set to `true` to enable DB-mode property support. Only for Logseq DB-mode graphs (beta). Markdown/file-based graph users should leave this unset.
 - **`LOGSEQ_EXCLUDE_TAGS`** (optional): Comma-separated tags — pages with these tags are hidden from all tools. See [Privacy & Access Control](#-privacy--access-control) below.
+- **`LOGSEQ_INCLUDE_NAMESPACES`** (optional): Comma-separated namespace allow-list (e.g. `work,projects`). When set, **only** pages in these namespaces and their sub-pages are accessible — everything else, including top-level pages without a namespace, is hidden from listings/search and denied on direct access. See [Privacy & Access Control](#-privacy--access-control) below.
+- **`LOGSEQ_EXCLUDE_NAMESPACES`** (optional): Comma-separated namespace deny-list (e.g. `finance,work/secret`). These namespaces are always blocked, taking priority over the include list. See [Privacy & Access Control](#-privacy--access-control) below.
 
 ### Privacy & Access Control
 
@@ -234,6 +236,30 @@ tags:: private
 ```
 
 The exclusion applies to all tools: `list_pages`, `get_page_content`, `search`, `query`, and the optional vector search. If you also use vector search, `exclude_tags` at the root is automatically merged into the vector index exclusion list — private pages are never embedded.
+
+#### Namespace access control
+
+You can restrict access to specific namespaces using `LOGSEQ_INCLUDE_NAMESPACES` and `LOGSEQ_EXCLUDE_NAMESPACES`.
+
+**Include list (strict allow-list):** Only the listed namespaces and their sub-pages are visible; everything else is hidden.
+```bash
+LOGSEQ_INCLUDE_NAMESPACES=work,projects
+```
+
+**Exclude list (deny-list):** The listed namespaces are always blocked, even if they appear in the include list.
+```bash
+LOGSEQ_EXCLUDE_NAMESPACES=work/secret,finance
+```
+
+**Via config file:**
+```json
+{
+  "include_namespaces": ["work", "projects"],
+  "exclude_namespaces": ["work/secret", "finance"]
+}
+```
+
+Matching is segment-based and case-insensitive: `work` matches `work` and `work/projects` but not `workshop`. The behavior mirrors `LOGSEQ_EXCLUDE_TAGS`: list/search results silently omit blocked pages; direct read, write, delete, and block operations return an access-denied error.
 
 ### Alternative Setup Methods
 
