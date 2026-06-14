@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 from . import logseq
 from . import parser
-from .config import load_exclude_tags
+from .config import load_exclude_tags, load_include_namespaces, load_exclude_namespaces
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
@@ -57,6 +57,8 @@ else:
 
 _db_mode = os.getenv("LOGSEQ_DB_MODE", "").lower() in ("1", "true", "yes")
 _exclude_tags: list[str] = load_exclude_tags()
+_include_namespaces: list[str] = load_include_namespaces()
+_exclude_namespaces: list[str] = load_exclude_namespaces()
 
 
 def _make_api() -> logseq.LogSeq:
@@ -115,6 +117,66 @@ def _is_page_excluded(page: dict, exclude_tags: list[str]) -> bool:
         return False
     props = page.get("properties") or {}
     return any(t in exclude_tags for t in _extract_tags(props))
+
+
+class AccessDenied(RuntimeError):
+    """Raised when a tool is blocked from accessing a restricted page."""
+
+
+def _namespace_matches(page_name: str, ns: str) -> bool:
+    """Segment-based, case-insensitive namespace match.
+
+    'work' matches 'work' and 'work/...'; it does NOT match 'workshop'.
+    """
+    p = page_name.lower()
+    n = ns.lower().rstrip("/")
+    if not n:
+        return False
+    return p == n or p.startswith(n + "/")
+
+
+def _is_namespace_blocked(page_name: str, include: list[str], exclude: list[str]) -> bool:
+    """Apply namespace rules. Exclude wins; include is a strict allow-list."""
+    if any(_namespace_matches(page_name, n) for n in exclude):
+        return True
+    if include and not any(_namespace_matches(page_name, n) for n in include):
+        return True
+    return False
+
+
+def _is_page_blocked(page: dict | None, page_name: str) -> bool:
+    """Combined tag OR namespace block check (used for result filtering)."""
+    if page and _is_page_excluded(page, _exclude_tags):
+        return True
+    return _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces)
+
+
+def _enforce_namespace_access(page_name: str) -> None:
+    """Raise AccessDenied if page_name is blocked by namespace rules.
+
+    Name-based only (no tag check — that needs fetched page properties).
+    """
+    if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
+        raise AccessDenied(
+            f"Access denied: page '{page_name}' is restricted "
+            f"and cannot be accessed by this assistant."
+        )
+
+
+def _enforce_block_namespace_access(api, block_uuid: str) -> None:
+    """Resolve a block's owning page and enforce namespace rules.
+
+    Fail-closed: when namespace rules are configured but the page cannot be
+    resolved, access is denied. When no namespace rules exist, this is a no-op.
+    """
+    if not _include_namespaces and not _exclude_namespaces:
+        return
+    page_name = api.get_block_page_name(block_uuid)
+    if page_name is None:
+        raise AccessDenied(
+            f"Access denied: cannot verify the namespace of block '{block_uuid}'."
+        )
+    _enforce_namespace_access(page_name)
 
 
 class ToolHandler:
