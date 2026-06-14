@@ -382,3 +382,17 @@ def test_find_pages_by_property_hides_blocked_pages():
         out = FindPagesByPropertyToolHandler().run_tool({"property_name": "status"})[0].text
         assert "work/x" in out
         assert "finance/q3" not in out
+
+
+def test_vector_results_filtered_by_namespace():
+    pytest.importorskip("mcp_logseq.vector.index")
+    from mcp_logseq.vector.index import _filter_results_by_namespace
+
+    class R:
+        def __init__(self, page):
+            self.page = page
+
+    results = [R("work/x"), R("finance/q3"), R("Fikirler")]
+    kept = _filter_results_by_namespace(results, include=["work"], exclude=[])
+    pages = [r.page for r in kept]
+    assert pages == ["work/x"]  # strict allow-list drops finance and unnamespaced
