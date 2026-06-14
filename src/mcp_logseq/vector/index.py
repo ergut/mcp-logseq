@@ -20,12 +20,17 @@ from pathlib import Path
 from mcp.types import TextContent, Tool
 
 from mcp_logseq.config import VectorConfig
-from mcp_logseq.tools import ToolHandler
+from mcp_logseq.tools import (
+    ToolHandler,
+    _is_namespace_blocked,
+    _include_namespaces,
+    _exclude_namespaces,
+)
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
 from mcp_logseq.vector.sync import check_staleness
-from mcp_logseq.vector.types import SearchParams
+from mcp_logseq.vector.types import SearchParams, SearchResult
 
 logger = logging.getLogger("mcp-logseq.vector.index")
 
@@ -39,6 +44,15 @@ def _relevance_label(score: float) -> str:
     if score < _WEAK_MATCH_THRESHOLD:
         return "medium relevance"
     return "weak match"
+
+
+def _filter_results_by_namespace(
+    results: list[SearchResult], include: list[str], exclude: list[str]
+) -> list[SearchResult]:
+    """Drop vector search results whose page is blocked by namespace rules."""
+    if not include and not exclude:
+        return results
+    return [r for r in results if not _is_namespace_blocked(r.page, include, exclude)]
 
 
 def _format_search_results(results) -> str:
@@ -212,6 +226,9 @@ class VectorSearchToolHandler(ToolHandler):
         finally:
             db.close()
 
+        results = _filter_results_by_namespace(
+            results, _include_namespaces, _exclude_namespaces
+        )
         output = output_prefix + _format_search_results(results)
         return [TextContent(type="text", text=output)]
 

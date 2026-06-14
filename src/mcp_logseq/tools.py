@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 from . import logseq
 from . import parser
-from .config import load_exclude_tags
+from .config import load_exclude_tags, load_include_namespaces, load_exclude_namespaces
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
@@ -57,6 +57,8 @@ else:
 
 _db_mode = os.getenv("LOGSEQ_DB_MODE", "").lower() in ("1", "true", "yes")
 _exclude_tags: list[str] = load_exclude_tags()
+_include_namespaces: list[str] = load_include_namespaces()
+_exclude_namespaces: list[str] = load_exclude_namespaces()
 
 
 def _make_api() -> logseq.LogSeq:
@@ -115,6 +117,66 @@ def _is_page_excluded(page: dict, exclude_tags: list[str]) -> bool:
         return False
     props = page.get("properties") or {}
     return any(t in exclude_tags for t in _extract_tags(props))
+
+
+class AccessDenied(RuntimeError):
+    """Raised when a tool is blocked from accessing a restricted page."""
+
+
+def _namespace_matches(page_name: str, ns: str) -> bool:
+    """Segment-based, case-insensitive namespace match.
+
+    'work' matches 'work' and 'work/...'; it does NOT match 'workshop'.
+    """
+    p = page_name.lower()
+    n = ns.lower().rstrip("/")
+    if not n:
+        return False
+    return p == n or p.startswith(n + "/")
+
+
+def _is_namespace_blocked(page_name: str, include: list[str], exclude: list[str]) -> bool:
+    """Apply namespace rules. Exclude wins; include is a strict allow-list."""
+    if any(_namespace_matches(page_name, n) for n in exclude):
+        return True
+    if include and not any(_namespace_matches(page_name, n) for n in include):
+        return True
+    return False
+
+
+def _is_page_blocked(page: dict | None, page_name: str) -> bool:
+    """Combined tag OR namespace block check (used for result filtering)."""
+    if page and _is_page_excluded(page, _exclude_tags):
+        return True
+    return _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces)
+
+
+def _enforce_namespace_access(page_name: str) -> None:
+    """Raise AccessDenied if page_name is blocked by namespace rules.
+
+    Name-based only (no tag check — that needs fetched page properties).
+    """
+    if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
+        raise AccessDenied(
+            f"Access denied: page '{page_name}' is restricted "
+            f"and cannot be accessed by this assistant."
+        )
+
+
+def _enforce_block_namespace_access(api, block_uuid: str) -> None:
+    """Resolve a block's owning page and enforce namespace rules.
+
+    Fail-closed: when namespace rules are configured but the page cannot be
+    resolved, access is denied. When no namespace rules exist, this is a no-op.
+    """
+    if not _include_namespaces and not _exclude_namespaces:
+        return
+    page_name = api.get_block_page_name(block_uuid)
+    if page_name is None:
+        raise AccessDenied(
+            f"Access denied: cannot verify the namespace of block '{block_uuid}'."
+        )
+    _enforce_namespace_access(page_name)
 
 
 class ToolHandler:
@@ -204,6 +266,8 @@ Introduction paragraph.
         content = args.get("content", "")
         explicit_properties = args.get("properties", {})
 
+        _enforce_namespace_access(title)
+
         try:
             api = _make_api()
 
@@ -283,8 +347,9 @@ class ListPagesToolHandler(ToolHandler):
                 is_journal = page.get("journal?", False)
                 if is_journal and not include_journals:
                     continue
-                # Security: pages with excluded tags are invisible
-                if _is_page_excluded(page, _exclude_tags):
+                # Security: pages blocked by tag OR namespace are invisible
+                name_for_check = page.get("originalName") or page.get("name", "")
+                if _is_page_blocked(page, name_for_check):
                     continue
 
                 # Get page information
@@ -430,6 +495,9 @@ class GetPageContentToolHandler(ToolHandler):
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
+        # Pre-flight: namespace check is name-based, no API call needed
+        _enforce_namespace_access(args["page_name"])
+
         try:
             api = _make_api()
             result = api.get_page_content(args["page_name"])
@@ -441,11 +509,11 @@ class GetPageContentToolHandler(ToolHandler):
                     )
                 ]
 
-            # Security: block access to excluded pages — fail loudly
-            if _exclude_tags and _is_page_excluded(result.get("page", {}), _exclude_tags):
-                raise RuntimeError(
+            # Security: block access to restricted pages (tag OR namespace) — fail loudly
+            if _is_page_blocked(result.get("page", {}), args["page_name"]):
+                raise AccessDenied(
                     f"Access denied: page '{args['page_name']}' is restricted "
-                    f"and cannot be read by this assistant."
+                    f"and cannot be accessed by this assistant."
                 )
 
             # Handle JSON format request
@@ -535,6 +603,8 @@ class DeletePageToolHandler(ToolHandler):
     def run_tool(self, args: dict) -> list[TextContent]:
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
+
+        _enforce_namespace_access(args["page_name"])
 
         try:
             api = _make_api()
@@ -628,6 +698,8 @@ YAML frontmatter in content will be merged with explicit properties.""",
         mode = args.get("mode", "append")
         explicit_properties = args.get("properties", {})
 
+        _enforce_namespace_access(page_name)
+
         # Validate that at least one update is provided
         if not content and not explicit_properties:
             return [
@@ -716,12 +788,15 @@ class DeleteBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             api.delete_block(block_uuid)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully deleted block '{block_uuid}'"
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -768,12 +843,15 @@ class UpdateBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             api.update_block(block_uuid, content)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully updated block '{block_uuid}'"
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -830,6 +908,7 @@ class GetBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             result = api.get_block(block_uuid, include_children=include_children)
 
             if output_format == "json":
@@ -860,6 +939,8 @@ class GetBlockToolHandler(ToolHandler):
 
             return [TextContent(type="text", text="\n".join(content_parts))]
 
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -914,24 +995,33 @@ class SearchToolHandler(ToolHandler):
         )
 
     @staticmethod
-    def _build_excluded_page_names(api, exclude_tags: list[str]) -> set[str]:
-        """Return lowercased names of pages that have excluded tags.
+    def _build_excluded_page_names(
+        api,
+        exclude_tags: list[str],
+        exclude_namespaces: list[str],
+        include_namespaces: list[str],
+    ) -> set[str]:
+        """Return lowercased names of pages blocked by tag or namespace rules.
 
-        Makes one extra api.list_pages() call. Fails open on error to avoid
-        breaking search entirely when exclude_tags is configured.
+        Makes one extra api.list_pages() call when any rule is configured.
+        Fails open on error to avoid breaking search entirely.
         """
-        if not exclude_tags:
+        if not exclude_tags and not exclude_namespaces and not include_namespaces:
             return set()
         try:
             pages = api.list_pages()
-            return {
-                (page.get("originalName") or page.get("name", "")).lower()
-                for page in pages
-                if _is_page_excluded(page, exclude_tags)
-                and (page.get("originalName") or page.get("name"))
-            }
+            blocked = set()
+            for page in pages:
+                name = page.get("originalName") or page.get("name", "")
+                if not name:
+                    continue
+                if _is_page_excluded(page, exclude_tags) or _is_namespace_blocked(
+                    name, include_namespaces, exclude_namespaces
+                ):
+                    blocked.add(name.lower())
+            return blocked
         except Exception as e:
-            logger.warning(f"Could not build excluded page names for search filtering: {e}")
+            logger.warning(f"Could not build blocked page names for search filtering: {e}")
             return set()
 
     @staticmethod
@@ -1147,7 +1237,9 @@ class SearchToolHandler(ToolHandler):
                 ]
 
             # Build excluded page name set (one extra API call only when needed)
-            excluded_page_names = self._build_excluded_page_names(api, _exclude_tags)
+            excluded_page_names = self._build_excluded_page_names(
+                api, _exclude_tags, _exclude_namespaces, _include_namespaces
+            )
 
             if args.get("format") == "json":
                 json_result = self._build_json_results(
@@ -1286,14 +1378,16 @@ class QueryToolHandler(ToolHandler):
                     continue
                 filtered_results.append(item)
 
-            # Security: filter page objects with excluded tags
-            if _exclude_tags:
-                exclude_filtered = []
+            # Security: filter page objects blocked by tag OR namespace
+            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+                filtered = []
                 for item in filtered_results:
-                    if self._is_page(item) and _is_page_excluded(item, _exclude_tags):
-                        continue
-                    exclude_filtered.append(item)
-                filtered_results = exclude_filtered
+                    if self._is_page(item):
+                        name = item.get("originalName") or item.get("name", "")
+                        if _is_page_blocked(item, name):
+                            continue
+                    filtered.append(item)
+                filtered_results = filtered
 
             if not filtered_results:
                 filter_msg = f" (filtered to {result_type})" if result_type != "all" else ""
@@ -1410,6 +1504,17 @@ class FindPagesByPropertyToolHandler(ToolHandler):
                     msg = f"No pages found with property '{property_name}'"
                 return [TextContent(type="text", text=msg)]
 
+            # Security: drop pages blocked by tag OR namespace before limiting
+            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+                kept = []
+                for item in result:
+                    if isinstance(item, dict):
+                        name = item.get("originalName") or item.get("name", "")
+                        if _is_page_blocked(item, name):
+                            continue
+                    kept.append(item)
+                result = kept
+
             # Apply limit
             limited_results = result[:limit]
 
@@ -1475,9 +1580,19 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
 
+        _enforce_namespace_access(args["namespace"])
+
         try:
             api = _make_api()
             result = api.get_pages_from_namespace(args["namespace"])
+
+            # Security: silently drop pages blocked by tag OR namespace, e.g. an
+            # excluded sub-namespace (work/secret) under an allowed parent (work).
+            if result:
+                result = [
+                    p for p in result
+                    if not _is_page_blocked(p, p.get('originalName') or p.get('name') or '')
+                ]
 
             if not result:
                 return [TextContent(
@@ -1528,9 +1643,28 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
 
+        _enforce_namespace_access(args["namespace"])
+
         try:
             api = _make_api()
             result = api.get_pages_tree_from_namespace(args["namespace"])
+
+            # Security: silently prune nodes blocked by tag OR namespace, e.g. an
+            # excluded sub-namespace (work/secret) under an allowed parent (work).
+            def prune_blocked(nodes):
+                kept = []
+                for node in nodes:
+                    name = node.get('originalName') or node.get('name') or ''
+                    if _is_page_blocked(node, name):
+                        continue
+                    children = node.get('children', [])
+                    if children:
+                        node = {**node, 'children': prune_blocked(children)}
+                    kept.append(node)
+                return kept
+
+            if result:
+                result = prune_blocked(result)
 
             if not result:
                 return [TextContent(
@@ -1608,6 +1742,9 @@ class RenamePageToolHandler(ToolHandler):
         old_name = args["old_name"]
         new_name = args["new_name"]
 
+        _enforce_namespace_access(old_name)
+        _enforce_namespace_access(new_name)
+
         try:
             api = _make_api()
             api.rename_page(old_name, new_name)
@@ -1662,6 +1799,8 @@ class GetPageBacklinksToolHandler(ToolHandler):
         page_name = args["page_name"]
         include_content = args.get("include_content", True)
 
+        _enforce_namespace_access(page_name)
+
         try:
             api = _make_api()
             result = api.get_page_linked_references(page_name)
@@ -1678,6 +1817,7 @@ class GetPageBacklinksToolHandler(ToolHandler):
             content_parts.append(f"# Backlinks for '{page_name}'\n")
 
             total_refs = 0
+            shown_pages = 0
 
             for item in result:
                 if not isinstance(item, list) or len(item) < 2:
@@ -1691,6 +1831,14 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
                 # Get page name
                 ref_page_name = page_info.get('originalName') or page_info.get('name', '<unknown>')
+
+                # Security: silently skip referencing pages blocked by namespace.
+                # page_info rarely carries 'properties' so tag filtering falls back
+                # to namespace-only; pass page_info anyway so tag check fires if
+                # properties happen to be present.
+                if _is_page_blocked(page_info, ref_page_name):
+                    continue
+                shown_pages += 1
                 block_count = len(blocks) if blocks else 0
                 total_refs += block_count
 
@@ -1708,8 +1856,9 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
                 content_parts.append("")
 
-            # Summary
-            page_count = len(result)
+            # Summary: count only referrers that survived filtering, so the
+            # footer never reveals that hidden (blocked) referrers exist.
+            page_count = shown_pages
             content_parts.append(f"---\n**Total: {page_count} page{'s' if page_count != 1 else ''}, {total_refs} reference{'s' if total_refs != 1 else ''}**")
 
             return [TextContent(type="text", text="\n".join(content_parts))]
@@ -1766,6 +1915,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, parent_uuid)
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,
@@ -1793,6 +1943,8 @@ class InsertNestedBlockToolHandler(ToolHandler):
                 text=success_msg
             )]
 
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -1847,6 +1999,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_block_namespace_access(api, block_uuid)
             results = []
 
             for prop_name, value in properties.items():
@@ -1864,6 +2017,8 @@ class SetBlockPropertiesToolHandler(ToolHandler):
                 text=f"Set properties on block {block_uuid}:\n" + "\n".join(results),
             )]
 
+        except AccessDenied:
+            raise
         except Exception as e:
             logger.error(f"Failed to set block properties: {str(e)}")
             return [TextContent(
