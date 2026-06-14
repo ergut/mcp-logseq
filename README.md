@@ -261,6 +261,8 @@ LOGSEQ_EXCLUDE_NAMESPACES=work/secret,finance
 
 Matching is segment-based and case-insensitive: `work` matches `work` and `work/projects` but not `workshop`. The behavior mirrors `LOGSEQ_EXCLUDE_TAGS`: list/search results silently omit blocked pages; direct read, write, delete, and block operations return an access-denied error.
 
+**Known limitation:** access control is enforced at the **page** level. `search` and `query` filter out whole pages that are blocked, but individual blocks returned by a `query` DSL or by full-text `search` are not resolved back to their owning page, so a block belonging to a restricted page can still surface in those block-level results. Page listings, direct page/block access, backlinks, and vector search are all filtered; tighten DSL queries accordingly if this matters for your setup.
+
 ### Alternative Setup Methods
 
 #### Using .env file
