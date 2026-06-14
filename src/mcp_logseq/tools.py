@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 import logging
@@ -32,13 +33,9 @@ def _parse_positive_float_env(name: str, default: float) -> float:
     try:
         value = float(raw_value)
     except ValueError:
-        logger.warning(
-            f"{name} must be a positive number of seconds, got {raw_value!r}; "
-            f"falling back to default {default}"
-        )
-        return default
+        value = None
 
-    if value <= 0:
+    if value is None or not math.isfinite(value) or value <= 0:
         logger.warning(
             f"{name} must be a positive number of seconds, got {raw_value!r}; "
             f"falling back to default {default}"
