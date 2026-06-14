@@ -492,6 +492,9 @@ class GetPageContentToolHandler(ToolHandler):
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
+        # Pre-flight: namespace check is name-based, no API call needed
+        _enforce_namespace_access(args["page_name"])
+
         try:
             api = _make_api()
             result = api.get_page_content(args["page_name"])
@@ -503,11 +506,11 @@ class GetPageContentToolHandler(ToolHandler):
                     )
                 ]
 
-            # Security: block access to excluded pages — fail loudly
-            if _exclude_tags and _is_page_excluded(result.get("page", {}), _exclude_tags):
-                raise RuntimeError(
+            # Security: block access to restricted pages (tag OR namespace) — fail loudly
+            if _is_page_blocked(result.get("page", {}), args["page_name"]):
+                raise AccessDenied(
                     f"Access denied: page '{args['page_name']}' is restricted "
-                    f"and cannot be read by this assistant."
+                    f"and cannot be accessed by this assistant."
                 )
 
             # Handle JSON format request
@@ -1537,6 +1540,8 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
 
+        _enforce_namespace_access(args["namespace"])
+
         try:
             api = _make_api()
             result = api.get_pages_from_namespace(args["namespace"])
@@ -1589,6 +1594,8 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
     def run_tool(self, args: dict) -> list[TextContent]:
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
+
+        _enforce_namespace_access(args["namespace"])
 
         try:
             api = _make_api()
@@ -1723,6 +1730,8 @@ class GetPageBacklinksToolHandler(ToolHandler):
 
         page_name = args["page_name"]
         include_content = args.get("include_content", True)
+
+        _enforce_namespace_access(page_name)
 
         try:
             api = _make_api()

@@ -155,3 +155,51 @@ def test_is_page_blocked_false_when_clear(monkeypatch):
          patch("mcp_logseq.tools._exclude_namespaces", ["finance"]):
         page = {"properties": {"tags": ["notes"]}}
         assert _is_page_blocked(page, "work/x") is False
+
+
+from mcp_logseq.tools import (
+    GetPageContentToolHandler,
+    GetPageBacklinksToolHandler,
+    GetPagesFromNamespaceToolHandler,
+    GetPagesTreeFromNamespaceToolHandler,
+)
+
+
+def _ns(include=None, exclude=None):
+    """Patch namespace module config for a test."""
+    return patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=include or [],
+        _exclude_namespaces=exclude or [],
+        _exclude_tags=[],
+    )
+
+
+def test_get_page_content_denies_excluded_namespace():
+    with _ns(exclude=["finance"]):
+        with pytest.raises(AccessDenied):
+            GetPageContentToolHandler().run_tool({"page_name": "finance/q3"})
+
+
+def test_get_page_content_denies_outside_allowlist():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            GetPageContentToolHandler().run_tool({"page_name": "personal/diary"})
+
+
+def test_get_page_backlinks_denies():
+    with _ns(exclude=["finance"]):
+        with pytest.raises(AccessDenied):
+            GetPageBacklinksToolHandler().run_tool({"page_name": "finance/q3"})
+
+
+def test_get_pages_from_namespace_denies():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            GetPagesFromNamespaceToolHandler().run_tool({"namespace": "finance"})
+
+
+def test_get_pages_tree_from_namespace_denies():
+    with _ns(include=["work"]):
+        with pytest.raises(AccessDenied):
+            GetPagesTreeFromNamespaceToolHandler().run_tool({"namespace": "finance"})
