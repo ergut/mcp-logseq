@@ -20,6 +20,12 @@ class TestLogSeqAPI:
         assert client.verify_ssl == False
         assert client.timeout == (3, 6)
 
+    def test_init_with_custom_timeout(self, mock_api_key):
+        """Test LogSeq client initialization with custom request timeout."""
+        client = LogSeq(api_key=mock_api_key, timeout=(5, 60))
+
+        assert client.timeout == (5, 60)
+
     def test_init_with_custom_params(self, mock_api_key):
         """Test LogSeq client initialization with custom parameters."""
         client = LogSeq(

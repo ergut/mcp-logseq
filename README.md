@@ -205,6 +205,8 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 ### Environment Variables
 - **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
+- **`LOGSEQ_API_CONNECT_TIMEOUT`** (optional): HTTP connect timeout in seconds (default: `3`)
+- **`LOGSEQ_API_READ_TIMEOUT`** (optional): HTTP read timeout in seconds (default: `6`)
 - **`LOGSEQ_DB_MODE`** (optional): Set to `true` to enable DB-mode property support. Only for Logseq DB-mode graphs (beta). Markdown/file-based graph users should leave this unset.
 - **`LOGSEQ_EXCLUDE_TAGS`** (optional): Comma-separated tags — pages with these tags are hidden from all tools. See [Privacy & Access Control](#-privacy--access-control) below.
 
