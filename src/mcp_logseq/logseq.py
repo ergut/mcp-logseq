@@ -14,12 +14,14 @@ class LogSeq:
         port: int = 12315,
         verify_ssl: bool = False,
         timeout: tuple[float, float] | None = None,
+        db_mode: bool = False,
     ):
         self.api_key = api_key
         self.protocol = protocol
         self.host = host
         self.port = port
         self.verify_ssl = verify_ssl
+        self.db_mode = db_mode
         self.timeout = timeout or (3, 6)
 
     def get_base_url(self) -> str:
@@ -538,16 +540,31 @@ class LogSeq:
                             self._append_block_recursive(page_name, block)
                         results.append(("blocks_appended", len(blocks)))
 
-            # Update properties AFTER blocks are inserted/replaced
+            # Update properties AFTER blocks are inserted/replaced.
+            #
+            # Property storage differs by graph type:
+            #   - DB graphs: properties live at the page entity level and must be
+            #     written via setPageProperties; block-level properties don't
+            #     register as page properties (invisible to (page-property ...)
+            #     queries and the page info panel).
+            #   - File graphs: page properties are the `key:: value` lines in the
+            #     first block, so upsertBlockProperty on that block is the native
+            #     representation and updates values in place.
             if properties:
                 if mode == "append":
                     existing_props = self._get_page_level_properties(page_name)
                     merged_props = {**existing_props, **properties}
-                    self._set_page_level_properties(page_name, merged_props)
+                    if self.db_mode:
+                        self._set_page_level_properties(page_name, merged_props)
+                    else:
+                        self._update_page_properties(page_name, properties)
                     results.append(("properties", merged_props))
                 else:
-                    # Replace mode - set only the new properties
-                    self._set_page_level_properties(page_name, properties)
+                    # Replace mode - drop existing properties, set only the new ones
+                    if self.db_mode:
+                        self._set_page_level_properties(page_name, properties)
+                    else:
+                        self._replace_page_properties(page_name, properties)
                     results.append(("properties", properties))
 
             return {"updates": results, "page": page_name}
@@ -666,12 +683,73 @@ class LogSeq:
             logger.warning(f"Could not get first block UUID for page '{page_name}'")
             return
 
-        # Set each property using upsertBlockProperty
+        # Set each property using upsertBlockProperty. Keys not listed here are
+        # left untouched, which gives append-mode its merge semantics natively.
         for key, value in properties.items():
             normalized_value = self._normalize_property_value(key, value)
             self._upsert_block_property(first_block_uuid, key, normalized_value)
 
         logger.info(f"Updated {len(properties)} properties on page '{page_name}'")
+
+    def _replace_page_properties(self, page_name: str, properties: dict) -> None:
+        """
+        Replace all page properties on the first block.
+
+        Unlike _update_page_properties (which only upserts the supplied keys),
+        this removes any existing first-block properties that are not in the new
+        set, then upserts the new ones. This preserves replace-mode semantics for
+        file graphs.
+        """
+        page_blocks = self.get_page_blocks(page_name)
+        if not page_blocks:
+            logger.warning(f"Page '{page_name}' has no blocks, cannot set properties")
+            return
+
+        first_block = page_blocks[0]
+        first_block_uuid = first_block.get("uuid")
+        if not first_block_uuid:
+            logger.warning(f"Could not get first block UUID for page '{page_name}'")
+            return
+
+        # Remove existing properties that are not part of the new set
+        existing_props = first_block.get("properties", {}) or {}
+        new_keys = set(properties.keys())
+        for key in existing_props:
+            if key not in new_keys:
+                self._remove_block_property(first_block_uuid, key)
+
+        # Upsert the new properties
+        for key, value in properties.items():
+            normalized_value = self._normalize_property_value(key, value)
+            self._upsert_block_property(first_block_uuid, key, normalized_value)
+
+        logger.info(f"Replaced properties on page '{page_name}' with {len(properties)} keys")
+
+    def _remove_block_property(self, block_uuid: str, key: str) -> None:
+        """
+        Remove a property from a block using Logseq's removeBlockProperty API.
+
+        Args:
+            block_uuid: UUID of the block to update
+            key: Property key to remove
+        """
+        url = self.get_base_url()
+
+        try:
+            response = requests.post(
+                url,
+                headers=self._get_headers(),
+                json={
+                    "method": "logseq.Editor.removeBlockProperty",
+                    "args": [block_uuid, key],
+                },
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to remove property '{key}' on block {block_uuid}: {e}")
+            raise
 
     def _upsert_block_property(self, block_uuid: str, key: str, value: Any) -> None:
         """

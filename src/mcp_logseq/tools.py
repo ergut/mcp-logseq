@@ -67,6 +67,7 @@ def _make_api() -> logseq.LogSeq:
         port=_api_port,
         verify_ssl=_api_verify_ssl,
         timeout=_api_timeout,
+        db_mode=_db_mode,
     )
 
 
