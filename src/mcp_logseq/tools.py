@@ -697,6 +697,8 @@ YAML frontmatter in content will be merged with explicit properties.""",
         mode = args.get("mode", "append")
         explicit_properties = args.get("properties", {})
 
+        _enforce_namespace_access(page_name)
+
         # Validate that at least one update is provided
         if not content and not explicit_properties:
             return [
@@ -705,8 +707,6 @@ YAML frontmatter in content will be merged with explicit properties.""",
                     text="Error: Either 'content' or 'properties' must be provided for update",
                 )
             ]
-
-        _enforce_namespace_access(page_name)
 
         try:
             api = _make_api()
