@@ -20,16 +20,28 @@ def test_parse_args_defaults():
     assert ns.port == 12320
 
 
+def test_parse_args_invalid_transport_exits():
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args(["--transport", "bogus"])
+    # argparse exits with code 2 on an invalid choice.
+    assert excinfo.value.code == 2
+
+
 def test_main_http_without_token_raises(monkeypatch):
     monkeypatch.delenv("MCP_HTTP_AUTH_TOKEN", raising=False)
     monkeypatch.setattr(mcp_logseq, "parse_args", lambda argv=None: parse_args(["--transport", "http"]))
 
-    # Guard: even if it got past the token check, don't actually bind.
+    # Record any call: SystemExit must fire BEFORE run_http is reached, so the
+    # recorder must stay empty. If the token guard is ever removed, this test
+    # fails loudly instead of silently passing.
+    calls = []
     import mcp_logseq.transport.http as http_mod
-    monkeypatch.setattr(http_mod, "run_http", lambda *a, **k: None)
+    monkeypatch.setattr(http_mod, "run_http", lambda *a, **k: calls.append((a, k)))
 
     with pytest.raises(SystemExit):
         mcp_logseq.main()
+
+    assert calls == [], "run_http must not be called when the token is missing"
 
 
 def test_main_http_with_token_calls_run_http(monkeypatch):
