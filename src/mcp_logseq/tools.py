@@ -965,6 +965,7 @@ class GetBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             result = api.get_block(block_uuid, include_children=include_children)
 
             if output_format == "json":
@@ -1154,7 +1155,10 @@ class SearchToolHandler(ToolHandler):
         """
         parts: list[str] = []
 
-        if include_blocks and result.get("blocks"):
+        if include_blocks and result.get("blocks") and not excluded_page_names:
+            # Only show blocks when no exclusion is active — markdown-mode blocks
+            # carry block/content but no page identifier, so we cannot verify they
+            # are safe to show (same rule as the page-snippets section below)
             blocks = result["blocks"]
             parts.append(f"## Content Blocks ({len(blocks)} found)")
             for i, block in enumerate(blocks[:limit]):
@@ -1247,7 +1251,10 @@ class SearchToolHandler(ToolHandler):
                 out["files"] = result.get("files", [])
             out["has_more"] = bool(result.get("hasMore?"))
         else:
-            if include_blocks:
+            if include_blocks and not excluded_page_names:
+                # Markdown-mode blocks carry block/content but no page
+                # identifier, so they cannot be exclusion-filtered — only expose
+                # them when no exclusion is active (same rule as snippets)
                 out["blocks"] = result.get("blocks", [])[:limit]
             if include_pages:
                 out["pages"] = [

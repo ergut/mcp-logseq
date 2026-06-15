@@ -297,6 +297,38 @@ def test_block_allowed_when_no_rules():
         fake.get_block_page_name.assert_not_called()
 
 
+def test_get_block_denies_when_page_tag_excluded():
+    """A block in an ALLOWED namespace but whose owning page carries an excluded
+    tag (#keys) must be denied. Namespace passes; the tag guard must catch it."""
+    fake = Mock()
+    fake.get_block_page_name.return_value = "work/vault"  # allowed namespace
+    fake.get_page_content.return_value = {"page": {"properties": {"tags": ["keys"]}}}
+    with patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=["work"],
+        _exclude_namespaces=[],
+        _exclude_tags=["keys"],
+    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+        with pytest.raises(AccessDenied):
+            GetBlockToolHandler().run_tool({"block_uuid": "u-tag"})
+
+
+def test_get_block_allowed_when_page_not_tag_excluded():
+    """Control: a block whose owning page has no excluded tag still returns."""
+    fake = Mock()
+    fake.get_block_page_name.return_value = "work/vault"
+    fake.get_page_content.return_value = {"page": {"properties": {"tags": ["notes"]}}}
+    fake.get_block.return_value = {"content": "visible block content", "children": []}
+    with patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=["work"],
+        _exclude_namespaces=[],
+        _exclude_tags=["keys"],
+    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = GetBlockToolHandler().run_tool({"block_uuid": "u-ok"})[0].text
+        assert "visible block content" in out
+
+
 def test_set_block_properties_denies():
     # set_block_properties only runs in DB mode; patch _db_mode so the handler
     # reaches the enforcement call rather than returning the DB-mode guard early.
@@ -384,6 +416,65 @@ def test_search_excludes_blocked_namespace_pages():
         )
         assert "finance/q3" in names
         assert "work/x" not in names
+
+
+def test_markdown_search_suppresses_unidentified_blocks_when_excluding_text():
+    """Markdown-mode 'blocks' carry block/content but no page id. When any
+    exclusion is active they cannot be verified safe, so the whole blocks
+    section must be suppressed in text output (mirrors the snippets guard)."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [{"block/content": "secret api token AKIA-leak"}],
+        "pages": ["work/x"],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "token"})[0].text
+        assert "AKIA-leak" not in out
+        assert "Content Blocks" not in out
+        assert "work/x" in out  # identified pages still surface
+
+
+def test_markdown_search_suppresses_unidentified_blocks_when_excluding_json():
+    """Same suppression must apply on the JSON output path."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [{"block/content": "secret api token AKIA-leak"}],
+        "pages": ["work/x"],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "token", "format": "json"})[0].text
+        assert "AKIA-leak" not in out
+        parsed = json.loads(out)
+        assert "blocks" not in parsed  # unidentified blocks omitted
+        assert parsed["pages"] == ["work/x"]
+
+
+def test_markdown_search_shows_blocks_when_no_exclusion():
+    """Control: with no exclusion active, the blocks section still appears."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [{"block/content": "ordinary visible block"}],
+        "pages": ["work/x"],
+    }
+    fake.list_pages.return_value = []
+    with _ns(), \
+            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "block"})[0].text
+        assert "ordinary visible block" in out
+        assert "Content Blocks" in out
 
 
 def test_query_hides_blocked_page_objects():
