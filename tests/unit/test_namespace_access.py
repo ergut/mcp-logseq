@@ -525,6 +525,26 @@ def test_query_filters_blocks_via_api_page_resolution():
     with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
         out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
         assert "secret data" not in out
+        # Assert the empty branch was taken — not silently swallowed elsewhere.
+        assert "No results" in out
+
+
+def test_query_filters_block_with_bare_uuid_page_ref():
+    """A block whose inline 'page' is a bare UUID string must be resolved, not
+    trusted. Under an exclude-only policy a raw UUID matches no rule, so trusting
+    it would fail OPEN. The UUID must resolve to its real (denied) page name."""
+    denied_uuid = "12345678-1234-1234-1234-123456789abc"
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "secret salary data", "page": denied_uuid},
+    ]
+    fake.resolve_page_uuids.return_value = {denied_uuid: "Private/Secret"}
+    with _ns(exclude=["private"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(page-tags)"})[0].text
+        assert "secret salary data" not in out
+        assert denied_uuid not in out
+        assert "No results" in out
+        fake.resolve_page_uuids.assert_called_once_with([denied_uuid])
 
 
 def test_query_block_denied_when_page_unresolvable_and_rules_set():
@@ -537,6 +557,9 @@ def test_query_block_denied_when_page_unresolvable_and_rules_set():
     with _ns(include=["work"]), patch("mcp_logseq.tools._make_api", return_value=fake):
         out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
         assert "unverifiable block" not in out
+        # Tighten: assert the tool reported the empty branch, so a bug that
+        # swallows the item into the non-empty render path cannot pass.
+        assert "No results" in out
 
 
 def test_query_block_json_format_also_filtered():

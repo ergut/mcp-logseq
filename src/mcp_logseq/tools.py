@@ -1340,6 +1340,11 @@ class QueryToolHandler(ToolHandler):
             if name:
                 return name
         elif isinstance(page_ref, str) and page_ref:
+            # A bare UUID string is NOT a trustworthy page name: under an
+            # exclude-only policy a UUID matches no rule and would fail OPEN.
+            # Resolve the page UUID to its real name so it's fail-closed.
+            if _UUID_REF_PATTERN.fullmatch(f"[[{page_ref}]]"):
+                return api.resolve_page_uuids([page_ref]).get(page_ref)
             return page_ref
         uuid = item.get("uuid")
         if uuid:
