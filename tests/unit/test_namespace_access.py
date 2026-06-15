@@ -693,16 +693,9 @@ def test_regression_rename_page_denies_when_new_private():
 # Task 5 Step 2a: --read-only unregisters genuine write tools only.
 # =============================================================================
 
-_GENUINE_WRITE_TOOLS = {
-    "create_page",
-    "update_page",
-    "delete_page",
-    "rename_page",
-    "update_block",
-    "delete_block",
-    "insert_nested_block",
-    "set_block_properties",
-}
+# Single source of truth — import the server's set rather than duplicating it,
+# so the test and the implementation can't drift.
+from mcp_logseq.server import _WRITE_TOOL_NAMES as _GENUINE_WRITE_TOOLS
 
 
 def test_read_only_unregisters_all_write_tools():
@@ -831,6 +824,40 @@ def test_create_page_exempt_from_tag_on_write():
         # Should not raise on tag grounds (namespace allows it).
         CreatePageToolHandler().run_tool({"title": "work/fresh", "content": "c"})
         fake.get_page_content.assert_not_called()
+
+
+def test_insert_nested_block_denies_tag_excluded_owning_page():
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            InsertNestedBlockToolHandler().run_tool(
+                {"parent_block_uuid": "u1", "content": "c"}
+            )
+
+
+def test_rename_page_denies_tag_excluded_source_page():
+    """Renaming a tag-excluded existing SOURCE page is denied (target is new)."""
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            RenamePageToolHandler().run_tool(
+                {"old_name": "work/secrets", "new_name": "work/renamed"}
+            )
+        # rename_page must guard only the source — never fetch the (new) target.
+
+
+def test_tag_on_write_fails_closed_when_page_fetch_raises():
+    """With exclude tags configured, a page-fetch error must abort the write
+    rather than silently proceeding (no fail-open). The error propagates and the
+    write API is never called."""
+    fake = Mock()
+    fake.get_page_content.side_effect = RuntimeError("API down")
+    with _tags_excluded(), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = UpdatePageToolHandler().run_tool(
+            {"page_name": "work/secrets", "content": "c"}
+        )
+        # The write did NOT succeed: update_page_with_blocks never ran, and the
+        # handler reported failure rather than success.
+        fake.update_page_with_blocks.assert_not_called()
+        assert "Successfully updated" not in out[0].text
 
 
 def test_vector_search_drops_tag_excluded_chunk(monkeypatch):

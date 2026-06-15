@@ -185,19 +185,24 @@ def _enforce_page_tag_access(api, page_name: str) -> None:
     Complements the name-based namespace check on write handlers: namespace
     rules can be evaluated from the name alone, but tag exclusion requires the
     page's properties, so this fetches the page. A no-op when no exclude tags
-    are configured. Pages that cannot be fetched are treated as not-excluded
-    (the namespace check has already run, and a missing page is handled by the
-    underlying write call).
+    are configured.
+
+    Two cases are NOT excluded — but only the first is also a quiet pass:
+    - ``get_page_content`` returns None/empty: the page does not exist (or has
+      no properties) and therefore carries no tags. Treated as NOT excluded so
+      ``update_page`` keeps working for brand-new pages.
+    - ``get_page_content`` RAISES: with exclude tags configured we cannot verify
+      the page's tags, so we must NOT silently proceed with the write. The error
+      is allowed to propagate (no try/except) so the calling write handler
+      aborts the mutation via its normal error path (fail-closed). It is not an
+      AccessDenied, so it isn't mislabeled — it just isn't swallowed.
     """
     if not _exclude_tags:
         return
-    try:
-        result = api.get_page_content(page_name)
-    except Exception as e:
-        logger.warning(
-            f"Could not fetch page '{page_name}' for tag-exclusion check: {e}"
-        )
-        return
+    # No try/except by design: when exclude tags are configured, a fetch error
+    # must abort the write rather than fail open. A non-existent page returns
+    # None and falls through as not-excluded.
+    result = api.get_page_content(page_name)
     if result and _is_page_excluded(result.get("page", {}), _exclude_tags):
         raise AccessDenied(
             f"Access denied: page '{page_name}' is restricted "
@@ -1841,6 +1846,9 @@ class RenamePageToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            # Tag-on-write: guard the SOURCE page (existing). The target name is
+            # a not-yet-existing page, so it has no prior tags to check.
+            _enforce_page_tag_access(api, old_name)
             api.rename_page(old_name, new_name)
 
             return [TextContent(
@@ -1848,6 +1856,8 @@ class RenamePageToolHandler(ToolHandler):
                 text=f"Successfully renamed page '{old_name}' to '{new_name}'\n"
                      f"All references in the graph have been updated."
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -2010,6 +2020,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, parent_uuid)
+            _enforce_block_tag_access(api, parent_uuid)
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,
