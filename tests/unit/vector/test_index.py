@@ -62,7 +62,9 @@ class TestVectorSearchReadOnly:
 
             # Should report staleness but NOT trigger any sync
             assert "2 pages changed since last sync" in results[0].text
-            assert "sync_vector_db" in results[0].text
+            # Points to the external writer, never the inert sync_vector_db tool
+            assert "logseq-sync --watch" in results[0].text
+            assert "sync_vector_db" not in results[0].text
             # Should NOT call save (no migration, no sync)
             mock_sm.return_value.save.assert_not_called()
 
@@ -141,16 +143,19 @@ class TestVectorSearchReadOnly:
 class TestSyncVectorDBInertPointer:
     """sync_vector_db no longer spawns a subprocess; it points to external logseq-sync."""
 
-    def test_sync_does_not_invoke_subprocess(self):
+    def test_module_does_not_import_subprocess(self):
+        # Single-writer principle: this module must not be able to spawn a sync.
+        # Reintroducing `import subprocess` (the only way to spawn here) fails this.
+        import mcp_logseq.vector.index as idx
+
+        assert not hasattr(idx, "subprocess")
+
+    def test_sync_returns_pointer_message(self):
         config = _make_config()
         handler = SyncVectorDBToolHandler(config)
 
-        with patch("subprocess.run") as mock_run:
-            results = handler.run_tool({})
-
-            # The single-writer principle: MCP never spawns a sync process.
-            mock_run.assert_not_called()
-            assert "logseq-sync" in results[0].text
+        results = handler.run_tool({})
+        assert "logseq-sync" in results[0].text
 
     def test_sync_message_lists_external_flags(self):
         config = _make_config()

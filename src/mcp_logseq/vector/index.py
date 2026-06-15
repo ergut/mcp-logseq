@@ -193,7 +193,7 @@ class VectorSearchToolHandler(ToolHandler):
                 detail = ", ".join(parts)
                 output_prefix = (
                     f"Note: {detail} since last sync. "
-                    f"Ensure logseq-sync --watch is running, or call sync_vector_db. "
+                    f"Ensure `logseq-sync --watch` is running on the host that owns the DB. "
                     f"Results below may be incomplete.\n\n"
                 )
         except Exception as e:
