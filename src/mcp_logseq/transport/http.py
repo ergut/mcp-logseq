@@ -21,13 +21,15 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from ..server import build_app
 
 
-def create_asgi_app(auth_token: str) -> Starlette:
+def create_asgi_app(auth_token: str, read_only: bool = False) -> Starlette:
     """Build a Starlette ASGI app serving the MCP server at ``/mcp``.
 
     Args:
         auth_token: Bearer token required on incoming requests.
+        read_only: When True, the served app exposes only read tools (write
+            tools are not registered).
     """
-    app, _ = build_app()
+    app, _ = build_app(read_only=read_only)
     manager = StreamableHTTPSessionManager(app=app)
 
     async def handle(scope, receive, send):
@@ -46,8 +48,12 @@ def create_asgi_app(auth_token: str) -> Starlette:
     return asgi
 
 
-def run_http(host: str, port: int, auth_token: str) -> None:
+def run_http(
+    host: str, port: int, auth_token: str, read_only: bool = False
+) -> None:
     """Run the HTTP transport with uvicorn (imported lazily)."""
     import uvicorn
 
-    uvicorn.run(create_asgi_app(auth_token), host=host, port=port)
+    uvicorn.run(
+        create_asgi_app(auth_token, read_only=read_only), host=host, port=port
+    )

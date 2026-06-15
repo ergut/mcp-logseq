@@ -10,6 +10,11 @@ def parse_args(argv=None):
     # Loopback default; never bind to 0.0.0.0 implicitly.
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=12320)
+    p.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Disable write tools (create/update/delete/rename for pages and blocks).",
+    )
     return p.parse_args(argv)
 
 
@@ -23,14 +28,14 @@ def main():
 
         from . import server
 
-        asyncio.run(server.main())
+        asyncio.run(server.main(read_only=args.read_only))
     else:
         token = os.environ.get("MCP_HTTP_AUTH_TOKEN")
         if not token:
             raise SystemExit("MCP_HTTP_AUTH_TOKEN is required for --transport http")
         from .transport import http
 
-        http.run_http(args.host, args.port, token)
+        http.run_http(args.host, args.port, token, read_only=args.read_only)
 
 
 # Optionally expose other important items at package level.

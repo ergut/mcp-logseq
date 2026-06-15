@@ -54,19 +54,44 @@ else:
 api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
 logger.info(f"Using API URL: {api_url}")
 
-def _register_all_tool_handlers(handlers: dict) -> None:
+# Names of the genuine write tools — tools that mutate Logseq content. When
+# ``read_only`` is set these are NOT registered. ``sync_vector_db`` is NOT in
+# this set: it mutates the (local) vector index, not Logseq content, and stays
+# registered (Task 5b makes it inert under read-only).
+_WRITE_TOOL_NAMES = frozenset(
+    {
+        "create_page",
+        "update_page",
+        "delete_page",
+        "rename_page",
+        "update_block",
+        "delete_block",
+        "insert_nested_block",
+        "set_block_properties",
+    }
+)
+
+
+def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None:
     """Populate ``handlers`` with every available ToolHandler instance.
 
     Mutates the provided dict in place so callers can wire ``list_tools`` /
     ``call_tool`` closures over the same registry.
+
+    When ``read_only`` is True, the genuine write handlers (see
+    ``_WRITE_TOOL_NAMES``) are skipped; all read tools plus ``sync_vector_db``,
+    ``vector_search`` and ``vector_db_status`` remain registered.
     """
 
     def add(tool_class: tools.ToolHandler) -> None:
+        if read_only and tool_class.name in _WRITE_TOOL_NAMES:
+            logger.info(f"read_only: skipping write tool handler: {tool_class.name}")
+            return
         logger.debug(f"Registering tool handler: {tool_class.name}")
         handlers[tool_class.name] = tool_class
         logger.info(f"Successfully registered tool handler: {tool_class.name}")
 
-    logger.info("Registering tool handlers...")
+    logger.info(f"Registering tool handlers (read_only={read_only})...")
 
     add(tools.CreatePageToolHandler())
     add(tools.UpdatePageToolHandler())
@@ -120,12 +145,14 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
     server's ``list_tools`` / ``call_tool`` closures read from. Mutating that
     dict after construction is therefore reflected by the served app.
 
-    ``read_only`` is accepted for forward compatibility (Task 5 will use it to
-    skip write tools); it is currently ignored and all tools are registered.
+    When ``read_only`` is True the genuine write tools are not registered, so
+    the served app exposes only read/search tools (plus the vector tools,
+    including ``sync_vector_db``). Default ``read_only=False`` registers
+    everything, identical to prior behavior.
     """
     server = Server("mcp-logseq")
     handlers: dict = {}
-    _register_all_tool_handlers(handlers)
+    _register_all_tool_handlers(handlers, read_only)
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
@@ -191,11 +218,11 @@ def get_tool_handler(name: str) -> tools.ToolHandler | None:
     return handler
 
 
-async def main():
-    logger.info("Starting LogSeq MCP server")
+async def main(read_only: bool = False):
+    logger.info(f"Starting LogSeq MCP server (read_only={read_only})")
     from mcp.server.stdio import stdio_server
 
-    app, _ = build_app()
+    app, _ = build_app(read_only=read_only)
     async with stdio_server() as (read_stream, write_stream):
         logger.info("Initializing server...")
         await app.run(read_stream, write_stream, app.create_initialization_options())

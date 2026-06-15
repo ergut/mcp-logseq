@@ -59,4 +59,24 @@ def test_main_http_with_token_calls_run_http(monkeypatch):
 
     mcp_logseq.main()
 
-    assert calls == [(("127.0.0.1", 12320, "secret-token"), {})]
+    assert calls == [(("127.0.0.1", 12320, "secret-token"), {"read_only": False})]
+
+
+def test_main_http_read_only_threaded(monkeypatch):
+    monkeypatch.setenv("MCP_HTTP_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(
+        mcp_logseq,
+        "parse_args",
+        lambda argv=None: parse_args(
+            ["--transport", "http", "--port", "12320", "--read-only"]
+        ),
+    )
+
+    calls = []
+
+    import mcp_logseq.transport.http as http_mod
+    monkeypatch.setattr(http_mod, "run_http", lambda *a, **k: calls.append((a, k)))
+
+    mcp_logseq.main()
+
+    assert calls == [(("127.0.0.1", 12320, "secret-token"), {"read_only": True})]

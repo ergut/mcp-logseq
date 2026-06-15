@@ -609,6 +609,230 @@ def test_vector_results_filtered_by_tags():
     assert [r.tags for r in kept] == [["notes"], []]
 
 
+# =============================================================================
+# Task 5 Step 1: Regression guard for existing PR #65 write gating.
+# These pin current behavior so the --read-only refactor cannot regress it.
+# Every genuine write tool targeting an excluded namespace must raise.
+# =============================================================================
+
+
+def _priv():
+    """Patch config so the 'Private' namespace is excluded."""
+    return patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=[],
+        _exclude_namespaces=["Private"],
+        _exclude_tags=[],
+    )
+
+
+def test_regression_create_page_denies_private():
+    with _priv():
+        with pytest.raises(AccessDenied):
+            CreatePageToolHandler().run_tool({"title": "Private/x", "content": "c"})
+
+
+def test_regression_update_page_denies_private():
+    with _priv():
+        with pytest.raises(AccessDenied):
+            UpdatePageToolHandler().run_tool({"page_name": "Private/x", "content": "c"})
+
+
+def test_regression_delete_page_denies_private():
+    with _priv():
+        with pytest.raises(AccessDenied):
+            DeletePageToolHandler().run_tool({"page_name": "Private/x"})
+
+
+def test_regression_update_block_denies_private():
+    with _priv(), _api_with_block_page("Private/x"):
+        with pytest.raises(AccessDenied):
+            UpdateBlockToolHandler().run_tool({"block_uuid": "u1", "content": "c"})
+
+
+def test_regression_delete_block_denies_private():
+    with _priv(), _api_with_block_page("Private/x"):
+        with pytest.raises(AccessDenied):
+            DeleteBlockToolHandler().run_tool({"block_uuid": "u1"})
+
+
+def test_regression_insert_nested_block_denies_private():
+    with _priv(), _api_with_block_page("Private/x"):
+        with pytest.raises(AccessDenied):
+            InsertNestedBlockToolHandler().run_tool(
+                {"parent_block_uuid": "u1", "content": "c"}
+            )
+
+
+def test_regression_set_block_properties_denies_private():
+    with _priv(), _api_with_block_page("Private/x"), \
+            patch("mcp_logseq.tools._db_mode", True):
+        with pytest.raises(AccessDenied):
+            SetBlockPropertiesToolHandler().run_tool(
+                {"block_uuid": "u1", "properties": {"k": "v"}}
+            )
+
+
+def test_regression_rename_page_denies_when_old_private():
+    with _priv():
+        with pytest.raises(AccessDenied):
+            RenamePageToolHandler().run_tool(
+                {"old_name": "Private/x", "new_name": "Public/x"}
+            )
+
+
+def test_regression_rename_page_denies_when_new_private():
+    with _priv():
+        with pytest.raises(AccessDenied):
+            RenamePageToolHandler().run_tool(
+                {"old_name": "Public/x", "new_name": "Private/x"}
+            )
+
+
+# =============================================================================
+# Task 5 Step 2a: --read-only unregisters genuine write tools only.
+# =============================================================================
+
+_GENUINE_WRITE_TOOLS = {
+    "create_page",
+    "update_page",
+    "delete_page",
+    "rename_page",
+    "update_block",
+    "delete_block",
+    "insert_nested_block",
+    "set_block_properties",
+}
+
+
+def test_read_only_unregisters_all_write_tools():
+    from mcp_logseq.server import build_app
+
+    _, handlers = build_app(read_only=True)
+    for name in _GENUINE_WRITE_TOOLS:
+        assert name not in handlers, f"{name} must be absent under read_only"
+
+
+def test_read_only_keeps_read_tools():
+    from mcp_logseq.server import build_app
+
+    _, handlers = build_app(read_only=True)
+    for name in [
+        "list_pages",
+        "get_page_content",
+        "get_block",
+        "search",
+        "query",
+        "find_pages_by_property",
+        "get_pages_from_namespace",
+        "get_pages_tree_from_namespace",
+        "get_page_backlinks",
+    ]:
+        assert name in handlers, f"read tool {name} must remain under read_only"
+
+
+def test_default_build_app_registers_write_tools():
+    from mcp_logseq.server import build_app
+
+    _, handlers = build_app()
+    for name in _GENUINE_WRITE_TOOLS:
+        assert name in handlers, f"{name} must be present by default"
+
+
+def test_read_only_keeps_sync_and_vector_tools(monkeypatch, tmp_path):
+    """sync_vector_db is NOT a genuine write tool; vector tools stay registered."""
+    pytest.importorskip("mcp_logseq.vector.index")
+
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "logseq_graph_path": str(tmp_path),
+        "vector": {
+            "enabled": True,
+            "db_path": str(tmp_path / "db"),
+            "embedder": {"provider": "ollama", "model": "nomic-embed-text"},
+        },
+    }))
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", str(path))
+
+    from mcp_logseq.server import build_app
+
+    _, handlers = build_app(read_only=True)
+    for name in ["vector_search", "vector_db_status", "sync_vector_db"]:
+        assert name in handlers, f"{name} must remain under read_only"
+
+
+# =============================================================================
+# Task 5 Step 2b: tag-on-write — writes to a tag-excluded EXISTING page in an
+# ALLOWED namespace must be denied. create_page is exempt (no prior tags).
+# =============================================================================
+
+
+def _tagged_page_api(tag="keys"):
+    """Mock _make_api so get_page_content returns a page carrying ``tag``."""
+    fake = Mock()
+    fake.get_page_content.return_value = {
+        "page": {"originalName": "work/secrets", "properties": {"tags": [tag]}},
+        "blocks": [],
+    }
+    fake.get_block_page_name.return_value = "work/secrets"
+    return patch("mcp_logseq.tools._make_api", return_value=fake)
+
+
+def _tags_excluded(tag="keys"):
+    return patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=[],
+        _exclude_namespaces=[],
+        _exclude_tags=[tag],
+    )
+
+
+def test_update_page_denies_tag_excluded_existing_page():
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            UpdatePageToolHandler().run_tool(
+                {"page_name": "work/secrets", "content": "c"}
+            )
+
+
+def test_delete_page_denies_tag_excluded_existing_page():
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            DeletePageToolHandler().run_tool({"page_name": "work/secrets"})
+
+
+def test_update_block_denies_tag_excluded_owning_page():
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            UpdateBlockToolHandler().run_tool({"block_uuid": "u1", "content": "c"})
+
+
+def test_delete_block_denies_tag_excluded_owning_page():
+    with _tags_excluded(), _tagged_page_api():
+        with pytest.raises(AccessDenied):
+            DeleteBlockToolHandler().run_tool({"block_uuid": "u1"})
+
+
+def test_set_block_properties_denies_tag_excluded_owning_page():
+    with _tags_excluded(), _tagged_page_api(), \
+            patch("mcp_logseq.tools._db_mode", True):
+        with pytest.raises(AccessDenied):
+            SetBlockPropertiesToolHandler().run_tool(
+                {"block_uuid": "u1", "properties": {"k": "v"}}
+            )
+
+
+def test_create_page_exempt_from_tag_on_write():
+    """create_page must NOT fetch/inspect prior tags — a new page has none."""
+    fake = Mock()
+    fake.page_exists.return_value = False
+    fake.create_page_with_blocks.return_value = {"name": "work/fresh"}
+    with _tags_excluded(), patch("mcp_logseq.tools._make_api", return_value=fake):
+        # Should not raise on tag grounds (namespace allows it).
+        CreatePageToolHandler().run_tool({"title": "work/fresh", "content": "c"})
+        fake.get_page_content.assert_not_called()
+
+
 def test_vector_search_drops_tag_excluded_chunk(monkeypatch):
     """A #keys chunk in the shared DB must not surface when 'keys' is excluded."""
     pytest.importorskip("mcp_logseq.vector.index")

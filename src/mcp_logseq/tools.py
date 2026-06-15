@@ -179,6 +179,49 @@ def _enforce_block_namespace_access(api, block_uuid: str) -> None:
     _enforce_namespace_access(page_name)
 
 
+def _enforce_page_tag_access(api, page_name: str) -> None:
+    """Raise AccessDenied if an EXISTING page carries an excluded tag.
+
+    Complements the name-based namespace check on write handlers: namespace
+    rules can be evaluated from the name alone, but tag exclusion requires the
+    page's properties, so this fetches the page. A no-op when no exclude tags
+    are configured. Pages that cannot be fetched are treated as not-excluded
+    (the namespace check has already run, and a missing page is handled by the
+    underlying write call).
+    """
+    if not _exclude_tags:
+        return
+    try:
+        result = api.get_page_content(page_name)
+    except Exception as e:
+        logger.warning(
+            f"Could not fetch page '{page_name}' for tag-exclusion check: {e}"
+        )
+        return
+    if result and _is_page_excluded(result.get("page", {}), _exclude_tags):
+        raise AccessDenied(
+            f"Access denied: page '{page_name}' is restricted "
+            f"and cannot be accessed by this assistant."
+        )
+
+
+def _enforce_block_tag_access(api, block_uuid: str) -> None:
+    """Resolve a block's owning page and enforce tag exclusion on it.
+
+    A no-op when no exclude tags are configured. When tags ARE configured but
+    the owning page cannot be resolved, access is denied (fail-closed), mirroring
+    ``_enforce_block_namespace_access``.
+    """
+    if not _exclude_tags:
+        return
+    page_name = api.get_block_page_name(block_uuid)
+    if page_name is None:
+        raise AccessDenied(
+            f"Access denied: cannot verify the owning page of block '{block_uuid}'."
+        )
+    _enforce_page_tag_access(api, page_name)
+
+
 class ToolHandler:
     def __init__(self, tool_name: str):
         self.name = tool_name
@@ -608,6 +651,7 @@ class DeletePageToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_page_tag_access(api, args["page_name"])
             result = api.delete_page(args["page_name"])
 
             # Build detailed success message
@@ -626,6 +670,8 @@ class DeletePageToolHandler(ToolHandler):
             )
 
             return [TextContent(type="text", text=success_msg)]
+        except AccessDenied:
+            raise
         except ValueError as e:
             # Handle validation errors (page not found) gracefully
             return [TextContent(type="text", text=f"❌ Error: {str(e)}")]
@@ -711,6 +757,7 @@ YAML frontmatter in content will be merged with explicit properties.""",
 
         try:
             api = _make_api()
+            _enforce_page_tag_access(api, page_name)
 
             # Parse the content
             parsed = (
@@ -749,6 +796,8 @@ YAML frontmatter in content will be merged with explicit properties.""",
             msg_parts.append(f"Mode: {mode}")
 
             return [TextContent(type="text", text="\n".join(msg_parts))]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -789,6 +838,7 @@ class DeleteBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             api.delete_block(block_uuid)
 
             return [TextContent(
@@ -844,6 +894,7 @@ class UpdateBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             api.update_block(block_uuid, content)
 
             return [TextContent(
@@ -2043,6 +2094,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             results = []
 
             for prop_name, value in properties.items():
