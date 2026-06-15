@@ -27,7 +27,7 @@ def create_asgi_app(auth_token: str) -> Starlette:
     Args:
         auth_token: Bearer token required on incoming requests.
     """
-    app = build_app()
+    app, _ = build_app()
     manager = StreamableHTTPSessionManager(app=app)
 
     async def handle(scope, receive, send):

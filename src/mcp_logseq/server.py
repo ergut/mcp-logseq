@@ -113,8 +113,12 @@ def _register_all_tool_handlers(handlers: dict) -> None:
         logger.warning(f"Could not load vector config, vector tools disabled: {e}")
 
 
-def build_app(read_only: bool = False) -> Server:
-    """Build a fully wired MCP ``Server`` with all tool handlers registered.
+def build_app(read_only: bool = False) -> tuple[Server, dict]:
+    """Build a fully wired MCP ``Server`` plus its tool-handler registry.
+
+    Returns ``(server, handlers)`` where ``handlers`` is the very same dict the
+    server's ``list_tools`` / ``call_tool`` closures read from. Mutating that
+    dict after construction is therefore reflected by the served app.
 
     ``read_only`` is accepted for forward compatibility (Task 5 will use it to
     skip write tools); it is currently ignored and all tools are registered.
@@ -156,24 +160,22 @@ def build_app(read_only: bool = False) -> Server:
             logger.error(f"Error running tool: {str(e)}", exc_info=True)
             raise RuntimeError(f"Error: {str(e)}")
 
-    return server
+    return server, handlers
 
 
 # ---------------------------------------------------------------------------
 # Backward-compatible module-level surface.
 #
 # Existing code/tests import ``app``, ``tool_handlers``, ``add_tool_handler``
-# and ``get_tool_handler`` from this module. Keep them working by exposing a
-# module-level Server plus its registry.
+# and ``get_tool_handler`` from this module. The module-level ``tool_handlers``
+# IS the dict that ``app``'s closures serve from — registration happens exactly
+# once — so ``add_tool_handler(X)`` after import is visible through ``app``.
 # ---------------------------------------------------------------------------
 
-app = build_app()
-tool_handlers: dict = {}
-_register_all_tool_handlers(tool_handlers)
+app, tool_handlers = build_app()
 
 
 def add_tool_handler(tool_class: tools.ToolHandler):
-    global tool_handlers
     logger.debug(f"Registering tool handler: {tool_class.name}")
     tool_handlers[tool_class.name] = tool_class
     logger.info(f"Successfully registered tool handler: {tool_class.name}")
@@ -193,7 +195,7 @@ async def main():
     logger.info("Starting LogSeq MCP server")
     from mcp.server.stdio import stdio_server
 
-    app = build_app()
+    app, _ = build_app()
     async with stdio_server() as (read_stream, write_stream):
         logger.info("Initializing server...")
         await app.run(read_stream, write_stream, app.create_initialization_options())
