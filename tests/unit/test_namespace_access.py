@@ -309,6 +309,32 @@ def test_set_block_properties_denies():
 
 
 # =============================================================================
+# Task 4: Content-returning tool ACL audit
+#
+# Every registered tool that can return page/block CONTENT must enforce the
+# namespace/tag guard. The HTTP transport exposes the full tool set, so a guard
+# gap = a data-exfiltration path. Status determined by reading each run_tool:
+#
+#   Tool                            Guard status
+#   ------------------------------  ---------------------------------------------
+#   get_page_content                GUARDED  (pre-flight + _is_page_blocked)
+#   list_pages                      GUARDED  (_is_page_blocked filter)
+#   search                          GUARDED  (_build_excluded_page_names filter)
+#   query (DSL)                     FIXED    (was: pages-only; now blocks too)
+#   find_pages_by_property          GUARDED  (_is_page_blocked filter)
+#   get_page_backlinks              GUARDED  (pre-flight + per-referrer filter)
+#   get_pages_from_namespace        GUARDED  (pre-flight + filter)
+#   get_pages_tree_from_namespace   GUARDED  (pre-flight + prune)
+#   get_block                       GUARDED  (_enforce_block_namespace_access)
+#   vector_search                   FIXED    (was: namespace-only; now tags too)
+#
+# Non-content/write tools (create/update/delete/rename/insert/set_block_props)
+# enforce the guard too, but are covered above (Task 1-3 tests) — they cannot
+# leak existing content.
+# =============================================================================
+
+
+# =============================================================================
 # Task 7: Silent filtering in list/search/query/find_pages_by_property
 # =============================================================================
 
@@ -466,3 +492,140 @@ def test_get_pages_tree_from_namespace_prunes_excluded_subnamespace():
         out = GetPagesTreeFromNamespaceToolHandler().run_tool({"namespace": "work"})[0].text
         assert "work/projects" in out
         assert "work/secret" not in out  # whole subtree pruned (also covers .../keys)
+
+
+# =============================================================================
+# Task 4: DSL query must filter BLOCK results from denied namespaces, not just
+# page objects. A block-returning query (e.g. (page-tags)) could otherwise
+# surface block content owned by a blocked page.
+# =============================================================================
+
+
+def test_query_filters_blocks_from_blocked_namespace_via_inline_page():
+    """A block carrying an inline page ref to a blocked namespace is dropped."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "secret salary data", "page": {"originalName": "finance/q3"}},
+        {"content": "public roadmap", "page": {"originalName": "work/x"}},
+    ]
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(page-tags)"})[0].text
+        assert "public roadmap" in out
+        assert "secret salary data" not in out
+        assert "finance/" not in out
+
+
+def test_query_filters_blocks_via_api_page_resolution():
+    """A block lacking an inline page ref is resolved via the API and filtered."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "secret data", "uuid": "blk-1"},
+    ]
+    fake.get_block_page_name.return_value = "finance/q3"
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
+        assert "secret data" not in out
+
+
+def test_query_block_denied_when_page_unresolvable_and_rules_set():
+    """Fail-closed: a block whose owning page cannot be resolved is dropped."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "unverifiable block", "uuid": "blk-x"},
+    ]
+    fake.get_block_page_name.return_value = None
+    with _ns(include=["work"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
+        assert "unverifiable block" not in out
+
+
+def test_query_block_json_format_also_filtered():
+    """JSON output path must apply the same block filtering as text."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "secret", "page": {"originalName": "finance/q3"}},
+        {"content": "ok", "page": {"originalName": "work/x"}},
+    ]
+    with _ns(exclude=["finance"]), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool(
+            {"query": "(page-tags)", "format": "json"}
+        )[0].text
+        assert "ok" in out
+        assert "secret" not in out
+
+
+def test_query_blocks_pass_when_no_rules():
+    """No ACL rules => blocks pass through untouched, no API resolution calls."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "anything", "uuid": "blk-1"},
+    ]
+    with _ns(), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
+        assert "anything" in out
+        fake.get_block_page_name.assert_not_called()
+
+
+# =============================================================================
+# Task 4b: vector_search must apply _exclude_tags, not just namespace rules.
+# On a shared DB, a #keys-tagged chunk physically present in the index must not
+# surface for a profile that excludes the 'keys' tag.
+# =============================================================================
+
+
+def test_vector_results_filtered_by_tags():
+    pytest.importorskip("mcp_logseq.vector.index")
+    from mcp_logseq.vector.index import _filter_results_by_tags
+
+    class R:
+        def __init__(self, tags):
+            self.tags = tags
+
+    results = [R(["notes"]), R(["keys"]), R(["keys", "notes"]), R([])]
+    kept = _filter_results_by_tags(results, exclude_tags=["keys"])
+    assert [r.tags for r in kept] == [["notes"], []]
+
+
+def test_vector_search_drops_tag_excluded_chunk(monkeypatch):
+    """A #keys chunk in the shared DB must not surface when 'keys' is excluded."""
+    pytest.importorskip("mcp_logseq.vector.index")
+    import mcp_logseq.vector.index as vindex
+    from mcp_logseq.vector.index import VectorSearchToolHandler
+    from mcp_logseq.vector.types import SearchResult
+
+    config = Mock()
+    config.db_path = "/tmp/test-vector-db"
+    config.graph_path = "/tmp/test-graph"
+    config.embedder = "ollama/x"
+
+    secret = SearchResult(
+        page="ApiKeys", text="AKIA-secret-token", raw="", score=0.1,
+        tags=["keys"], date=None, properties={}, chunk_index=0,
+    )
+    ok = SearchResult(
+        page="Roadmap", text="public roadmap", raw="", score=0.2,
+        tags=["notes"], date=None, properties={}, chunk_index=0,
+    )
+
+    meta = Mock()
+    meta.embedder_key = "ollama/x"
+    meta.dimensions = 3
+
+    with (
+        patch.object(vindex, "_exclude_tags", ["keys"]),
+        patch.object(vindex, "_include_namespaces", []),
+        patch.object(vindex, "_exclude_namespaces", []),
+        patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+        patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
+        patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+        patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+    ):
+        mock_sm.return_value.load.return_value = ({}, meta)
+        mock_stale.return_value = Mock(stale=False)
+        mock_emb.return_value.embed.return_value = [[0.1, 0.1, 0.1]]
+        mock_db.open_readonly.return_value.search.return_value = [secret, ok]
+
+        out = VectorSearchToolHandler(config).run_tool({"query": "keys"})[0].text
+        assert "public roadmap" in out
+        assert "AKIA-secret-token" not in out
+        assert "ApiKeys" not in out

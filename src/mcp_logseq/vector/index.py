@@ -25,6 +25,7 @@ from mcp_logseq.tools import (
     _is_namespace_blocked,
     _include_namespaces,
     _exclude_namespaces,
+    _exclude_tags,
 )
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
@@ -53,6 +54,20 @@ def _filter_results_by_namespace(
     if not include and not exclude:
         return results
     return [r for r in results if not _is_namespace_blocked(r.page, include, exclude)]
+
+
+def _filter_results_by_tags(
+    results: list[SearchResult], exclude_tags: list[str]
+) -> list[SearchResult]:
+    """Drop vector search results whose page carries an excluded tag.
+
+    Mirrors the namespace filter: on a shared DB this prevents tag-blocked
+    pages (e.g. #keys) from leaking to a profile that excludes that tag.
+    Tag data is already on each result, so no API call is needed.
+    """
+    if not exclude_tags:
+        return results
+    return [r for r in results if not any(t in exclude_tags for t in (r.tags or []))]
 
 
 def _format_search_results(results) -> str:
@@ -229,6 +244,7 @@ class VectorSearchToolHandler(ToolHandler):
         results = _filter_results_by_namespace(
             results, _include_namespaces, _exclude_namespaces
         )
+        results = _filter_results_by_tags(results, _exclude_tags)
         output = output_prefix + _format_search_results(results)
         return [TextContent(type="text", text=output)]
 

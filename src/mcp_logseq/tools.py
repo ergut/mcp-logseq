@@ -1326,6 +1326,37 @@ class QueryToolHandler(ToolHandler):
             return False
         return bool(item.get("content") or item.get("block/content"))
 
+    @staticmethod
+    def _block_page_name(item: dict, api) -> str | None:
+        """Resolve the owning page name for a DSL block result.
+
+        Prefers the inline 'page' reference carried by the query result; falls
+        back to an API lookup by block UUID. Returns None when it cannot be
+        determined (callers treat that as fail-closed when rules are set).
+        """
+        page_ref = item.get("page")
+        if isinstance(page_ref, dict):
+            name = page_ref.get("originalName") or page_ref.get("name")
+            if name:
+                return name
+        elif isinstance(page_ref, str) and page_ref:
+            return page_ref
+        uuid = item.get("uuid")
+        if uuid:
+            return api.get_block_page_name(uuid)
+        return None
+
+    def _block_blocked(self, item: dict, api) -> bool:
+        """Fail-closed namespace check for a DSL block result.
+
+        Only consulted when namespace rules are configured. A block whose owning
+        page cannot be resolved is treated as blocked.
+        """
+        page_name = self._block_page_name(item, api)
+        if page_name is None:
+            return True
+        return _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces)
+
     def _format_item(self, item: dict, index: int) -> str:
         """Format a single result item with type indicator."""
         if not isinstance(item, dict):
@@ -1378,13 +1409,20 @@ class QueryToolHandler(ToolHandler):
                     continue
                 filtered_results.append(item)
 
-            # Security: filter page objects blocked by tag OR namespace
+            # Security: filter page objects blocked by tag OR namespace, AND
+            # block objects whose owning page is in a blocked namespace.
+            # Blocks carry content but no tags, so only namespace rules apply to
+            # them; resolution is fail-closed (unresolvable page => dropped).
             if _exclude_tags or _include_namespaces or _exclude_namespaces:
+                ns_rules = bool(_include_namespaces or _exclude_namespaces)
                 filtered = []
                 for item in filtered_results:
                     if self._is_page(item):
                         name = item.get("originalName") or item.get("name", "")
                         if _is_page_blocked(item, name):
+                            continue
+                    elif self._is_block(item) and ns_rules:
+                        if self._block_blocked(item, api):
                             continue
                     filtered.append(item)
                 filtered_results = filtered
