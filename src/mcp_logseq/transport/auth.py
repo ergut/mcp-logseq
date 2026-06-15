@@ -1,41 +1,40 @@
 """Bearer token authentication middleware for the HTTP transport.
 
-NOTE: This is a MINIMAL placeholder added in Task 1 so ``transport/http.py``
-imports cleanly and the route can enforce a 401 for missing/invalid tokens.
-Task 2 will replace/extend this with the full bearer-auth implementation
-(constant-time comparison, scheme validation, structured error bodies, etc.).
+Pure ASGI middleware (intentionally NOT a ``BaseHTTPMiddleware`` subclass:
+that base class buffers the response body and breaks the streaming/SSE that
+Streamable HTTP relies on). Token comparison is constant-time via
+:func:`hmac.compare_digest`.
+
+Token source: the ``MCP_HTTP_AUTH_TOKEN`` env var (required in http mode) is
+read by the caller (CLI wiring, Task 3) and passed in here as ``token``.
 """
 
-from starlette.requests import Request
+import hmac
+
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 class BearerAuthMiddleware:
-    """Reject requests lacking a valid ``Authorization: Bearer <token>`` header.
-
-    Minimal implementation: compares the presented token against the configured
-    ``token`` and returns 401 on mismatch. Hardened in Task 2.
-    """
+    """Reject requests lacking a valid ``Authorization: Bearer <token>`` header."""
 
     def __init__(self, app: ASGIApp, token: str) -> None:
-        self.app = app
-        self.token = token
+        self._app = app
+        self._token = token
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
-            await self.app(scope, receive, send)
+            await self._app(scope, receive, send)
             return
 
-        request = Request(scope)
-        header = request.headers.get("authorization", "")
-        expected = f"Bearer {self.token}"
+        headers = dict(scope.get("headers") or [])
+        auth = headers.get(b"authorization", b"").decode()
+        prefix = "Bearer "
+        presented = auth[len(prefix):] if auth.startswith(prefix) else ""
 
-        if header != expected:
-            response = JSONResponse(
-                {"error": "unauthorized"}, status_code=401
-            )
+        if not presented or not hmac.compare_digest(presented, self._token):
+            response = JSONResponse({"error": "unauthorized"}, status_code=401)
             await response(scope, receive, send)
             return
 
-        await self.app(scope, receive, send)
+        await self._app(scope, receive, send)
