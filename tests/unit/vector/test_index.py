@@ -138,72 +138,45 @@ class TestVectorSearchReadOnly:
             mock_sm.return_value.save.assert_not_called()
 
 
-class TestSyncVectorDBSubprocess:
-    """sync_vector_db delegates to logseq-sync subprocess."""
+class TestSyncVectorDBInertPointer:
+    """sync_vector_db no longer spawns a subprocess; it points to external logseq-sync."""
 
-    def test_sync_calls_subprocess_once(self):
+    def test_sync_does_not_invoke_subprocess(self):
         config = _make_config()
         handler = SyncVectorDBToolHandler(config)
 
-        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
-            mock_sub.run.return_value = MagicMock(
-                returncode=0,
-                stdout="Done in 100ms: +5 added, ~2 updated, -1 deleted, 10 skipped",
-                stderr="",
-            )
-
+        with patch("subprocess.run") as mock_run:
             results = handler.run_tool({})
 
-            call_args = mock_sub.run.call_args
-            cmd = call_args[0][0]
-            assert "--once" in cmd
-            assert "--rebuild" not in cmd
-            assert "Done in 100ms" in results[0].text
+            # The single-writer principle: MCP never spawns a sync process.
+            mock_run.assert_not_called()
+            assert "logseq-sync" in results[0].text
 
-    def test_sync_calls_subprocess_rebuild(self):
+    def test_sync_message_lists_external_flags(self):
         config = _make_config()
         handler = SyncVectorDBToolHandler(config)
 
-        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
-            mock_sub.run.return_value = MagicMock(
-                returncode=0,
-                stdout="Done in 5000ms: +100 added, ~0 updated, -0 deleted, 0 skipped",
-                stderr="",
-            )
+        text = handler.run_tool({})[0].text
+        assert "logseq-sync --once" in text
+        assert "logseq-sync --watch" in text
+        assert "logseq-sync --rebuild" in text
 
+    def test_sync_ignores_rebuild_arg(self):
+        config = _make_config()
+        handler = SyncVectorDBToolHandler(config)
+
+        with patch("subprocess.run") as mock_run:
             results = handler.run_tool({"rebuild": True})
+            mock_run.assert_not_called()
+            assert "logseq-sync" in results[0].text
 
-            call_args = mock_sub.run.call_args
-            cmd = call_args[0][0]
-            assert "--rebuild" in cmd
-            assert "--once" not in cmd
-
-    def test_sync_reports_subprocess_failure(self):
+    def test_description_mentions_external_host(self):
         config = _make_config()
         handler = SyncVectorDBToolHandler(config)
 
-        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
-            mock_sub.run.return_value = MagicMock(
-                returncode=1,
-                stdout="",
-                stderr="Error: Embedder changed from 'x' to 'y'",
-            )
-
-            results = handler.run_tool({})
-            assert "Sync failed" in results[0].text
-            assert "Embedder changed" in results[0].text
-
-    def test_sync_reports_timeout(self):
-        import subprocess
-        config = _make_config()
-        handler = SyncVectorDBToolHandler(config)
-
-        with patch("mcp_logseq.vector.index.subprocess") as mock_sub:
-            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-            mock_sub.run.side_effect = subprocess.TimeoutExpired(cmd="logseq-sync", timeout=600)
-
-            results = handler.run_tool({})
-            assert "timed out" in results[0].text
+        desc = handler.get_tool_description().description
+        assert "logseq-sync" in desc
+        assert "host that owns the DB" in desc
 
 
 class TestVectorDBStatusReadOnly:

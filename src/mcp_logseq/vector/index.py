@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -258,15 +256,16 @@ class SyncVectorDBToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description=(
-                "Run incremental sync of the vector database against current Logseq graph files. "
-                "Only changed files are re-embedded. Use rebuild=true to drop and re-index everything."
+                "Vector DB sync is NOT available via MCP. The vector database has a single "
+                "writer — the logseq-sync CLI, run externally on the host that owns the DB. "
+                "Calling this tool just returns instructions; it does not start a sync."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "rebuild": {
                         "type": "boolean",
-                        "description": "If true, drop the entire DB and re-index from scratch",
+                        "description": "Ignored. Sync runs externally via logseq-sync --rebuild.",
                         "default": False,
                     },
                 },
@@ -274,28 +273,13 @@ class SyncVectorDBToolHandler(ToolHandler):
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
-        rebuild = bool(args.get("rebuild", False))
-
-        cmd = [sys.executable, "-m", "mcp_logseq.bin.logseq_sync"]
-        cmd.append("--rebuild" if rebuild else "--once")
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-        except subprocess.TimeoutExpired:
-            return [TextContent(type="text", text="Sync timed out after 10 minutes.")]
-        except Exception as e:
-            return [TextContent(type="text", text=f"Sync failed: {e}")]
-
-        if result.returncode != 0:
-            error = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-            return [TextContent(type="text", text=f"Sync failed:\n{error}")]
-
-        return [TextContent(type="text", text=result.stdout.strip())]
+        message = (
+            "Vector DB sync is not available via MCP. Run it on the host that owns the DB:\n"
+            "  logseq-sync --once      # incremental sync\n"
+            "  logseq-sync --watch     # continuous file watcher\n"
+            "  logseq-sync --rebuild   # drop and re-index everything"
+        )
+        return [TextContent(type="text", text=message)]
 
 
 class VectorDBStatusToolHandler(ToolHandler):
