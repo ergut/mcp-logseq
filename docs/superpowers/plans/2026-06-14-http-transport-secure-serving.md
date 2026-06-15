@@ -35,7 +35,7 @@ Because the ACL globals are loaded at import time and live per-process, **runnin
 
 The vector DB is a single on-disk store shared by all reader instances. ACL controls operate on **two axes** — index-time (global, what the DB contains) vs query-time (per-instance, what a profile sees). **Do not conflate them:**
 
-- **Index-time — `vector` block, the writer's single global policy.** `vector.exclude_tags`, plus (new, Task 7) `vector.include_namespaces` / `vector.exclude_namespaces`. Decides what is ever embedded/stored. Use it for (a) content no tier may ever vector-search (e.g. `#secret` raw credentials → `exclude_tags`) and (b) namespaces irrelevant or off-limits to *everyone* (`exclude_namespaces`), or to scope the whole DB to a subset (`include_namespaces`). Anything excluded here is gone for **every** profile — and never embedded, so it also shrinks the DB (less disk, less sync compute, faster search as the vault grows).
+- **Index-time — `vector` block, the writer's single global policy.** `vector.exclude_tags` (exists) decides what is ever embedded/stored — use it for content no tier may ever vector-search (e.g. `#secret` raw credentials). Anything excluded here is gone for **every** profile and never embedded. *(An index-time **namespace** equivalent — `vector.include_namespaces` / `vector.exclude_namespaces` — is a separate, transport-independent feature tracked in [index-time namespace scoping](2026-06-15-index-time-namespace-scoping.md); it composes with this model but is out of scope for this plan.)*
 - **Query-time — env per instance → `_exclude_tags` / `_include_namespaces` / `_exclude_namespaces`.** Decides which profile sees which already-stored content. This is the per-tier wall.
 
 **Single writer, separated from readers (decided).** Exactly one dedicated process owns the DB — `logseq-sync --watch` (or `--once` under launchd/systemd/cron), guarded by the existing `sync.lock` ([bin/logseq_sync.py:45-60](../../../src/mcp_logseq/bin/logseq_sync.py#L45-L60)). It indexes with the **single fixed index policy** above. **No MCP instance triggers sync at all:** `sync_vector_db`'s handler no longer spawns a subprocess — it returns instructions to run `logseq-sync` externally (Task 5b). Since it is then inert (returns text, mutates nothing), `--read-only` does not special-case it. This makes "whose index policy wins" impossible: there is one writer with one policy, and all per-tier differentiation is query-time.
@@ -91,13 +91,11 @@ A profile is therefore "the shared data file + a unit file's env block." Adding 
 - Modify: `src/mcp_logseq/server.py` — factor tool registration into an importable `build_app()` so both stdio and HTTP reuse it; add transport dispatch.
 - Modify: `src/mcp_logseq/__init__.py` — `main()` parses `--transport {stdio,http}`, `--host`, `--port`, `--read-only`.
 - Modify: `src/mcp_logseq/vector/index.py` — `vector_search` query-time tag filter (Task 4); `sync_vector_db` external-pointer stub (Task 5b).
-- Modify: `src/mcp_logseq/config.py` — `VectorConfig` + `load_vector_config` gain `include_namespaces`/`exclude_namespaces` (Task 7).
-- Modify: `src/mcp_logseq/vector/chunker.py` — index-time namespace filter in `chunk_file` (Task 7).
 - Modify: `pyproject.toml` — bump `mcp` to a version with Streamable HTTP; add `starlette`, `uvicorn`; (optional) `serve` console alias.
 - Create: `tests/unit/test_http_transport.py`
 - Create: `tests/integration/test_http_serving.py`
 - Modify: `tests/unit/test_namespace_access.py` — extend to assert the guard holds on every content-returning tool, incl. the `vector_search` tag gap (Task 4) and `--read-only` (Task 5).
-- Modify: `tests/unit/test_chunker.py` — index-time namespace scoping (Task 7); `tests/unit/test_vector_tools.py` — `sync_vector_db` stub (Task 5b).
+- Modify: `tests/unit/test_vector_tools.py` — `sync_vector_db` stub (Task 5b).
 - Modify: `README.md` — document host-serving, the per-profile multi-instance pattern, the separate sync writer, and the security model.
 
 ---
@@ -415,7 +413,7 @@ mcp-logseq --transport http --port 12322
 
 The data file is identical across all three; the per-process env block *is* the profile. The diary use case maps cleanly to whole-instance `--read-only`: `journal-assistant` reads `Journal/` and answers but holds zero write tools, while `work` excludes `Journal/` entirely. Bind to loopback (or a host-internal interface), never `0.0.0.0`.
 
-- [ ] **Step 2: Document the separate sync writer.** The vector DB is owned by **one** dedicated `logseq-sync` process, deployed outside every MCP instance. It indexes with the single global index policy (`vector.exclude_tags` = secrets only, plus optional `vector.include_namespaces`/`vector.exclude_namespaces` to scope the whole DB — Task 7); per-tier differentiation is purely query-time on the reader instances. Show both deployment shapes:
+- [ ] **Step 2: Document the separate sync writer.** The vector DB is owned by **one** dedicated `logseq-sync` process, deployed outside every MCP instance. It indexes with the single global index policy (`vector.exclude_tags` = secrets only; optional index-time namespace scoping is a separate feature — see [its plan](2026-06-15-index-time-namespace-scoping.md)); per-tier differentiation is purely query-time on the reader instances. Show both deployment shapes:
 
 ````markdown
 # Continuous writer (launchd / systemd unit), owns the DB — same shared data file:
@@ -429,30 +427,9 @@ The writer reads no ACL env — only the `vector` block and `graph_path` from `d
 
 - [ ] **Step 3: Commit** — `git commit -m "docs: per-profile HTTP serving, separate sync writer, security model"`
 
-### Task 7: Index-time namespace scoping (writer global policy)
-
-Symmetric with the existing index-time `vector.exclude_tags`: let the writer scope what the shared DB contains by namespace, so content irrelevant or off-limits to *every* profile is never embedded (smaller DB, less sync compute, faster search). This is **global** index policy — distinct from the per-instance query-time namespace ACL.
-
-**Files:**
-- Modify: `src/mcp_logseq/config.py` (`VectorConfig` + `load_vector_config`)
-- Modify: `src/mcp_logseq/vector/chunker.py` (`chunk_file`)
-- Test: `tests/unit/test_chunker.py`
-
-- [ ] **Step 1: Write failing tests** — a `VectorConfig` with `exclude_namespaces=["Journal"]` makes `chunk_file` return `[]` for a `Journal/*` page; with `include_namespaces=["Work"]`, only `Work/*` pages produce chunks. Pages outside the scope yield no chunks.
-
-- [ ] **Step 2: Run to verify fail** — Expected: FAIL (fields/filter absent).
-
-- [ ] **Step 3: Implement** — add `include_namespaces: list[str]` / `exclude_namespaces: list[str]` to `VectorConfig` (default `[]`), parse them from the `vector` block in `load_vector_config`. In `chunk_file`, after `page_title` is derived, reuse the same allow/deny semantics as `tools._is_namespace_blocked` (exclude wins; include is a strict allow-list) and `return []` when the page's namespace is blocked — mirror the existing `exclude_tags` early-return just above it.
-
-- [ ] **Step 4: Run to verify pass.** A changed index policy requires `logseq-sync --rebuild` to take effect (note this in the README sync section); incremental sync skips unchanged files by content hash.
-
-- [ ] **Step 5: Commit** — `git commit -m "feat(vector): index-time include/exclude namespace scoping"`
-
----
-
 ## Phase 3 — Acceptance
 
-### Task 8: End-to-end serving + isolation
+### Task 7: End-to-end serving + isolation
 
 **Files:**
 - Create: `tests/integration/test_http_serving.py`
@@ -461,9 +438,8 @@ Symmetric with the existing index-time `vector.exclude_tags`: let the writer sco
 - [ ] **Step 2 (auth):** request with no/wrong token → 401; with the right token → MCP handshake succeeds.
 - [ ] **Step 3 (isolation):** via the authenticated client, exercise search, vector search, and a direct get/query for a `Work/*` page → none surface `Work/*`; a `Journal/*` query returns results.
 - [ ] **Step 4 (writes):** if not `--read-only`, a write to `Work/*` → `AccessDenied`; with `--read-only`, no write tool is listed (but `sync_vector_db` stub and read tools remain).
-- [ ] **Step 5 (index scope):** with the writer configured `vector.exclude_namespaces=["Secret"]`, a `Secret/*` page is absent from `vector_search` for **all** profiles (not merely filtered).
-- [ ] **Step 6:** Run: `uv run pytest tests/integration/test_http_serving.py -v` — Expected: PASS. Record outcomes; only then mark serving complete.
-- [ ] **Step 7: Commit** — `git commit -m "test(integration): end-to-end HTTP serving + profile isolation"`
+- [ ] **Step 5:** Run: `uv run pytest tests/integration/test_http_serving.py -v` — Expected: PASS. Record outcomes; only then mark serving complete.
+- [ ] **Step 6: Commit** — `git commit -m "test(integration): end-to-end HTTP serving + profile isolation"`
 
 ---
 
@@ -477,7 +453,7 @@ Symmetric with the existing index-time `vector.exclude_tags`: let the writer sco
 
 ## Self-Review Notes
 
-- **Spec coverage:** transport (Task 1), auth (Task 2), CLI/bind (Task 3), full-surface ACL audit incl. `vector_search` tag gap (Task 4), `--read-only` + tag-on-write (Task 5), `sync_vector_db` external-pointer stub (Task 5b), per-profile + separate-writer docs (Task 6), index-time namespace scoping (Task 7), acceptance incl. index-scope check (Task 8). Covered.
+- **Spec coverage:** transport (Task 1), auth (Task 2), CLI/bind (Task 3), full-surface ACL audit incl. `vector_search` tag gap (Task 4), `--read-only` + tag-on-write (Task 5), `sync_vector_db` external-pointer stub (Task 5b), per-profile + separate-writer docs (Task 6), acceptance (Task 7). Covered. Index-time namespace scoping is split into its own plan (transport-independent).
 - **Reuse over rebuild:** ACL and per-profile config already exist; Tasks 4–5 *audit and extend* the existing guard rather than introduce a new one. **Namespace gating on writes is already complete** (PR #65, incl. `rename_page` dual-endpoint) — Task 5 adds only `--read-only` and the recommended tag-on-write check, not namespace gating.
 - **Config model:** one shared data/vector config file (writer-owned) + per-reader policy via env (namespace/tags/token) — leverages existing env-over-file precedence, no merge code, no `db_path`/`embedder` drift.
 - **Isolation:** multi-instance (process boundary), not multi-tenant (runtime lookup) — decided in What ALREADY Exists / Isolation model.
