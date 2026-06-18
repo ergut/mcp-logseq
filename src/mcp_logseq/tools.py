@@ -1082,10 +1082,51 @@ class SearchToolHandler(ToolHandler):
             return set()
 
     @staticmethod
+    def _filter_db_block_results(
+        block_results: list[dict],
+        api,
+        excluded_page_names: set[str],
+    ) -> list[dict]:
+        """Drop DB-mode content blocks whose owning page is excluded.
+
+        DB-mode blocks carry a 'page' field = the owning page's UUID, so the
+        owning page can be resolved to a name and checked against
+        ``excluded_page_names`` (which already encodes BOTH tag and namespace
+        exclusions). Fail-closed: when any exclusion rule is active and a block's
+        owning page cannot be resolved, the block is dropped.
+
+        When no exclusion rule is active this is a no-op (no API calls).
+        """
+        any_rule_active = bool(
+            excluded_page_names or _exclude_tags
+            or _include_namespaces or _exclude_namespaces
+        )
+        if not any_rule_active:
+            return block_results
+
+        page_uuids = [
+            str(b.get("page")) for b in block_results if b.get("page")
+        ]
+        resolved = api.resolve_page_uuids(page_uuids) if page_uuids else {}
+
+        kept: list[dict] = []
+        for block in block_results:
+            page_uuid = block.get("page")
+            page_name = resolved.get(str(page_uuid)) if page_uuid else None
+            if page_name is None:
+                # Fail-closed: owning page unresolvable while a rule is active.
+                continue
+            if page_name.lower() in excluded_page_names:
+                continue
+            kept.append(block)
+        return kept
+
+    @staticmethod
     def _format_db_mode_results(
         result: dict, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
         excluded_page_names: set[str] = frozenset(),
+        api=None,
     ) -> list[str]:
         """Format search results from DB-mode Logseq.
 
@@ -1099,6 +1140,9 @@ class SearchToolHandler(ToolHandler):
         # Split into pages and content blocks
         page_results = [b for b in blocks if b.get("page?")]
         block_results = [b for b in blocks if not b.get("page?")]
+        block_results = SearchToolHandler._filter_db_block_results(
+            block_results, api, excluded_page_names
+        )
 
         if include_pages and page_results:
             visible_pages = [
@@ -1219,6 +1263,7 @@ class SearchToolHandler(ToolHandler):
         result: dict, query: str, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
         excluded_page_names: set[str] = frozenset(),
+        api=None,
     ) -> dict:
         """Build structured search results with UUIDs and page identifiers.
 
@@ -1238,8 +1283,12 @@ class SearchToolHandler(ToolHandler):
                     not in excluded_page_names
                 ]
             if include_blocks:
+                visible_blocks = SearchToolHandler._filter_db_block_results(
+                    [b for b in blocks if not b.get("page?")],
+                    api, excluded_page_names,
+                )
                 block_results = []
-                for block in [b for b in blocks if not b.get("page?")][:limit]:
+                for block in visible_blocks[:limit]:
                     block = dict(block)
                     content = block.get("content", "")
                     block["content"] = content.replace("$pfts_2lqh>$", "").replace(
@@ -1306,7 +1355,7 @@ class SearchToolHandler(ToolHandler):
 
             if args.get("format") == "json":
                 json_result = self._build_json_results(
-                    result, query, limit, include_blocks, include_pages, include_files, excluded_page_names
+                    result, query, limit, include_blocks, include_pages, include_files, excluded_page_names, api
                 )
                 return [TextContent(type="text", text=json.dumps(json_result, indent=2))]
 
@@ -1316,7 +1365,7 @@ class SearchToolHandler(ToolHandler):
 
             if _db_mode:
                 content_parts.extend(
-                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names)
+                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names, api)
                 )
             else:
                 content_parts.extend(
@@ -1415,15 +1464,28 @@ class QueryToolHandler(ToolHandler):
         return None
 
     def _block_blocked(self, item: dict, api) -> bool:
-        """Fail-closed namespace check for a DSL block result.
+        """Fail-closed tag AND namespace check for a DSL block result.
 
-        Only consulted when namespace rules are configured. A block whose owning
-        page cannot be resolved is treated as blocked.
+        Consulted whenever ANY rule (tag or namespace) is configured. The owning
+        page is resolved once via ``_block_page_name``; the block is dropped if
+        that page is namespace-blocked OR tag-excluded. A block whose owning page
+        cannot be resolved is treated as blocked (fail-closed).
         """
         page_name = self._block_page_name(item, api)
         if page_name is None:
             return True
-        return _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces)
+        if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
+            return True
+        if _exclude_tags:
+            # Tag exclusion needs the page's properties; resolve the owning page
+            # once and inspect its tags. Fail-closed if it cannot be fetched.
+            try:
+                page = api.get_page_content(page_name)
+            except Exception:
+                return True
+            if page and _is_page_excluded(page.get("page", {}), _exclude_tags):
+                return True
+        return False
 
     def _format_item(self, item: dict, index: int) -> str:
         """Format a single result item with type indicator."""
@@ -1478,18 +1540,19 @@ class QueryToolHandler(ToolHandler):
                 filtered_results.append(item)
 
             # Security: filter page objects blocked by tag OR namespace, AND
-            # block objects whose owning page is in a blocked namespace.
-            # Blocks carry content but no tags, so only namespace rules apply to
-            # them; resolution is fail-closed (unresolvable page => dropped).
+            # block objects whose owning page is blocked by tag OR namespace.
+            # A block's owning page is resolvable (_block_page_name), so its TAGS
+            # are checkable too — block filtering must run whenever ANY rule is
+            # active (tag-only profiles included). Resolution is fail-closed
+            # (unresolvable owning page => dropped).
             if _exclude_tags or _include_namespaces or _exclude_namespaces:
-                ns_rules = bool(_include_namespaces or _exclude_namespaces)
                 filtered = []
                 for item in filtered_results:
                     if self._is_page(item):
                         name = item.get("originalName") or item.get("name", "")
                         if _is_page_blocked(item, name):
                             continue
-                    elif self._is_block(item) and ns_rules:
+                    elif self._is_block(item):
                         if self._block_blocked(item, api):
                             continue
                     filtered.append(item)

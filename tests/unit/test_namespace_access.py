@@ -681,6 +681,182 @@ def test_query_blocks_pass_when_no_rules():
 
 
 # =============================================================================
+# LEAK 1: DB-mode search must filter block results whose owning page is excluded
+# (both namespace and tag axes), in BOTH text and JSON output paths.
+# DB-mode blocks carry a 'page' field = owning page UUID, so they are resolvable.
+# =============================================================================
+
+
+def test_db_search_filters_block_from_excluded_namespace_text():
+    """DB-mode text output must drop a block whose owning page is namespace-excluded."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "secret salary AKIA-leak", "uuid": "blk-1", "page": "uuid-fin"},
+            {"content": "public roadmap data", "uuid": "blk-2", "page": "uuid-work"},
+        ],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    fake.resolve_page_uuids.return_value = {
+        "uuid-fin": "finance/q3",
+        "uuid-work": "work/x",
+    }
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "data"})[0].text
+        assert "AKIA-leak" not in out
+        assert "blk-1" not in out
+        assert "public roadmap data" in out
+
+
+def test_db_search_filters_block_from_excluded_namespace_json():
+    """DB-mode JSON output must drop a block whose owning page is namespace-excluded."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "secret salary AKIA-leak", "uuid": "blk-1", "page": "uuid-fin"},
+            {"content": "public roadmap data", "uuid": "blk-2", "page": "uuid-work"},
+        ],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+        {"originalName": "work/x", "properties": {}},
+    ]
+    fake.resolve_page_uuids.return_value = {
+        "uuid-fin": "finance/q3",
+        "uuid-work": "work/x",
+    }
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool(
+            {"query": "data", "format": "json"}
+        )[0].text
+        assert "AKIA-leak" not in out
+        assert "blk-1" not in out
+        parsed = json.loads(out)
+        uuids = [b.get("uuid") for b in parsed.get("blocks", [])]
+        assert "blk-1" not in uuids
+        assert "blk-2" in uuids
+
+
+def test_db_search_filters_block_from_tag_excluded_page_text():
+    """DB-mode text output must drop a block whose owning page is TAG-excluded."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "secret key AKIA-leak", "uuid": "blk-1", "page": "uuid-vault"},
+            {"content": "ordinary note", "uuid": "blk-2", "page": "uuid-notes"},
+        ],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "vault", "properties": {"tags": ["keys"]}},
+        {"originalName": "notes", "properties": {}},
+    ]
+    fake.resolve_page_uuids.return_value = {
+        "uuid-vault": "vault",
+        "uuid-notes": "notes",
+    }
+    with patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=[],
+        _exclude_namespaces=[],
+        _exclude_tags=["keys"],
+    ), patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "note"})[0].text
+        assert "AKIA-leak" not in out
+        assert "blk-1" not in out
+        assert "ordinary note" in out
+
+
+def test_db_search_block_fail_closed_when_unresolvable():
+    """Fail-closed: a DB-mode block whose owning page cannot be resolved is dropped
+    while an exclusion rule is active."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "unverifiable AKIA-leak", "uuid": "blk-1", "page": "uuid-???"},
+        ],
+    }
+    fake.list_pages.return_value = [
+        {"originalName": "finance/q3", "properties": {}},
+    ]
+    fake.resolve_page_uuids.return_value = {}  # cannot resolve
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "x"})[0].text
+        assert "AKIA-leak" not in out
+
+
+def test_db_search_blocks_pass_when_no_rules():
+    """Control: with no exclusion active, DB-mode blocks surface and no UUID
+    resolution call is made."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "ordinary visible block", "uuid": "blk-1", "page": "uuid-1"},
+        ],
+    }
+    fake.list_pages.return_value = []
+    with _ns(), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "block"})[0].text
+        assert "ordinary visible block" in out
+        fake.resolve_page_uuids.assert_not_called()
+
+
+# =============================================================================
+# LEAK 2: tag-only DSL query profile must filter block results whose owning
+# page is TAG-excluded (no namespace rules set).
+# =============================================================================
+
+
+def test_query_filters_block_from_tag_excluded_page():
+    """With ONLY exclude_tags set (no namespace rules), a query block whose owning
+    page carries an excluded tag must be dropped."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "secret key AKIA-leak", "page": {"originalName": "vault"}},
+        {"content": "public note", "page": {"originalName": "notes"}},
+    ]
+
+    def _content(page_name):
+        if page_name == "vault":
+            return {"page": {"properties": {"tags": ["keys"]}}}
+        return {"page": {"properties": {}}}
+
+    fake.get_page_content.side_effect = _content
+    with patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=[],
+        _exclude_namespaces=[],
+        _exclude_tags=["keys"],
+    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(page-tags)"})[0].text
+        assert "AKIA-leak" not in out
+        assert "public note" in out
+
+
+def test_query_blocks_pass_when_no_rules_tag_axis():
+    """Control: with no rules at all, blocks pass through (no tag fetch)."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "anything", "page": {"originalName": "vault"}},
+    ]
+    with _ns(), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
+        assert "anything" in out
+        fake.get_page_content.assert_not_called()
+
+
+# =============================================================================
 # Task 4b: vector_search must apply _exclude_tags, not just namespace rules.
 # On a shared DB, a #keys-tagged chunk physically present in the index must not
 # surface for a profile that excludes the 'keys' tag.
