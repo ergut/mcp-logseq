@@ -27,9 +27,11 @@ def parse_args(argv=None):
 
 
 def _validate_http_options(args) -> None:
-    """Validate TLS options for the http transport. Raises SystemExit on misconfig.
+    """Validate HTTP transport options. Raises SystemExit on misconfig.
 
-    Task 2 extends this with the insecure-bind guardrail.
+    Checks that --tls-cert/--tls-key are supplied together, that both files
+    exist on disk, and that a non-loopback host is not served over plain HTTP
+    without --insecure.
     """
     import os
     if (args.tls_cert is None) != (args.tls_key is None):

@@ -119,6 +119,14 @@ def test_validate_http_options_missing_cert_file(tmp_path):
         _validate_http_options(args)
 
 
+def test_validate_http_options_missing_key_file(tmp_path):
+    from mcp_logseq import _validate_http_options
+    cert = tmp_path / "c.pem"; cert.write_text("x")
+    args = parse_args(["--transport", "http", "--tls-cert", str(cert), "--tls-key", str(tmp_path / "nope.pem")])
+    with pytest.raises(SystemExit):
+        _validate_http_options(args)
+
+
 def test_parse_args_insecure_default_false():
     args = parse_args(["--transport", "http"])
     assert args.insecure is False
