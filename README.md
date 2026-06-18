@@ -271,7 +271,7 @@ When serving multiple clients over HTTP, isolation rests on a few guarantees:
 
 - **ACL is enforced server-side, before any bytes leave the process.** Blocked pages are filtered out of listings/search and denied on direct read/write — a client never receives content it isn't scoped to.
 - **Bearer auth.** Every HTTP request must carry `Authorization: Bearer <MCP_HTTP_AUTH_TOKEN>`; unauthenticated requests are rejected.
-- **Loopback binding.** Default `--host 127.0.0.1`; never `0.0.0.0`.
+- **Loopback binding.** Default `--host 127.0.0.1` (loopback). Non-loopback binds are refused over plain HTTP — they require TLS (`--tls-cert`/`--tls-key`) or an explicit `--insecure` (see [Step 3](#step-3--encrypt-anything-past-loopback)).
 - **Process-boundary isolation.** Multi-instance means one profile's config (token, namespace scope, excluded tags) is never loaded by another process.
 - **Read tools** enforce namespace allow/deny *or* tag exclusion. **Write tools** enforce namespace gating plus tag-on-write checks against the existing page, so a write can't slip into a blocked namespace or onto an excluded page.
 - **Tag matching is case-SENSITIVE; namespace matching is case-INSENSITIVE.** Namespaces match regardless of case (`work` matches `Work/Projects`), but `LOGSEQ_EXCLUDE_TAGS` / `vector.exclude_tags` must match the **stored** tag casing exactly. Logseq typically stores tags lowercased, so `LOGSEQ_EXCLUDE_TAGS=Secret` will **not** exclude a page tagged `secret`. Match the casing as stored, or a page you meant to hide stays visible.
