@@ -59,7 +59,12 @@ def test_main_http_with_token_calls_run_http(monkeypatch):
 
     mcp_logseq.main()
 
-    assert calls == [(("127.0.0.1", 12320, "secret-token"), {"read_only": False})]
+    assert calls == [
+        (
+            ("127.0.0.1", 12320, "secret-token"),
+            {"read_only": False, "tls_cert": None, "tls_key": None},
+        )
+    ]
 
 
 def test_main_http_read_only_threaded(monkeypatch):
@@ -79,4 +84,54 @@ def test_main_http_read_only_threaded(monkeypatch):
 
     mcp_logseq.main()
 
-    assert calls == [(("127.0.0.1", 12320, "secret-token"), {"read_only": True})]
+    assert calls == [
+        (
+            ("127.0.0.1", 12320, "secret-token"),
+            {"read_only": True, "tls_cert": None, "tls_key": None},
+        )
+    ]
+
+
+def test_parse_args_tls_flags_default_none():
+    args = parse_args(["--transport", "http"])
+    assert args.tls_cert is None
+    assert args.tls_key is None
+
+
+def test_parse_args_tls_flags_parsed():
+    args = parse_args(["--transport", "http", "--tls-cert", "/c.pem", "--tls-key", "/k.pem"])
+    assert args.tls_cert == "/c.pem"
+    assert args.tls_key == "/k.pem"
+
+
+def test_validate_http_options_requires_both_tls_files():
+    from mcp_logseq import _validate_http_options
+    args = parse_args(["--transport", "http", "--tls-cert", "/c.pem"])
+    with pytest.raises(SystemExit):
+        _validate_http_options(args)
+
+
+def test_validate_http_options_missing_cert_file(tmp_path):
+    from mcp_logseq import _validate_http_options
+    key = tmp_path / "k.pem"; key.write_text("x")
+    args = parse_args(["--transport", "http", "--tls-cert", str(tmp_path / "nope.pem"), "--tls-key", str(key)])
+    with pytest.raises(SystemExit):
+        _validate_http_options(args)
+
+
+def test_run_http_passes_ssl_to_uvicorn(monkeypatch):
+    import mcp_logseq.transport.http as http_mod
+    calls = {}
+    monkeypatch.setattr("uvicorn.run", lambda app, **kw: calls.update(kw))
+    http_mod.run_http("127.0.0.1", 12320, "tok", tls_cert="/c.pem", tls_key="/k.pem")
+    assert calls["ssl_certfile"] == "/c.pem"
+    assert calls["ssl_keyfile"] == "/k.pem"
+
+
+def test_run_http_no_tls_passes_none(monkeypatch):
+    import mcp_logseq.transport.http as http_mod
+    calls = {}
+    monkeypatch.setattr("uvicorn.run", lambda app, **kw: calls.update(kw))
+    http_mod.run_http("127.0.0.1", 12320, "tok")
+    assert calls.get("ssl_certfile") is None
+    assert calls.get("ssl_keyfile") is None
