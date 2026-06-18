@@ -285,9 +285,10 @@ mcp-logseq --transport http --host 127.0.0.1 --port 12320
 ```
 
 - `--transport {stdio,http}` — default `stdio`.
-- `--host` — default `127.0.0.1` (loopback). **Never bind to `0.0.0.0`.** ACL is enforced server-side, but binding to a public interface would still expose the auth-token surface to the network; keep it on loopback or a host-internal interface.
+- `--host` — default `127.0.0.1` (loopback). Binding a non-loopback host over plain HTTP is **refused** unless you supply TLS or pass `--insecure`; see [Step 3 — encrypt anything past loopback](#step-3--encrypt-anything-past-loopback).
 - `--port` — default `12320`.
 - `--read-only` — unregisters the 8 write tools (see [Security model](#-security-model)); read tools and the vector tools remain.
+- `--tls-cert` / `--tls-key` — serve native HTTPS; see [Step 3](#step-3--encrypt-anything-past-loopback).
 
 HTTP mode **requires** `MCP_HTTP_AUTH_TOKEN`; the server exits if it is missing. Clients authenticate with `Authorization: Bearer <token>` and target the MCP endpoint at **`/mcp`**. (A bare POST to `/mcp` issues a `307` redirect to `/mcp/`; point clients at `/mcp` and follow redirects, or use `/mcp/` directly.)
 
@@ -332,6 +333,38 @@ LOGSEQ_CONFIG_FILE=~/.logseq/data.json logseq-sync --once
 ```
 
 `logseq-sync` reads **no ACL env** — only the `vector` block and graph path from the data file. (`--rebuild` drops and re-indexes from scratch; `--status` prints a staleness report.) The reader profiles open the same `db_path` read-only and never run sync: the MCP `sync_vector_db` tool is inert and simply points operators at this external writer.
+
+#### Step 3 — encrypt anything past loopback
+
+> **The bearer token and all content travel as plaintext over plain HTTP.** Anything reachable beyond loopback must be encrypted — either native TLS on the instance, or a TLS-terminating reverse proxy in front of a loopback-bound instance.
+
+To enforce this, the server **refuses to bind a non-loopback host over plain HTTP**. A host outside the loopback set (`127.0.0.1`, `localhost`, `::1`) requires one of:
+
+- **Native TLS** — pass `--tls-cert` and `--tls-key`. TLS is allowed on any host.
+- **A TLS-terminating reverse proxy** in front, with the instance bound to a loopback address (recommended — see below).
+- **`--insecure`** — consciously accept an unencrypted non-loopback bind. Only sane on a trusted network or already behind a TLS proxy.
+
+Loopback binds over plain HTTP need no opt-in; that remains the default.
+
+**Native TLS** wraps the instance directly in HTTPS (uvicorn's `ssl_certfile`/`ssl_keyfile`):
+
+```bash
+mcp-logseq --transport http --port 12320 \
+  --tls-cert /path/cert.pem --tls-key /path/key.pem
+```
+
+`--tls-cert` and `--tls-key` must be supplied **together** (both or neither, else the server exits), and both files **must exist** at startup. For the certificate itself: use [`mkcert`](https://github.com/FiloSottile/mkcert) or a self-signed cert for host-internal/dev use, or [Let's Encrypt](https://letsencrypt.org/) when the instance is reachable on a public DNS name. The per-profile env blocks from [Step 1](#step-1--one-instance-per-profile) are unchanged — TLS just changes the wire, not the profile.
+
+**Recommended production path — reverse proxy with automatic HTTPS.** Bind the instance to loopback and let a proxy such as [Caddy](https://caddyserver.com/) terminate TLS (it obtains and renews Let's Encrypt certificates automatically):
+
+```caddyfile
+# Caddyfile — automatic HTTPS in front of a loopback-bound instance
+logseq.example.com {
+    reverse_proxy 127.0.0.1:12320
+}
+```
+
+With the instance running as `mcp-logseq --transport http --port 12320` (loopback default, no `--insecure` needed), clients reach it over HTTPS at `logseq.example.com` while the unencrypted hop stays inside the host.
 
 ### Alternative Setup Methods
 
