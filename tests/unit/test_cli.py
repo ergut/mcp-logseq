@@ -119,6 +119,40 @@ def test_validate_http_options_missing_cert_file(tmp_path):
         _validate_http_options(args)
 
 
+def test_parse_args_insecure_default_false():
+    args = parse_args(["--transport", "http"])
+    assert args.insecure is False
+
+
+def test_validate_refuses_non_loopback_plain_http():
+    from mcp_logseq import _validate_http_options
+    args = parse_args(["--transport", "http", "--host", "0.0.0.0"])
+    with pytest.raises(SystemExit):
+        _validate_http_options(args)
+
+
+def test_validate_allows_non_loopback_with_insecure():
+    from mcp_logseq import _validate_http_options
+    args = parse_args(["--transport", "http", "--host", "0.0.0.0", "--insecure"])
+    _validate_http_options(args)  # must not raise
+
+
+def test_validate_allows_non_loopback_with_tls(tmp_path):
+    from mcp_logseq import _validate_http_options
+    cert = tmp_path / "c.pem"; cert.write_text("x")
+    key = tmp_path / "k.pem"; key.write_text("x")
+    args = parse_args(["--transport", "http", "--host", "10.0.0.5",
+                       "--tls-cert", str(cert), "--tls-key", str(key)])
+    _validate_http_options(args)  # must not raise
+
+
+def test_validate_allows_loopback_plain_http():
+    from mcp_logseq import _validate_http_options
+    for host in ("127.0.0.1", "localhost", "::1"):
+        args = parse_args(["--transport", "http", "--host", host])
+        _validate_http_options(args)  # must not raise
+
+
 def test_run_http_passes_ssl_to_uvicorn(monkeypatch):
     import mcp_logseq.transport.http as http_mod
     calls = {}

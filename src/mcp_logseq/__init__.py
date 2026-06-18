@@ -19,6 +19,10 @@ def parse_args(argv=None):
                    help="Path to a PEM TLS certificate. Enables HTTPS (requires --tls-key).")
     p.add_argument("--tls-key", default=None,
                    help="Path to the PEM TLS private key (requires --tls-cert).")
+    p.add_argument("--insecure", action="store_true",
+                   help=("Allow binding a non-loopback host over plain HTTP. Without TLS "
+                         "the bearer token and all content travel unencrypted — only use "
+                         "on a trusted network or behind a TLS-terminating reverse proxy."))
     return p.parse_args(argv)
 
 
@@ -34,6 +38,17 @@ def _validate_http_options(args) -> None:
         for label, path in (("--tls-cert", args.tls_cert), ("--tls-key", args.tls_key)):
             if not os.path.isfile(path):
                 raise SystemExit(f"{label} file not found: {path}")
+
+    _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+    tls_enabled = args.tls_cert is not None
+    if args.host not in _LOOPBACK_HOSTS and not tls_enabled and not args.insecure:
+        raise SystemExit(
+            f"Refusing to bind {args.host} over plain HTTP: the bearer token and "
+            f"all content would travel unencrypted. Either provide --tls-cert/"
+            f"--tls-key, put a TLS-terminating reverse proxy in front and bind a "
+            f"loopback address, or pass --insecure to override (not recommended "
+            f"outside a trusted network)."
+        )
 
 
 def main():
