@@ -812,6 +812,43 @@ def test_db_search_blocks_pass_when_no_rules():
         fake.resolve_page_uuids.assert_not_called()
 
 
+def test_db_search_fails_closed_when_list_pages_raises_with_rules():
+    """Fail-closed: if list_pages() throws while a rule is active, the search
+    must NOT surface DB-mode block content (it returns an error instead of an
+    unfiltered, degraded result set)."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "secret AKIA-leak", "uuid": "blk-1", "page": "uuid-fin"},
+        ],
+    }
+    fake.list_pages.side_effect = RuntimeError("api down")
+    with _ns(exclude=["finance"]), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "x"})[0].text
+        assert "AKIA-leak" not in out
+        assert "Search failed" in out
+
+
+def test_search_no_rules_unaffected_by_list_pages():
+    """Control: with NO rules, _build_excluded_page_names returns early and never
+    calls list_pages, so a list_pages fault cannot break search."""
+    fake = Mock()
+    fake.search_content.return_value = {
+        "blocks": [
+            {"content": "ordinary visible block", "uuid": "blk-1", "page": "uuid-1"},
+        ],
+    }
+    fake.list_pages.side_effect = RuntimeError("api down")
+    with _ns(), \
+            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = SearchToolHandler().run_tool({"query": "block"})[0].text
+        assert "ordinary visible block" in out
+        fake.list_pages.assert_not_called()
+
+
 # =============================================================================
 # LEAK 2: tag-only DSL query profile must filter block results whose owning
 # page is TAG-excluded (no namespace rules set).
@@ -854,6 +891,27 @@ def test_query_blocks_pass_when_no_rules_tag_axis():
         out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
         assert "anything" in out
         fake.get_page_content.assert_not_called()
+
+
+def test_query_tag_fetch_deduped_per_owning_page():
+    """Two blocks from the SAME owning page must trigger get_page_content only
+    once within a single query run (per-request memo)."""
+    fake = Mock()
+    fake.query_dsl.return_value = [
+        {"content": "alpha", "page": {"originalName": "notes"}},
+        {"content": "beta", "page": {"originalName": "notes"}},
+    ]
+    fake.get_page_content.return_value = {"page": {"properties": {}}}
+    with patch.multiple(
+        "mcp_logseq.tools",
+        _include_namespaces=[],
+        _exclude_namespaces=[],
+        _exclude_tags=["keys"],
+    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+        out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
+        assert "alpha" in out
+        assert "beta" in out
+        assert fake.get_page_content.call_count == 1
 
 
 # =============================================================================

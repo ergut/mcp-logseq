@@ -1061,7 +1061,9 @@ class SearchToolHandler(ToolHandler):
         """Return lowercased names of pages blocked by tag or namespace rules.
 
         Makes one extra api.list_pages() call when any rule is configured.
-        Fails open on error to avoid breaking search entirely.
+        Fail-closed: when rules are active but the page list cannot be built,
+        the error propagates so the caller aborts rather than returning an empty
+        (degraded) exclusion set that would let restricted content through.
         """
         if not exclude_tags and not exclude_namespaces and not include_namespaces:
             return set()
@@ -1077,9 +1079,15 @@ class SearchToolHandler(ToolHandler):
                 ):
                     blocked.add(name.lower())
             return blocked
-        except Exception as e:
-            logger.warning(f"Could not build blocked page names for search filtering: {e}")
-            return set()
+        except Exception:
+            # Rules are active here (guarded above), so we cannot determine what
+            # to exclude. Fail-closed: re-raise so the search handler returns an
+            # error instead of unfiltered results.
+            logger.warning(
+                "Could not build blocked page names while ACL rules are active; "
+                "failing closed (search will error rather than leak)."
+            )
+            raise
 
     @staticmethod
     def _filter_db_block_results(
@@ -1092,16 +1100,15 @@ class SearchToolHandler(ToolHandler):
         DB-mode blocks carry a 'page' field = the owning page's UUID, so the
         owning page can be resolved to a name and checked against
         ``excluded_page_names`` (which already encodes BOTH tag and namespace
-        exclusions). Fail-closed: when any exclusion rule is active and a block's
-        owning page cannot be resolved, the block is dropped.
+        exclusions). Fail-closed: when ``excluded_page_names`` is non-empty and a
+        block's owning page cannot be resolved, the block is dropped.
 
-        When no exclusion rule is active this is a no-op (no API calls).
+        A non-empty ``excluded_page_names`` is authoritative: because
+        ``_build_excluded_page_names`` fails closed when rules are active, an
+        empty set genuinely means no active exclusions, so this is a no-op
+        (no API calls) in that case.
         """
-        any_rule_active = bool(
-            excluded_page_names or _exclude_tags
-            or _include_namespaces or _exclude_namespaces
-        )
-        if not any_rule_active:
+        if not excluded_page_names:
             return block_results
 
         page_uuids = [
@@ -1463,22 +1470,35 @@ class QueryToolHandler(ToolHandler):
             return api.get_block_page_name(uuid)
         return None
 
-    def _block_blocked(self, item: dict, api) -> bool:
+    def _block_blocked(self, item: dict, api, cache: dict | None = None) -> bool:
         """Fail-closed tag AND namespace check for a DSL block result.
 
         Consulted whenever ANY rule (tag or namespace) is configured. The owning
         page is resolved once via ``_block_page_name``; the block is dropped if
         that page is namespace-blocked OR tag-excluded. A block whose owning page
         cannot be resolved is treated as blocked (fail-closed).
+
+        ``cache`` is an optional per-request memo (page name -> blocked bool) so
+        that many blocks sharing an owning page incur the tag fetch only once.
         """
         page_name = self._block_page_name(item, api)
         if page_name is None:
             return True
+        if cache is not None and page_name in cache:
+            return cache[page_name]
+
+        blocked = self._page_name_blocked(page_name, api)
+        if cache is not None:
+            cache[page_name] = blocked
+        return blocked
+
+    def _page_name_blocked(self, page_name: str, api) -> bool:
+        """Tag OR namespace block decision for an already-resolved page name."""
         if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
             return True
         if _exclude_tags:
-            # Tag exclusion needs the page's properties; resolve the owning page
-            # once and inspect its tags. Fail-closed if it cannot be fetched.
+            # Tag exclusion needs the page's properties; fetch the owning page
+            # and inspect its tags. Fail-closed if it cannot be fetched.
             try:
                 page = api.get_page_content(page_name)
             except Exception:
@@ -1547,13 +1567,16 @@ class QueryToolHandler(ToolHandler):
             # (unresolvable owning page => dropped).
             if _exclude_tags or _include_namespaces or _exclude_namespaces:
                 filtered = []
+                # Per-request memo so blocks sharing an owning page only trigger
+                # one tag/namespace resolution + fetch.
+                block_decision_cache: dict[str, bool] = {}
                 for item in filtered_results:
                     if self._is_page(item):
                         name = item.get("originalName") or item.get("name", "")
                         if _is_page_blocked(item, name):
                             continue
                     elif self._is_block(item):
-                        if self._block_blocked(item, api):
+                        if self._block_blocked(item, api, block_decision_cache):
                             continue
                     filtered.append(item)
                 filtered_results = filtered
