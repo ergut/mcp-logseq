@@ -15,7 +15,25 @@ def parse_args(argv=None):
         action="store_true",
         help="Disable write tools (create/update/delete/rename for pages and blocks).",
     )
+    p.add_argument("--tls-cert", default=None,
+                   help="Path to a PEM TLS certificate. Enables HTTPS (requires --tls-key).")
+    p.add_argument("--tls-key", default=None,
+                   help="Path to the PEM TLS private key (requires --tls-cert).")
     return p.parse_args(argv)
+
+
+def _validate_http_options(args) -> None:
+    """Validate TLS options for the http transport. Raises SystemExit on misconfig.
+
+    Task 2 extends this with the insecure-bind guardrail.
+    """
+    import os
+    if (args.tls_cert is None) != (args.tls_key is None):
+        raise SystemExit("--tls-cert and --tls-key must be provided together")
+    if args.tls_cert is not None:
+        for label, path in (("--tls-cert", args.tls_cert), ("--tls-key", args.tls_key)):
+            if not os.path.isfile(path):
+                raise SystemExit(f"{label} file not found: {path}")
 
 
 def main():
@@ -33,9 +51,11 @@ def main():
         token = os.environ.get("MCP_HTTP_AUTH_TOKEN")
         if not token:
             raise SystemExit("MCP_HTTP_AUTH_TOKEN is required for --transport http")
+        _validate_http_options(args)
         from .transport import http
 
-        http.run_http(args.host, args.port, token, read_only=args.read_only)
+        http.run_http(args.host, args.port, token, read_only=args.read_only,
+                      tls_cert=args.tls_cert, tls_key=args.tls_key)
 
 
 # Optionally expose other important items at package level.
