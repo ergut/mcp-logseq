@@ -49,11 +49,23 @@ def create_asgi_app(auth_token: str, read_only: bool = False) -> Starlette:
 
 
 def run_http(
-    host: str, port: int, auth_token: str, read_only: bool = False
+    host: str,
+    port: int,
+    auth_token: str,
+    read_only: bool = False,
+    tls_cert: str | None = None,
+    tls_key: str | None = None,
 ) -> None:
-    """Run the HTTP transport with uvicorn (imported lazily)."""
+    """Run the HTTP transport with uvicorn (imported lazily).
+
+    When tls_cert/tls_key are provided, uvicorn serves over HTTPS.
+    """
     import uvicorn
 
     uvicorn.run(
-        create_asgi_app(auth_token, read_only=read_only), host=host, port=port
+        create_asgi_app(auth_token, read_only=read_only),
+        host=host,
+        port=port,
+        ssl_certfile=tls_cert,
+        ssl_keyfile=tls_key,
     )
