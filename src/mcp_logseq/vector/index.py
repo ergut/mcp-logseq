@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -25,6 +23,7 @@ from mcp_logseq.tools import (
     _is_namespace_blocked,
     _include_namespaces,
     _exclude_namespaces,
+    _exclude_tags,
 )
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
@@ -53,6 +52,20 @@ def _filter_results_by_namespace(
     if not include and not exclude:
         return results
     return [r for r in results if not _is_namespace_blocked(r.page, include, exclude)]
+
+
+def _filter_results_by_tags(
+    results: list[SearchResult], exclude_tags: list[str]
+) -> list[SearchResult]:
+    """Drop vector search results whose page carries an excluded tag.
+
+    Mirrors the namespace filter: on a shared DB this prevents tag-blocked
+    pages (e.g. #keys) from leaking to a profile that excludes that tag.
+    Tag data is already on each result, so no API call is needed.
+    """
+    if not exclude_tags:
+        return results
+    return [r for r in results if not any(t in exclude_tags for t in (r.tags or []))]
 
 
 def _format_search_results(results) -> str:
@@ -180,7 +193,7 @@ class VectorSearchToolHandler(ToolHandler):
                 detail = ", ".join(parts)
                 output_prefix = (
                     f"Note: {detail} since last sync. "
-                    f"Ensure logseq-sync --watch is running, or call sync_vector_db. "
+                    f"Ensure `logseq-sync --watch` is running on the host that owns the DB. "
                     f"Results below may be incomplete.\n\n"
                 )
         except Exception as e:
@@ -229,6 +242,7 @@ class VectorSearchToolHandler(ToolHandler):
         results = _filter_results_by_namespace(
             results, _include_namespaces, _exclude_namespaces
         )
+        results = _filter_results_by_tags(results, _exclude_tags)
         output = output_prefix + _format_search_results(results)
         return [TextContent(type="text", text=output)]
 
@@ -242,15 +256,16 @@ class SyncVectorDBToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description=(
-                "Run incremental sync of the vector database against current Logseq graph files. "
-                "Only changed files are re-embedded. Use rebuild=true to drop and re-index everything."
+                "Vector DB sync is NOT available via MCP. The vector database has a single "
+                "writer — the logseq-sync CLI, run externally on the host that owns the DB. "
+                "Calling this tool just returns instructions; it does not start a sync."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "rebuild": {
                         "type": "boolean",
-                        "description": "If true, drop the entire DB and re-index from scratch",
+                        "description": "Ignored. Sync runs externally via logseq-sync --rebuild.",
                         "default": False,
                     },
                 },
@@ -258,28 +273,13 @@ class SyncVectorDBToolHandler(ToolHandler):
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
-        rebuild = bool(args.get("rebuild", False))
-
-        cmd = [sys.executable, "-m", "mcp_logseq.bin.logseq_sync"]
-        cmd.append("--rebuild" if rebuild else "--once")
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-        except subprocess.TimeoutExpired:
-            return [TextContent(type="text", text="Sync timed out after 10 minutes.")]
-        except Exception as e:
-            return [TextContent(type="text", text=f"Sync failed: {e}")]
-
-        if result.returncode != 0:
-            error = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-            return [TextContent(type="text", text=f"Sync failed:\n{error}")]
-
-        return [TextContent(type="text", text=result.stdout.strip())]
+        message = (
+            "Vector DB sync is not available via MCP. Run it on the host that owns the DB:\n"
+            "  logseq-sync --once      # incremental sync\n"
+            "  logseq-sync --watch     # continuous file watcher\n"
+            "  logseq-sync --rebuild   # drop and re-index everything"
+        )
+        return [TextContent(type="text", text=message)]
 
 
 class VectorDBStatusToolHandler(ToolHandler):

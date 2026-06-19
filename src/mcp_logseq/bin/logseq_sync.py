@@ -10,8 +10,8 @@ Usage:
 Requires LOGSEQ_CONFIG_FILE env var pointing to a config JSON file
 with vector.enabled set to true.
 
-This CLI is the single writer for the vector DB. The MCP server delegates
-all sync operations here via subprocess to enforce the single-writer principle.
+This CLI is the sole writer for the vector DB. MCP server instances never
+invoke it; operators run it externally (or via a system unit / scheduler).
 """
 
 from __future__ import annotations

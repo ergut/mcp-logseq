@@ -17,10 +17,12 @@ classifiers = [
     "Topic :: Text Processing",
 ]
 dependencies = [
- "mcp>=1.1.0",
+ "mcp>=1.27",
  "python-dotenv>=1.0.1",
  "requests>=2.32.3",
  "pyyaml>=6.0",
+ "starlette>=0.37",
+ "uvicorn>=0.30",
 ]
 
 [project.urls]

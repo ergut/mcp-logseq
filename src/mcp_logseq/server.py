@@ -54,13 +54,155 @@ else:
 api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
 logger.info(f"Using API URL: {api_url}")
 
-app = Server("mcp-logseq")
+# Names of the genuine write tools — tools that mutate Logseq content. When
+# ``read_only`` is set these are NOT registered. ``sync_vector_db`` is NOT in
+# this set: it mutates the (local) vector index, not Logseq content, and stays
+# registered (Task 5b makes it inert under read-only).
+_WRITE_TOOL_NAMES = frozenset(
+    {
+        "create_page",
+        "update_page",
+        "delete_page",
+        "rename_page",
+        "update_block",
+        "delete_block",
+        "insert_nested_block",
+        "set_block_properties",
+    }
+)
 
-tool_handlers = {}
+
+def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None:
+    """Populate ``handlers`` with every available ToolHandler instance.
+
+    Mutates the provided dict in place so callers can wire ``list_tools`` /
+    ``call_tool`` closures over the same registry.
+
+    When ``read_only`` is True, the genuine write handlers (see
+    ``_WRITE_TOOL_NAMES``) are skipped; all read tools plus ``sync_vector_db``,
+    ``vector_search`` and ``vector_db_status`` remain registered.
+    """
+
+    def add(tool_class: tools.ToolHandler) -> None:
+        if read_only and tool_class.name in _WRITE_TOOL_NAMES:
+            logger.info(f"read_only: skipping write tool handler: {tool_class.name}")
+            return
+        logger.debug(f"Registering tool handler: {tool_class.name}")
+        handlers[tool_class.name] = tool_class
+        logger.info(f"Successfully registered tool handler: {tool_class.name}")
+
+    logger.info(f"Registering tool handlers (read_only={read_only})...")
+
+    add(tools.CreatePageToolHandler())
+    add(tools.UpdatePageToolHandler())
+    add(tools.ListPagesToolHandler())
+    add(tools.GetPageContentToolHandler())
+    add(tools.DeletePageToolHandler())
+    add(tools.DeleteBlockToolHandler())
+    add(tools.UpdateBlockToolHandler())
+    add(tools.GetBlockToolHandler())
+    add(tools.SearchToolHandler())
+    add(tools.QueryToolHandler())
+    add(tools.FindPagesByPropertyToolHandler())
+    add(tools.GetPagesFromNamespaceToolHandler())
+    add(tools.GetPagesTreeFromNamespaceToolHandler())
+    add(tools.RenamePageToolHandler())
+    add(tools.GetPageBacklinksToolHandler())
+    add(tools.InsertNestedBlockToolHandler())
+    add(tools.SetBlockPropertiesToolHandler())
+    logger.info("Tool handlers registration complete")
+
+    # Conditional vector tool registration — only when LOGSEQ_CONFIG_FILE is set
+    # and vector.enabled is true in the config file
+    try:
+        from .config import load_vector_config, load_exclude_tags
+        vector_config = load_vector_config()
+        # Merge top-level exclude_tags into vector config (additive union)
+        top_level_exclude = load_exclude_tags()
+        if vector_config and top_level_exclude:
+            merged = list(dict.fromkeys(top_level_exclude + vector_config.exclude_tags))
+            vector_config.exclude_tags = merged
+        if vector_config and vector_config.enabled:
+            from .vector.index import (
+                VectorDBStatusToolHandler,
+                VectorSearchToolHandler,
+                SyncVectorDBToolHandler,
+            )
+            add(VectorSearchToolHandler(vector_config))
+            add(SyncVectorDBToolHandler(vector_config))
+            add(VectorDBStatusToolHandler(vector_config))
+            logger.info("Vector search tools registered (3 tools)")
+        else:
+            logger.debug("Vector search not configured — skipping vector tools")
+    except Exception as e:
+        logger.warning(f"Could not load vector config, vector tools disabled: {e}")
+
+
+def build_app(read_only: bool = False) -> tuple[Server, dict]:
+    """Build a fully wired MCP ``Server`` plus its tool-handler registry.
+
+    Returns ``(server, handlers)`` where ``handlers`` is the very same dict the
+    server's ``list_tools`` / ``call_tool`` closures read from. Mutating that
+    dict after construction is therefore reflected by the served app.
+
+    When ``read_only`` is True the genuine write tools are not registered, so
+    the served app exposes only read/search tools (plus the vector tools,
+    including ``sync_vector_db``). Default ``read_only=False`` registers
+    everything, identical to prior behavior.
+    """
+    server = Server("mcp-logseq")
+    handlers: dict = {}
+    _register_all_tool_handlers(handlers, read_only)
+
+    @server.list_tools()
+    async def list_tools() -> list[Tool]:
+        """List available tools."""
+        logger.debug("Listing tools")
+        tools_list = [th.get_tool_description() for th in handlers.values()]
+        logger.debug(f"Found {len(tools_list)} tools")
+        return tools_list
+
+    @server.call_tool()
+    async def call_tool(
+        name: str, arguments: Any
+    ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        """Handle tool calls."""
+        logger.info(f"Tool call: {name} with arguments {arguments}")
+
+        if not isinstance(arguments, dict):
+            logger.error("Arguments must be dictionary")
+            raise RuntimeError("arguments must be dictionary")
+
+        tool_handler = handlers.get(name)
+        if not tool_handler:
+            logger.error(f"Unknown tool: {name}")
+            raise ValueError(f"Unknown tool: {name}")
+
+        try:
+            logger.debug(f"Running tool {name}")
+            result = await asyncio.to_thread(tool_handler.run_tool, arguments)
+            logger.debug(f"Tool result: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"Error running tool: {str(e)}", exc_info=True)
+            raise RuntimeError(f"Error: {str(e)}")
+
+    return server, handlers
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible module-level surface.
+#
+# Existing code/tests import ``app``, ``tool_handlers``, ``add_tool_handler``
+# and ``get_tool_handler`` from this module. The module-level ``tool_handlers``
+# IS the dict that ``app``'s closures serve from — registration happens exactly
+# once — so ``add_tool_handler(X)`` after import is visible through ``app``.
+# ---------------------------------------------------------------------------
+
+app, tool_handlers = build_app()
 
 
 def add_tool_handler(tool_class: tools.ToolHandler):
-    global tool_handlers
     logger.debug(f"Registering tool handler: {tool_class.name}")
     tool_handlers[tool_class.name] = tool_class
     logger.info(f"Successfully registered tool handler: {tool_class.name}")
@@ -76,93 +218,11 @@ def get_tool_handler(name: str) -> tools.ToolHandler | None:
     return handler
 
 
-# Register all tool handlers
-logger.info("Registering tool handlers...")
-
-add_tool_handler(tools.CreatePageToolHandler())
-add_tool_handler(tools.UpdatePageToolHandler())
-add_tool_handler(tools.ListPagesToolHandler())
-add_tool_handler(tools.GetPageContentToolHandler())
-add_tool_handler(tools.DeletePageToolHandler())
-add_tool_handler(tools.DeleteBlockToolHandler())
-add_tool_handler(tools.UpdateBlockToolHandler())
-add_tool_handler(tools.GetBlockToolHandler())
-add_tool_handler(tools.SearchToolHandler())
-add_tool_handler(tools.QueryToolHandler())
-add_tool_handler(tools.FindPagesByPropertyToolHandler())
-add_tool_handler(tools.GetPagesFromNamespaceToolHandler())
-add_tool_handler(tools.GetPagesTreeFromNamespaceToolHandler())
-add_tool_handler(tools.RenamePageToolHandler())
-add_tool_handler(tools.GetPageBacklinksToolHandler())
-add_tool_handler(tools.InsertNestedBlockToolHandler())
-add_tool_handler(tools.SetBlockPropertiesToolHandler())
-logger.info("Tool handlers registration complete")
-
-# Conditional vector tool registration — only when LOGSEQ_CONFIG_FILE is set
-# and vector.enabled is true in the config file
-try:
-    from .config import load_vector_config, load_exclude_tags
-    vector_config = load_vector_config()
-    # Merge top-level exclude_tags into vector config (additive union)
-    top_level_exclude = load_exclude_tags()
-    if vector_config and top_level_exclude:
-        merged = list(dict.fromkeys(top_level_exclude + vector_config.exclude_tags))
-        vector_config.exclude_tags = merged
-    if vector_config and vector_config.enabled:
-        from .vector.index import (
-            VectorDBStatusToolHandler,
-            VectorSearchToolHandler,
-            SyncVectorDBToolHandler,
-        )
-        add_tool_handler(VectorSearchToolHandler(vector_config))
-        add_tool_handler(SyncVectorDBToolHandler(vector_config))
-        add_tool_handler(VectorDBStatusToolHandler(vector_config))
-        logger.info("Vector search tools registered (3 tools)")
-    else:
-        logger.debug("Vector search not configured — skipping vector tools")
-except Exception as e:
-    logger.warning(f"Could not load vector config, vector tools disabled: {e}")
-
-
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    """List available tools."""
-    logger.debug("Listing tools")
-    tools_list = [th.get_tool_description() for th in tool_handlers.values()]
-    logger.debug(f"Found {len(tools_list)} tools")
-    return tools_list
-
-
-@app.call_tool()
-async def call_tool(
-    name: str, arguments: Any
-) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
-    """Handle tool calls."""
-    logger.info(f"Tool call: {name} with arguments {arguments}")
-
-    if not isinstance(arguments, dict):
-        logger.error("Arguments must be dictionary")
-        raise RuntimeError("arguments must be dictionary")
-
-    tool_handler = get_tool_handler(name)
-    if not tool_handler:
-        logger.error(f"Unknown tool: {name}")
-        raise ValueError(f"Unknown tool: {name}")
-
-    try:
-        logger.debug(f"Running tool {name}")
-        result = await asyncio.to_thread(tool_handler.run_tool, arguments)
-        logger.debug(f"Tool result: {result}")
-        return result
-    except Exception as e:
-        logger.error(f"Error running tool: {str(e)}", exc_info=True)
-        raise RuntimeError(f"Error: {str(e)}")
-
-
-async def main():
-    logger.info("Starting LogSeq MCP server")
+async def main(read_only: bool = False):
+    logger.info(f"Starting LogSeq MCP server (read_only={read_only})")
     from mcp.server.stdio import stdio_server
 
+    app, _ = build_app(read_only=read_only)
     async with stdio_server() as (read_stream, write_stream):
         logger.info("Initializing server...")
         await app.run(read_stream, write_stream, app.create_initialization_options())

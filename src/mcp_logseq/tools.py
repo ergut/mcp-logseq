@@ -179,6 +179,54 @@ def _enforce_block_namespace_access(api, block_uuid: str) -> None:
     _enforce_namespace_access(page_name)
 
 
+def _enforce_page_tag_access(api, page_name: str) -> None:
+    """Raise AccessDenied if an EXISTING page carries an excluded tag.
+
+    Complements the name-based namespace check on write handlers: namespace
+    rules can be evaluated from the name alone, but tag exclusion requires the
+    page's properties, so this fetches the page. A no-op when no exclude tags
+    are configured.
+
+    Two cases are NOT excluded — but only the first is also a quiet pass:
+    - ``get_page_content`` returns None/empty: the page does not exist (or has
+      no properties) and therefore carries no tags. Treated as NOT excluded so
+      ``update_page`` keeps working for brand-new pages.
+    - ``get_page_content`` RAISES: with exclude tags configured we cannot verify
+      the page's tags, so we must NOT silently proceed with the write. The error
+      is allowed to propagate (no try/except) so the calling write handler
+      aborts the mutation via its normal error path (fail-closed). It is not an
+      AccessDenied, so it isn't mislabeled — it just isn't swallowed.
+    """
+    if not _exclude_tags:
+        return
+    # No try/except by design: when exclude tags are configured, a fetch error
+    # must abort the write rather than fail open. A non-existent page returns
+    # None and falls through as not-excluded.
+    result = api.get_page_content(page_name)
+    if result and _is_page_excluded(result.get("page", {}), _exclude_tags):
+        raise AccessDenied(
+            f"Access denied: page '{page_name}' is restricted "
+            f"and cannot be accessed by this assistant."
+        )
+
+
+def _enforce_block_tag_access(api, block_uuid: str) -> None:
+    """Resolve a block's owning page and enforce tag exclusion on it.
+
+    A no-op when no exclude tags are configured. When tags ARE configured but
+    the owning page cannot be resolved, access is denied (fail-closed), mirroring
+    ``_enforce_block_namespace_access``.
+    """
+    if not _exclude_tags:
+        return
+    page_name = api.get_block_page_name(block_uuid)
+    if page_name is None:
+        raise AccessDenied(
+            f"Access denied: cannot verify the owning page of block '{block_uuid}'."
+        )
+    _enforce_page_tag_access(api, page_name)
+
+
 class ToolHandler:
     def __init__(self, tool_name: str):
         self.name = tool_name
@@ -608,6 +656,7 @@ class DeletePageToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            _enforce_page_tag_access(api, args["page_name"])
             result = api.delete_page(args["page_name"])
 
             # Build detailed success message
@@ -626,6 +675,8 @@ class DeletePageToolHandler(ToolHandler):
             )
 
             return [TextContent(type="text", text=success_msg)]
+        except AccessDenied:
+            raise
         except ValueError as e:
             # Handle validation errors (page not found) gracefully
             return [TextContent(type="text", text=f"❌ Error: {str(e)}")]
@@ -711,6 +762,7 @@ YAML frontmatter in content will be merged with explicit properties.""",
 
         try:
             api = _make_api()
+            _enforce_page_tag_access(api, page_name)
 
             # Parse the content
             parsed = (
@@ -749,6 +801,8 @@ YAML frontmatter in content will be merged with explicit properties.""",
             msg_parts.append(f"Mode: {mode}")
 
             return [TextContent(type="text", text="\n".join(msg_parts))]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -789,6 +843,7 @@ class DeleteBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             api.delete_block(block_uuid)
 
             return [TextContent(
@@ -844,6 +899,7 @@ class UpdateBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             api.update_block(block_uuid, content)
 
             return [TextContent(
@@ -909,6 +965,7 @@ class GetBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             result = api.get_block(block_uuid, include_children=include_children)
 
             if output_format == "json":
@@ -1004,7 +1061,9 @@ class SearchToolHandler(ToolHandler):
         """Return lowercased names of pages blocked by tag or namespace rules.
 
         Makes one extra api.list_pages() call when any rule is configured.
-        Fails open on error to avoid breaking search entirely.
+        Fail-closed: when rules are active but the page list cannot be built,
+        the error propagates so the caller aborts rather than returning an empty
+        (degraded) exclusion set that would let restricted content through.
         """
         if not exclude_tags and not exclude_namespaces and not include_namespaces:
             return set()
@@ -1020,15 +1079,61 @@ class SearchToolHandler(ToolHandler):
                 ):
                     blocked.add(name.lower())
             return blocked
-        except Exception as e:
-            logger.warning(f"Could not build blocked page names for search filtering: {e}")
-            return set()
+        except Exception:
+            # Rules are active here (guarded above), so we cannot determine what
+            # to exclude. Fail-closed: re-raise so the search handler returns an
+            # error instead of unfiltered results.
+            logger.warning(
+                "Could not build blocked page names while ACL rules are active; "
+                "failing closed (search will error rather than leak)."
+            )
+            raise
+
+    @staticmethod
+    def _filter_db_block_results(
+        block_results: list[dict],
+        api,
+        excluded_page_names: set[str],
+    ) -> list[dict]:
+        """Drop DB-mode content blocks whose owning page is excluded.
+
+        DB-mode blocks carry a 'page' field = the owning page's UUID, so the
+        owning page can be resolved to a name and checked against
+        ``excluded_page_names`` (which already encodes BOTH tag and namespace
+        exclusions). Fail-closed: when ``excluded_page_names`` is non-empty and a
+        block's owning page cannot be resolved, the block is dropped.
+
+        A non-empty ``excluded_page_names`` is authoritative: because
+        ``_build_excluded_page_names`` fails closed when rules are active, an
+        empty set genuinely means no active exclusions, so this is a no-op
+        (no API calls) in that case.
+        """
+        if not excluded_page_names:
+            return block_results
+
+        page_uuids = [
+            str(b.get("page")) for b in block_results if b.get("page")
+        ]
+        resolved = api.resolve_page_uuids(page_uuids) if page_uuids else {}
+
+        kept: list[dict] = []
+        for block in block_results:
+            page_uuid = block.get("page")
+            page_name = resolved.get(str(page_uuid)) if page_uuid else None
+            if page_name is None:
+                # Fail-closed: owning page unresolvable while a rule is active.
+                continue
+            if page_name.lower() in excluded_page_names:
+                continue
+            kept.append(block)
+        return kept
 
     @staticmethod
     def _format_db_mode_results(
         result: dict, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
         excluded_page_names: set[str] = frozenset(),
+        api=None,
     ) -> list[str]:
         """Format search results from DB-mode Logseq.
 
@@ -1042,6 +1147,9 @@ class SearchToolHandler(ToolHandler):
         # Split into pages and content blocks
         page_results = [b for b in blocks if b.get("page?")]
         block_results = [b for b in blocks if not b.get("page?")]
+        block_results = SearchToolHandler._filter_db_block_results(
+            block_results, api, excluded_page_names
+        )
 
         if include_pages and page_results:
             visible_pages = [
@@ -1098,7 +1206,10 @@ class SearchToolHandler(ToolHandler):
         """
         parts: list[str] = []
 
-        if include_blocks and result.get("blocks"):
+        if include_blocks and result.get("blocks") and not excluded_page_names:
+            # Only show blocks when no exclusion is active — markdown-mode blocks
+            # carry block/content but no page identifier, so we cannot verify they
+            # are safe to show (same rule as the page-snippets section below)
             blocks = result["blocks"]
             parts.append(f"## Content Blocks ({len(blocks)} found)")
             for i, block in enumerate(blocks[:limit]):
@@ -1159,6 +1270,7 @@ class SearchToolHandler(ToolHandler):
         result: dict, query: str, limit: int,
         include_blocks: bool, include_pages: bool, include_files: bool,
         excluded_page_names: set[str] = frozenset(),
+        api=None,
     ) -> dict:
         """Build structured search results with UUIDs and page identifiers.
 
@@ -1178,8 +1290,12 @@ class SearchToolHandler(ToolHandler):
                     not in excluded_page_names
                 ]
             if include_blocks:
+                visible_blocks = SearchToolHandler._filter_db_block_results(
+                    [b for b in blocks if not b.get("page?")],
+                    api, excluded_page_names,
+                )
                 block_results = []
-                for block in [b for b in blocks if not b.get("page?")][:limit]:
+                for block in visible_blocks[:limit]:
                     block = dict(block)
                     content = block.get("content", "")
                     block["content"] = content.replace("$pfts_2lqh>$", "").replace(
@@ -1191,7 +1307,10 @@ class SearchToolHandler(ToolHandler):
                 out["files"] = result.get("files", [])
             out["has_more"] = bool(result.get("hasMore?"))
         else:
-            if include_blocks:
+            if include_blocks and not excluded_page_names:
+                # Markdown-mode blocks carry block/content but no page
+                # identifier, so they cannot be exclusion-filtered — only expose
+                # them when no exclusion is active (same rule as snippets)
                 out["blocks"] = result.get("blocks", [])[:limit]
             if include_pages:
                 out["pages"] = [
@@ -1243,7 +1362,7 @@ class SearchToolHandler(ToolHandler):
 
             if args.get("format") == "json":
                 json_result = self._build_json_results(
-                    result, query, limit, include_blocks, include_pages, include_files, excluded_page_names
+                    result, query, limit, include_blocks, include_pages, include_files, excluded_page_names, api
                 )
                 return [TextContent(type="text", text=json.dumps(json_result, indent=2))]
 
@@ -1253,7 +1372,7 @@ class SearchToolHandler(ToolHandler):
 
             if _db_mode:
                 content_parts.extend(
-                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names)
+                    self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names, api)
                 )
             else:
                 content_parts.extend(
@@ -1326,6 +1445,68 @@ class QueryToolHandler(ToolHandler):
             return False
         return bool(item.get("content") or item.get("block/content"))
 
+    @staticmethod
+    def _block_page_name(item: dict, api) -> str | None:
+        """Resolve the owning page name for a DSL block result.
+
+        Prefers the inline 'page' reference carried by the query result; falls
+        back to an API lookup by block UUID. Returns None when it cannot be
+        determined (callers treat that as fail-closed when rules are set).
+        """
+        page_ref = item.get("page")
+        if isinstance(page_ref, dict):
+            name = page_ref.get("originalName") or page_ref.get("name")
+            if name:
+                return name
+        elif isinstance(page_ref, str) and page_ref:
+            # A bare UUID string is NOT a trustworthy page name: under an
+            # exclude-only policy a UUID matches no rule and would fail OPEN.
+            # Resolve the page UUID to its real name so it's fail-closed.
+            if _UUID_REF_PATTERN.fullmatch(f"[[{page_ref}]]"):
+                return api.resolve_page_uuids([page_ref]).get(page_ref)
+            return page_ref
+        uuid = item.get("uuid")
+        if uuid:
+            return api.get_block_page_name(uuid)
+        return None
+
+    def _block_blocked(self, item: dict, api, cache: dict | None = None) -> bool:
+        """Fail-closed tag AND namespace check for a DSL block result.
+
+        Consulted whenever ANY rule (tag or namespace) is configured. The owning
+        page is resolved once via ``_block_page_name``; the block is dropped if
+        that page is namespace-blocked OR tag-excluded. A block whose owning page
+        cannot be resolved is treated as blocked (fail-closed).
+
+        ``cache`` is an optional per-request memo (page name -> blocked bool) so
+        that many blocks sharing an owning page incur the tag fetch only once.
+        """
+        page_name = self._block_page_name(item, api)
+        if page_name is None:
+            return True
+        if cache is not None and page_name in cache:
+            return cache[page_name]
+
+        blocked = self._page_name_blocked(page_name, api)
+        if cache is not None:
+            cache[page_name] = blocked
+        return blocked
+
+    def _page_name_blocked(self, page_name: str, api) -> bool:
+        """Tag OR namespace block decision for an already-resolved page name."""
+        if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
+            return True
+        if _exclude_tags:
+            # Tag exclusion needs the page's properties; fetch the owning page
+            # and inspect its tags. Fail-closed if it cannot be fetched.
+            try:
+                page = api.get_page_content(page_name)
+            except Exception:
+                return True
+            if page and _is_page_excluded(page.get("page", {}), _exclude_tags):
+                return True
+        return False
+
     def _format_item(self, item: dict, index: int) -> str:
         """Format a single result item with type indicator."""
         if not isinstance(item, dict):
@@ -1378,13 +1559,24 @@ class QueryToolHandler(ToolHandler):
                     continue
                 filtered_results.append(item)
 
-            # Security: filter page objects blocked by tag OR namespace
+            # Security: filter page objects blocked by tag OR namespace, AND
+            # block objects whose owning page is blocked by tag OR namespace.
+            # A block's owning page is resolvable (_block_page_name), so its TAGS
+            # are checkable too — block filtering must run whenever ANY rule is
+            # active (tag-only profiles included). Resolution is fail-closed
+            # (unresolvable owning page => dropped).
             if _exclude_tags or _include_namespaces or _exclude_namespaces:
                 filtered = []
+                # Per-request memo so blocks sharing an owning page only trigger
+                # one tag/namespace resolution + fetch.
+                block_decision_cache: dict[str, bool] = {}
                 for item in filtered_results:
                     if self._is_page(item):
                         name = item.get("originalName") or item.get("name", "")
                         if _is_page_blocked(item, name):
+                            continue
+                    elif self._is_block(item):
+                        if self._block_blocked(item, api, block_decision_cache):
                             continue
                     filtered.append(item)
                 filtered_results = filtered
@@ -1747,6 +1939,9 @@ class RenamePageToolHandler(ToolHandler):
 
         try:
             api = _make_api()
+            # Tag-on-write: guard the SOURCE page (existing). The target name is
+            # a not-yet-existing page, so it has no prior tags to check.
+            _enforce_page_tag_access(api, old_name)
             api.rename_page(old_name, new_name)
 
             return [TextContent(
@@ -1754,6 +1949,8 @@ class RenamePageToolHandler(ToolHandler):
                 text=f"Successfully renamed page '{old_name}' to '{new_name}'\n"
                      f"All references in the graph have been updated."
             )]
+        except AccessDenied:
+            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -1916,6 +2113,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, parent_uuid)
+            _enforce_block_tag_access(api, parent_uuid)
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,
@@ -2000,6 +2198,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
         try:
             api = _make_api()
             _enforce_block_namespace_access(api, block_uuid)
+            _enforce_block_tag_access(api, block_uuid)
             results = []
 
             for prop_name, value in properties.items():
