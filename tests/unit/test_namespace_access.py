@@ -1221,6 +1221,7 @@ def test_vector_search_drops_tag_excluded_chunk(monkeypatch):
     ):
         mock_sm.return_value.load.return_value = ({}, meta)
         mock_stale.return_value = Mock(stale=False)
+        mock_emb.return_value.key = meta.embedder_key
         mock_emb.return_value.embed.return_value = [[0.1, 0.1, 0.1]]
         mock_db.open_readonly.return_value.search.return_value = [secret, ok]
 

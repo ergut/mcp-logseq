@@ -38,6 +38,16 @@ def test_returns_none_when_vector_missing(monkeypatch, tmp_path):
     assert load_vector_config() is None
 
 
+def test_returns_none_when_embedder_is_not_an_object(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {"enabled": True, "embedder": "ollama"},
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    assert load_vector_config() is None
+
+
 def test_returns_none_when_graph_path_missing(monkeypatch, tmp_path):
     path = _write_config(tmp_path, {
         "vector": {
@@ -56,10 +66,109 @@ def test_returns_none_for_unsupported_provider(monkeypatch, tmp_path):
         "vector": {
             "enabled": True,
             "db_path": "/tmp/db",
-            "embedder": {"provider": "openai", "model": "text-embedding-3-small"},
+            "embedder": {"provider": "cohere", "model": "embed-v4.0"},
         }
     })
     monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    assert load_vector_config() is None
+
+
+def test_loads_openai_config_with_provider_defaults(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {
+                "provider": "openai",
+                "api_key": "test-api-key",
+            },
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.provider == "openai"
+    assert config.embedder.model == "text-embedding-3-small"
+    assert config.embedder.base_url == "https://api.openai.com/v1"
+    assert config.embedder.api_key == "test-api-key"
+    assert config.embedder.dimensions is None
+
+
+def test_returns_none_when_openai_api_key_missing(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {"provider": "openai"},
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    assert load_vector_config() is None
+
+
+def test_loads_openai_compatible_config(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {
+                "provider": "openai-compatible",
+                "model": "custom-embed-model",
+                "base_url": "https://embeddings.example.com/v1",
+                "api_key": "compatible-key",
+                "dimensions": 1024,
+            },
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.provider == "openai-compatible"
+    assert config.embedder.model == "custom-embed-model"
+    assert config.embedder.base_url == "https://embeddings.example.com/v1"
+    assert config.embedder.api_key == "compatible-key"
+    assert config.embedder.dimensions == 1024
+
+
+@pytest.mark.parametrize("missing_field", ["model", "base_url"])
+def test_returns_none_when_openai_compatible_field_missing(
+    monkeypatch, tmp_path, missing_field
+):
+    embedder = {
+        "provider": "openai-compatible",
+        "model": "custom-embed-model",
+        "base_url": "https://embeddings.example.com/v1",
+    }
+    del embedder[missing_field]
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {"enabled": True, "embedder": embedder},
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    assert load_vector_config() is None
+
+
+@pytest.mark.parametrize("dimensions", [0, -1, 1.5, True, "1024"])
+def test_returns_none_for_invalid_dimensions(monkeypatch, tmp_path, dimensions):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {
+                "provider": "openai",
+                "api_key": "test-api-key",
+                "dimensions": dimensions,
+            },
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
     assert load_vector_config() is None
 
 

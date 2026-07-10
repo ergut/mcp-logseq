@@ -50,7 +50,7 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 - **Preserve Your Workflow**: No need to export or copy content manually
 - **Intelligent Organization**: AI-powered page creation, linking, and search
 - **Enhanced Productivity**: Automate repetitive knowledge work
-- **Semantic Vector Search** *(optional)*: Find notes by meaning using local Ollama embeddings — no data leaves your machine
+- **Semantic Vector Search** *(optional)*: Find notes by meaning using local Ollama or hosted OpenAI-compatible embeddings
 - **DB-mode Support** *(opt-in)*: Read and write class properties on Logseq DB-mode graphs
 
 ---
@@ -98,9 +98,9 @@ Add to your config file (`Settings → Developer → Edit Config`):
 
 ## 🔬 Vector Search (Optional)
 
-Semantic search over your Logseq graph using local AI embeddings — find notes by meaning, not just keywords. Searches across all your pages using vector similarity and full-text search combined, with cross-language support.
+Semantic search over your Logseq graph using configurable embeddings — find notes by meaning, not just keywords. Searches across all your pages using vector similarity and full-text search combined, with cross-language support.
 
-Powered by [Ollama](https://ollama.com) (local embeddings) and [LanceDB](https://lancedb.com) (embedded vector DB). No data leaves your machine.
+Use [Ollama](https://ollama.com) for fully local embeddings, OpenAI, or another OpenAI-compatible embeddings endpoint. [LanceDB](https://lancedb.com) remains local in every configuration. Hosted providers receive the note text being embedded.
 
 → **[Full setup guide: VECTOR_SEARCH.md](VECTOR_SEARCH.md)**
 

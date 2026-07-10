@@ -24,6 +24,10 @@ Example config.json:
     "watch_debounce_ms": 5000
   }
 }
+
+Supported embedder providers are "ollama", "openai", and
+"openai-compatible". Hosted providers may also use "api_key" and "dimensions"
+inside the embedder block.
 """
 
 from __future__ import annotations
@@ -40,7 +44,9 @@ logger = logging.getLogger("mcp-logseq.config")
 class EmbedderConfig:
     provider: str
     model: str
-    base_url: str = "http://localhost:11434"
+    base_url: str | None = None
+    api_key: str | None = None
+    dimensions: int | None = None
 
 
 @dataclass
@@ -78,7 +84,7 @@ def load_vector_config() -> VectorConfig | None:
         return None
 
     vector_raw = raw.get("vector")
-    if not vector_raw or not vector_raw.get("enabled"):
+    if not isinstance(vector_raw, dict) or not vector_raw.get("enabled"):
         return None
 
     graph_path = raw.get("logseq_graph_path", "")
@@ -87,15 +93,61 @@ def load_vector_config() -> VectorConfig | None:
         return None
 
     embedder_raw = vector_raw.get("embedder", {})
-    provider = embedder_raw.get("provider", "ollama")
-    if provider != "ollama":
-        logger.warning(f"Unsupported embedder provider '{provider}' — only 'ollama' is supported")
+    if not isinstance(embedder_raw, dict):
+        logger.warning("Vector 'embedder' configuration must be an object")
+        return None
+    provider = str(embedder_raw.get("provider", "ollama")).strip().lower()
+    supported_providers = {"ollama", "openai", "openai-compatible"}
+    if provider not in supported_providers:
+        supported = ", ".join(sorted(supported_providers))
+        logger.warning(
+            f"Unsupported embedder provider '{provider}' — supported providers: {supported}"
+        )
+        return None
+
+    default_models = {
+        "ollama": "nomic-embed-text",
+        "openai": "text-embedding-3-small",
+        "openai-compatible": "",
+    }
+    default_base_urls = {
+        "ollama": "http://localhost:11434",
+        "openai": "https://api.openai.com/v1",
+        "openai-compatible": "",
+    }
+    model_raw = embedder_raw.get("model")
+    base_url_raw = embedder_raw.get("base_url")
+    model = str(
+        default_models[provider] if model_raw is None else model_raw
+    ).strip()
+    base_url = str(
+        default_base_urls[provider] if base_url_raw is None else base_url_raw
+    ).strip()
+    api_key_raw = embedder_raw.get("api_key")
+    api_key = str(api_key_raw).strip() if api_key_raw is not None else None
+    dimensions = embedder_raw.get("dimensions")
+
+    if not model:
+        logger.warning(f"Embedder provider '{provider}' requires 'model'")
+        return None
+    if not base_url:
+        logger.warning(f"Embedder provider '{provider}' requires 'base_url'")
+        return None
+    if provider == "openai" and not api_key:
+        logger.warning("Embedder provider 'openai' requires 'api_key'")
+        return None
+    if dimensions is not None and (
+        isinstance(dimensions, bool) or not isinstance(dimensions, int) or dimensions <= 0
+    ):
+        logger.warning("Embedder 'dimensions' must be a positive integer")
         return None
 
     embedder = EmbedderConfig(
         provider=provider,
-        model=embedder_raw.get("model", "nomic-embed-text"),
-        base_url=embedder_raw.get("base_url", "http://localhost:11434"),
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+        dimensions=dimensions,
     )
 
     db_path = os.path.expanduser(vector_raw.get("db_path", "~/.logseq-vector"))

@@ -13,7 +13,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Protocol, TypeVar
 
 from mcp.types import TextContent, Tool
 
@@ -37,6 +39,20 @@ logger = logging.getLogger("mcp-logseq.vector.index")
 _WEAK_MATCH_THRESHOLD = 0.80  # scores above this are likely tangential; AI should use judgment
 
 
+class _PageResult(Protocol):
+    @property
+    def page(self) -> str: ...
+
+
+class _TaggedResult(Protocol):
+    @property
+    def tags(self) -> list[str] | None: ...
+
+
+_PageResultT = TypeVar("_PageResultT", bound=_PageResult)
+_TaggedResultT = TypeVar("_TaggedResultT", bound=_TaggedResult)
+
+
 def _relevance_label(score: float) -> str:
     if score < 0.65:
         return "high relevance"
@@ -46,17 +62,17 @@ def _relevance_label(score: float) -> str:
 
 
 def _filter_results_by_namespace(
-    results: list[SearchResult], include: list[str], exclude: list[str]
-) -> list[SearchResult]:
+    results: Sequence[_PageResultT], include: list[str], exclude: list[str]
+) -> list[_PageResultT]:
     """Drop vector search results whose page is blocked by namespace rules."""
     if not include and not exclude:
-        return results
+        return list(results)
     return [r for r in results if not _is_namespace_blocked(r.page, include, exclude)]
 
 
 def _filter_results_by_tags(
-    results: list[SearchResult], exclude_tags: list[str]
-) -> list[SearchResult]:
+    results: Sequence[_TaggedResultT], exclude_tags: list[str]
+) -> list[_TaggedResultT]:
     """Drop vector search results whose page carries an excluded tag.
 
     Mirrors the namespace filter: on a shared DB this prevents tag-blocked
@@ -64,7 +80,7 @@ def _filter_results_by_tags(
     Tag data is already on each result, so no API call is needed.
     """
     if not exclude_tags:
-        return results
+        return list(results)
     return [r for r in results if not any(t in exclude_tags for t in (r.tags or []))]
 
 
@@ -203,7 +219,19 @@ class VectorSearchToolHandler(ToolHandler):
             logger.debug(f"vector_search: embedding start (embedder={meta.embedder_key})")
             _t_emb = time.perf_counter()
             embedder = create_embedder(self._config.embedder)
+            if embedder.key != meta.embedder_key:
+                raise RuntimeError(
+                    f"Configured embedder '{embedder.key}' does not match vector DB "
+                    f"embedder '{meta.embedder_key}'. Run logseq-sync --rebuild to "
+                    f"re-index from scratch."
+                )
             query_vector = embedder.embed([query])[0]
+            if len(query_vector) != meta.dimensions:
+                raise RuntimeError(
+                    f"Configured embedder returned {len(query_vector)} dimensions but "
+                    f"the vector DB uses {meta.dimensions}. Run logseq-sync --rebuild "
+                    f"to re-index from scratch."
+                )
             logger.debug(f"vector_search: embedding done in {(time.perf_counter() - _t_emb) * 1000:.1f}ms")
         except RuntimeError as e:
             return [TextContent(type="text", text=str(e))]

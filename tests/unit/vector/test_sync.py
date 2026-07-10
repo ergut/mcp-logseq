@@ -146,6 +146,25 @@ def test_sync_aborts_on_embedder_mismatch(tmp_path):
         engine.sync()
 
 
+def test_sync_aborts_on_dimension_mismatch(tmp_path):
+    config = _make_config(str(tmp_path), str(tmp_path / "db"))
+    db = MagicMock()
+    state_mgr = MagicMock()
+    state_mgr.load.return_value = (
+        {},
+        SyncMeta(
+            embedder_key="ollama/nomic-embed-text",
+            dimensions=512,
+            last_full_sync=None,
+        ),
+    )
+    embedder = _make_embedder(dims=768)
+
+    engine = SyncEngine(config, db, state_mgr, embedder)
+    with pytest.raises(RuntimeError, match="dimensions changed from 512 to 768"):
+        engine.sync()
+
+
 def test_sync_skips_unchanged_files(tmp_path):
     md = tmp_path / "page.md"
     md.write_text("- Some content for testing here\n")
