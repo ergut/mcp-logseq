@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from . import logseq
 from . import parser
 from .config import load_exclude_tags, load_include_namespaces, load_exclude_namespaces
+from .namespace import is_namespace_blocked as _is_namespace_blocked
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
@@ -121,27 +122,6 @@ def _is_page_excluded(page: dict, exclude_tags: list[str]) -> bool:
 
 class AccessDenied(RuntimeError):
     """Raised when a tool is blocked from accessing a restricted page."""
-
-
-def _namespace_matches(page_name: str, ns: str) -> bool:
-    """Segment-based, case-insensitive namespace match.
-
-    'work' matches 'work' and 'work/...'; it does NOT match 'workshop'.
-    """
-    p = page_name.lower()
-    n = ns.lower().rstrip("/")
-    if not n:
-        return False
-    return p == n or p.startswith(n + "/")
-
-
-def _is_namespace_blocked(page_name: str, include: list[str], exclude: list[str]) -> bool:
-    """Apply namespace rules. Exclude wins; include is a strict allow-list."""
-    if any(_namespace_matches(page_name, n) for n in exclude):
-        return True
-    if include and not any(_namespace_matches(page_name, n) for n in include):
-        return True
-    return False
 
 
 def _is_page_blocked(page: dict | None, page_name: str) -> bool:

@@ -265,6 +265,20 @@ Matching is segment-based and case-insensitive: `work` matches `work` and `work/
 
 Access control is enforced at the **page** level and applied across every tool: list/search/query results omit blocked pages, direct page/block access and backlinks are denied, and vector search is filtered. Block-level results from `search` and `query` are resolved back to their owning page, so a block belonging to a restricted page is filtered out of those results too.
 
+**Index-time namespace scoping (vector DB only).** The keys above are *query-time*: every page is embedded, and blocked ones are filtered out of each response. For the vector DB you can also scope at *index time* — decide which namespaces are embedded into the DB **at all** — with `include_namespaces` / `exclude_namespaces` inside the `vector` block of the config file:
+
+```json
+{
+  "vector": {
+    "enabled": true,
+    "include_namespaces": ["work"],
+    "exclude_namespaces": ["work/secret"]
+  }
+}
+```
+
+This is global (it shapes the shared DB for every consumer), and it keeps unwanted content off disk entirely rather than filtering it on read — useful for secrets you never want embedded, or to keep the index small when everyone only cares about a subset. Matching is the same segment-based, case-insensitive rule. Because it changes what the index contains, it only takes effect after a full re-index: `logseq-sync --rebuild`.
+
 ### 🌐 Serving over HTTP, multi-profile & TLS
 
 By default the server speaks **stdio** — your client spawns it as a subprocess, and most users need nothing more. To serve **sandboxed or remote clients** over the network, `mcp-logseq` can run as a long-lived HTTP service with bearer auth, per-profile isolation, and TLS:

@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from mcp_logseq.config import VectorConfig
+from mcp_logseq.namespace import is_namespace_blocked
 from mcp_logseq.parser import BlockNode, parse_content
 from mcp_logseq.vector.types import LogseqChunk
 
@@ -132,6 +133,13 @@ def chunk_file(file_path: Path, config: VectorConfig) -> list[LogseqChunk]:
     # Apply exclude_tags filter
     if config.exclude_tags and any(t in config.exclude_tags for t in tags):
         logger.debug(f"Skipping {page_title}: excluded by tag filter")
+        return []
+
+    # Apply index-time namespace filter (global: shapes what the DB contains)
+    if is_namespace_blocked(
+        page_title, config.include_namespaces, config.exclude_namespaces
+    ):
+        logger.debug(f"Skipping {page_title}: excluded by namespace filter")
         return []
 
     # Journal date detection

@@ -202,6 +202,38 @@ def test_loads_valid_config(monkeypatch, tmp_path):
     assert config.embedder.model == "nomic-embed-text"
 
 
+def test_loads_index_time_namespaces(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/my/graph/pages",
+        "vector": {
+            "enabled": True,
+            "embedder": {"provider": "ollama", "model": "nomic-embed-text"},
+            "include_namespaces": ["Work", "Projects"],
+            "exclude_namespaces": ["Work/Secret"],
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    config = load_vector_config()
+    assert config is not None
+    assert config.include_namespaces == ["Work", "Projects"]
+    assert config.exclude_namespaces == ["Work/Secret"]
+
+
+def test_index_time_namespaces_default_empty(monkeypatch, tmp_path):
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/my/graph/pages",
+        "vector": {
+            "enabled": True,
+            "embedder": {"provider": "ollama", "model": "nomic-embed-text"},
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    config = load_vector_config()
+    assert config is not None
+    assert config.include_namespaces == []
+    assert config.exclude_namespaces == []
+
+
 def test_applies_defaults(monkeypatch, tmp_path):
     path = _write_config(tmp_path, {
         "logseq_graph_path": "/my/graph/pages",
