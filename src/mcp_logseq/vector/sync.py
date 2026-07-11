@@ -11,7 +11,6 @@ import logging
 import os
 import shutil
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 from mcp_logseq.config import VectorConfig
@@ -126,11 +125,10 @@ class SyncEngine:
                 continue
             files_to_process.append((path_str, file_path))
 
-        # Delete chunks for changed and deleted files
-        for path_str in files_to_process:
-            path_str_key = path_str[0]
-            if path_str_key in state:
-                self._db.delete_by_ids(state[path_str_key].chunk_ids)
+        # Delete chunks for changed files (deleted files handled separately below)
+        for path_str, _file_path in files_to_process:
+            if path_str in state:
+                self._db.delete_by_ids(state[path_str].chunk_ids)
                 updated += 1
             else:
                 added += 1

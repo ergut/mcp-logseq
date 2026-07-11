@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import sys
 from collections.abc import Sequence
@@ -23,8 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger("mcp-logseq")
 
 # Add a file handler to keep logs (in user's home directory to avoid permission issues)
-import tempfile
-
 log_dir = os.path.expanduser("~/.cache/mcp-logseq")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "mcp_logseq.log")

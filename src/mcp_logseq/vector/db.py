@@ -11,7 +11,6 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from mcp_logseq.vector.types import LogseqChunk, SearchParams, SearchResult
 
