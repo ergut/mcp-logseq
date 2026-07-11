@@ -77,7 +77,6 @@ def main():
 
 # Optionally expose other important items at package level.
 # ``server`` is intentionally NOT listed: it's imported lazily inside ``main``
-# (eager import would trigger server.py's import-time LOGSEQ_API_TOKEN raise on
-# the http path). Submodule access via ``from mcp_logseq.server import ...``
-# still works.
+# to keep package import light (the http path doesn't need it). Submodule
+# access via ``from mcp_logseq.server import ...`` still works.
 __all__ = ['main', 'parse_args']

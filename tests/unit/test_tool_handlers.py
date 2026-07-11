@@ -1,4 +1,3 @@
-import importlib
 import json
 
 import pytest
@@ -26,109 +25,24 @@ from mcp_logseq.tools import (
 
 
 class TestToolConfiguration:
-    """Test cases for module-level tool configuration."""
-
-    @patch.dict("os.environ", {}, clear=True)
-    def test_parse_positive_float_env_uses_default(self):
-        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
+    """Settings-driven tool configuration (see tests/unit/test_settings.py
+    for the full env-var wiring coverage)."""
 
     @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "60"})
-    def test_parse_positive_float_env_uses_override(self):
-        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 60
-
-    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "2.5"})
-    def test_parse_positive_float_env_accepts_float_override(self):
-        assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 2.5
-
-    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "0"})
-    def test_parse_positive_float_env_non_positive_falls_back_to_default(self):
-        with patch.object(tools.logger, "warning") as mock_warning:
-            assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
-        mock_warning.assert_called_once()
-
-    @patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": "fast"})
-    def test_parse_positive_float_env_invalid_falls_back_to_default(self):
-        with patch.object(tools.logger, "warning") as mock_warning:
-            assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
-        mock_warning.assert_called_once()
-
-    @pytest.mark.parametrize("raw_value", ["nan", "inf", "-inf"])
-    def test_parse_positive_float_env_non_finite_falls_back_to_default(self, raw_value):
-        with patch.dict("os.environ", {"LOGSEQ_API_READ_TIMEOUT": raw_value}):
-            with patch.object(tools.logger, "warning") as mock_warning:
-                assert tools._parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6) == 6
-            mock_warning.assert_called_once()
-
     @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_make_api_passes_configured_timeout(self, mock_logseq_class):
-        original_timeout = tools._api_timeout
-        try:
-            tools._api_timeout = (3, 60)
+        tools._make_api()
 
-            tools._make_api()
+        assert mock_logseq_class.call_args.kwargs["timeout"] == (3, 60.0)
 
-            assert mock_logseq_class.call_args.kwargs["timeout"] == (3, 60)
-        finally:
-            tools._api_timeout = original_timeout
-
-
-class TestTimeoutEnvVars:
-    """Module-level timeout globals are wired from env vars at import time.
-
-    These reload the tools module under a patched environment to exercise the
-    actual ``_api_connect_timeout`` / ``_api_read_timeout`` / ``_api_timeout``
-    wiring (the unit tests above only call ``_parse_positive_float_env``
-    directly). The autouse fixture restores a clean module afterwards so the
-    reload does not leak timeout state into other tests.
-    """
-
-    @pytest.fixture(autouse=True)
-    def _restore_tools_module(self):
-        yield
-        with patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"}, clear=True):
-            importlib.reload(tools)
-
-    @staticmethod
-    def _reload(env):
-        with patch.dict(
-            "os.environ", {"LOGSEQ_API_TOKEN": "test_token", **env}, clear=True
-        ):
-            importlib.reload(tools)
-        return tools
-
-    def test_module_level_defaults(self):
-        reloaded = self._reload({})
-        assert reloaded._api_connect_timeout == 3
-        assert reloaded._api_read_timeout == 6
-        assert reloaded._api_timeout == (3, 6)
-
-    def test_connect_timeout_override(self):
-        reloaded = self._reload({"LOGSEQ_API_CONNECT_TIMEOUT": "10"})
-        assert reloaded._api_connect_timeout == 10.0
-        assert reloaded._api_timeout == (10.0, 6)
-
-    def test_read_timeout_override(self):
-        reloaded = self._reload({"LOGSEQ_API_READ_TIMEOUT": "30"})
-        assert reloaded._api_read_timeout == 30.0
-        assert reloaded._api_timeout == (3, 30.0)
-
-    def test_float_overrides(self):
-        reloaded = self._reload(
-            {"LOGSEQ_API_CONNECT_TIMEOUT": "2.5", "LOGSEQ_API_READ_TIMEOUT": "15.0"}
-        )
-        assert reloaded._api_timeout == (2.5, 15.0)
-
-    def test_invalid_override_falls_back_to_default(self):
-        reloaded = self._reload({"LOGSEQ_API_CONNECT_TIMEOUT": "not-a-number"})
-        assert reloaded._api_connect_timeout == 3
-        assert reloaded._api_timeout == (3, 6)
-
+    @patch.dict(
+        "os.environ",
+        {"LOGSEQ_API_CONNECT_TIMEOUT": "2.5", "LOGSEQ_API_READ_TIMEOUT": "15.0"},
+    )
     @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_make_api_passes_env_timeouts_end_to_end(self, mock_logseq_class):
-        reloaded = self._reload(
-            {"LOGSEQ_API_CONNECT_TIMEOUT": "2.5", "LOGSEQ_API_READ_TIMEOUT": "15.0"}
-        )
-        reloaded._make_api()
+        tools._make_api()
+
         assert mock_logseq_class.call_args.kwargs["timeout"] == (2.5, 15.0)
 
 
@@ -1020,7 +934,7 @@ class TestSearchToolHandler:
         mock_logseq_class.return_value = mock_api
 
         handler = SearchToolHandler()
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             result = handler.run_tool({"query": "Claude Code sessie"})
 
         text = result[0].text
@@ -1074,7 +988,7 @@ class TestSearchToolHandler:
         mock_logseq_class.return_value = mock_api
 
         handler = SearchToolHandler()
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             result = handler.run_tool({"query": "match", "format": "json"})
 
         data = json.loads(result[0].text)

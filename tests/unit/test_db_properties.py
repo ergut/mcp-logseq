@@ -273,7 +273,7 @@ class TestFormatBlockTreeDbMode:
         }
         db_props = {"uuid-1": {"Status": "Active", "Priority": "High"}}
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, db_props
             )
@@ -292,7 +292,7 @@ class TestFormatBlockTreeDbMode:
         }
         db_props = {"uuid-1": {"Status": "Active"}}
 
-        with patch("mcp_logseq.tools._db_mode", False):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=False):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, db_props
             )
@@ -308,7 +308,7 @@ class TestFormatBlockTreeDbMode:
             "children": [],
         }
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(block, 0, -1, None)
 
         # priority:: high is in content, should not be added again
@@ -323,7 +323,7 @@ class TestFormatBlockTreeDbMode:
             "children": [],
         }
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(block, 0, -1, None)
 
         assert any("status:: active" in l for l in lines)
@@ -349,7 +349,7 @@ class TestFormatBlockTreeDbMode:
             "uuid-child": {"Status": "Done"},
         }
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, db_props
             )
@@ -378,7 +378,7 @@ class TestFeatureFlagIntegration:
 
         handler = GetPageContentToolHandler()
 
-        with patch("mcp_logseq.tools._db_mode", False):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=False):
             result = handler.run_tool({"page_name": "Test"})
 
         # Only 2 API calls (getPage + getPageBlocksTree), no datascript queries
@@ -394,7 +394,7 @@ class TestFeatureFlagIntegration:
 
         handler = SetBlockPropertiesToolHandler()
 
-        with patch("mcp_logseq.tools._db_mode", False):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=False):
             result = handler.run_tool({
                 "block_uuid": "test-uuid",
                 "properties": {"Status": "Active"},
@@ -494,7 +494,7 @@ class TestUuidRefResolution:
         }
         uuid_map = {"aaaa1111-2222-3333-4444-555566667777": "My Page"}
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, None, uuid_map
             )
@@ -511,7 +511,7 @@ class TestUuidRefResolution:
             "children": [],
         }
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, None, None
             )
@@ -535,7 +535,7 @@ class TestUuidRefResolution:
         }
         uuid_map = {"aaaa1111-2222-3333-4444-555566667777": "Resolved Page"}
 
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             lines = GetPageContentToolHandler._format_block_tree(
                 block, 0, -1, None, uuid_map
             )
@@ -657,7 +657,7 @@ class TestGetPageContentResolveRefs:
             status=200)
 
         handler = GetPageContentToolHandler()
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             result = handler.run_tool({"page_name": "Test"})
 
         assert "[[Target Page]]" in result[0].text
@@ -680,7 +680,7 @@ class TestGetPageContentResolveRefs:
         mock_logseq_class.return_value = mock_api
 
         handler = GetPageContentToolHandler()
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             result = handler.run_tool({"page_name": "Test", "resolve_refs": False})
 
         assert "aaaa1111-2222-3333-4444-555566667777" in result[0].text
@@ -703,7 +703,7 @@ class TestGetPageContentResolveRefs:
             status=200)
 
         handler = GetPageContentToolHandler()
-        with patch("mcp_logseq.tools._db_mode", False):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=False):
             result = handler.run_tool({"page_name": "Test"})
 
         assert "[[My Page]]" in result[0].text
@@ -728,7 +728,7 @@ class TestGetPageContentResolveRefs:
             status=200)
 
         handler = GetPageContentToolHandler()
-        with patch("mcp_logseq.tools._db_mode", True):
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True):
             result = handler.run_tool({"page_name": "Test", "format": "json"})
 
         parsed = json.loads(result[0].text)
