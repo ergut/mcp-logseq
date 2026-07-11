@@ -103,10 +103,10 @@ block with:
 `api_key_env` names an environment variable to read the API key from at
 startup — the recommended way to supply a key, since it never touches disk.
 Alternatively, set `"api_key": "your-key"` to embed the key in the config
-file (see the file-permissions note below). When the named variable is set,
-it takes precedence over `api_key`; if the variable is unset and no
-`api_key` fallback is present, vector search is disabled with a warning
-naming the missing variable.
+file (see the file-permissions note below). When the named variable is set
+to a non-blank value, it takes precedence over `api_key`; if the variable is
+unset or blank and no `api_key` fallback is present, vector search is
+disabled with a warning naming the missing variable.
 
 OpenAI defaults to `https://api.openai.com/v1`. The optional `dimensions`
 field requests a specific output size on models that support it:

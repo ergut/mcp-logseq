@@ -138,14 +138,14 @@ def load_vector_config() -> VectorConfig | None:
             api_key = env_value
         elif api_key:
             logger.warning(
-                f"Embedder 'api_key_env' variable '{env_name}' is unset — "
+                f"Embedder 'api_key_env' variable '{env_name}' is unset or blank — "
                 "falling back to plaintext 'api_key' from config"
             )
         else:
             logger.warning(
-                f"Embedder 'api_key_env' variable '{env_name}' is unset and no "
-                f"'api_key' fallback is configured — set {env_name} to enable "
-                "vector search"
+                f"Embedder 'api_key_env' variable '{env_name}' is unset or blank "
+                f"and no usable 'api_key' fallback is configured — set {env_name} "
+                "to enable vector search"
             )
             return None
     dimensions = embedder_raw.get("dimensions")
