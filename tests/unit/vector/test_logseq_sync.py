@@ -1,8 +1,11 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import portalocker
 import pytest
+
+portalocker = pytest.importorskip(
+    "portalocker", reason="requires the optional 'vector' extra"
+)
 
 from mcp_logseq.bin.logseq_sync import _acquire_sync_lock, _release_sync_lock
 

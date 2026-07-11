@@ -23,6 +23,8 @@ import json
 
 import pytest
 
+pytest.importorskip("lancedb", reason="requires the optional 'vector' extra")
+
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.types import LogseqChunk
 
@@ -181,7 +183,7 @@ class TestVectorDBStatusViaToThread:
 
     def test_completes_via_to_thread_no_deadlock(self, tiny_db):
         """Regression: status handler must not block or deadlock via asyncio.to_thread()."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from mcp_logseq.vector.index import VectorDBStatusToolHandler
 
