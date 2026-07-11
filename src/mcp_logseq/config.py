@@ -26,8 +26,10 @@ Example config.json:
 }
 
 Supported embedder providers are "ollama", "openai", and
-"openai-compatible". Hosted providers may also use "api_key" and "dimensions"
-inside the embedder block.
+"openai-compatible". Hosted providers may also use "api_key_env" (name of an
+environment variable holding the API key — recommended), "api_key"
+(plaintext fallback), and "dimensions" inside the embedder block. When the
+variable named by "api_key_env" is set, it takes precedence over "api_key".
 """
 
 from __future__ import annotations

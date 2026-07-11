@@ -96,9 +96,17 @@ block with:
 "embedder": {
   "provider": "openai",
   "model": "text-embedding-3-small",
-  "api_key": "replace-with-your-api-key"
+  "api_key_env": "OPENAI_API_KEY"
 }
 ```
+
+`api_key_env` names an environment variable to read the API key from at
+startup — the recommended way to supply a key, since it never touches disk.
+Alternatively, set `"api_key": "your-key"` to embed the key in the config
+file (see the file-permissions note below). When the named variable is set,
+it takes precedence over `api_key`; if the variable is unset and no
+`api_key` fallback is present, vector search is disabled with a warning
+naming the missing variable.
 
 OpenAI defaults to `https://api.openai.com/v1`. The optional `dimensions`
 field requests a specific output size on models that support it:
@@ -107,7 +115,7 @@ field requests a specific output size on models that support it:
 "embedder": {
   "provider": "openai",
   "model": "text-embedding-3-small",
-  "api_key": "replace-with-your-api-key",
+  "api_key_env": "OPENAI_API_KEY",
   "dimensions": 512
 }
 ```
@@ -119,12 +127,15 @@ For another service implementing the OpenAI embeddings contract:
   "provider": "openai-compatible",
   "model": "provider-model-name",
   "base_url": "https://embeddings.example.com/v1",
-  "api_key": "replace-if-required"
+  "api_key_env": "MY_EMBEDDING_API_KEY"
 }
 ```
 
-`api_key` is optional for `openai-compatible`, which allows an unauthenticated
-local service. It is required for `openai`.
+A key (via `api_key_env` or `api_key`) is optional for `openai-compatible`,
+which allows an unauthenticated local service — omit both fields for that. It
+is required for `openai`. Note that naming a variable in `api_key_env` commits
+to it: if the variable is unset and there is no `api_key` fallback, vector
+search is disabled rather than proceeding unauthenticated.
 
 This keeps everything in one place:
 
@@ -143,7 +154,8 @@ This keeps everything in one place:
 | `vector.embedder.provider` | no | `ollama` (default), `openai`, or `openai-compatible` |
 | `vector.embedder.model` | provider-dependent | Defaults to `nomic-embed-text` for Ollama and `text-embedding-3-small` for OpenAI; required for `openai-compatible` |
 | `vector.embedder.base_url` | provider-dependent | Defaults to local Ollama or OpenAI's API root; required for `openai-compatible` |
-| `vector.embedder.api_key` | provider-dependent | Required for OpenAI; optional bearer token for `openai-compatible`; ignored by Ollama |
+| `vector.embedder.api_key_env` | no | **Recommended for hosted providers** — name of an environment variable holding the API key (e.g. `OPENAI_API_KEY`). Takes precedence over `api_key` when set |
+| `vector.embedder.api_key` | provider-dependent | Plaintext key; prefer `api_key_env`. Required for OpenAI (unless `api_key_env` is set); optional bearer token for `openai-compatible`; ignored by Ollama |
 | `vector.embedder.dimensions` | no | Positive integer requested from an OpenAI-compatible endpoint; changing it requires a rebuild |
 | `vector.include_journals` | no | Index journal pages (default: `true`) |
 | `vector.exclude_tags` | no | Additional tags to skip from the vector index only (additive with top-level `exclude_tags`). Use for noise filtering — e.g. large reference dumps that pollute semantic search but are fine to read directly. (default: `[]`) |
@@ -151,8 +163,9 @@ This keeps everything in one place:
 
 **Important:** keep `db_path` outside your iCloud-synced Logseq folder. The DB is a generated binary artifact — syncing it to iCloud wastes bandwidth and can cause corruption.
 
-If `config.json` contains an API key, do not commit or share it. Restrict it to
-your user account, for example with `chmod 600 ~/.logseq-vector/config.json`.
+Prefer `api_key_env` so no key is stored in `config.json`. If you do use a
+plaintext `api_key`, do not commit or share the file, and restrict it to your
+user account, for example with `chmod 600 ~/.logseq-vector/config.json`.
 
 ---
 
