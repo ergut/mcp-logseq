@@ -89,7 +89,10 @@ def _run_sync(config, rebuild: bool = False) -> None:
 
     lock_file = _acquire_sync_lock(config.db_path)
     try:
-        print(f"Connecting to Ollama ({config.embedder.model})...")
+        print(
+            f"Connecting to embedding provider {config.embedder.provider} "
+            f"({config.embedder.model})..."
+        )
         try:
             embedder = create_embedder(config.embedder)
             dimensions = embedder.dimensions

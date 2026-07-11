@@ -55,6 +55,7 @@ class TestVectorSearchReadOnly:
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
             mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
 
@@ -79,6 +80,7 @@ class TestVectorSearchReadOnly:
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
             mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
 
@@ -96,6 +98,7 @@ class TestVectorSearchReadOnly:
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
             mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
 
@@ -116,6 +119,7 @@ class TestVectorSearchReadOnly:
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
             mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.side_effect = RuntimeError("Vector DB not initialized.")
 
@@ -133,11 +137,52 @@ class TestVectorSearchReadOnly:
             patch("mcp_logseq.vector.index.VectorDB") as mock_db,
         ):
             mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
 
             handler.run_tool({"query": "test"})
             mock_sm.return_value.save.assert_not_called()
+
+    def test_search_refuses_embedder_mismatch(self):
+        config = _make_config()
+        handler = VectorSearchToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = "openai/text-embedding-3-small"
+
+            results = handler.run_tool({"query": "test"})
+
+            assert "does not match vector DB embedder" in results[0].text
+            assert "logseq-sync --rebuild" in results[0].text
+            mock_emb.return_value.embed.assert_not_called()
+            mock_db.open_readonly.assert_not_called()
+
+    def test_search_refuses_dimension_mismatch(self):
+        config = _make_config()
+        handler = VectorSearchToolHandler(config)
+
+        with (
+            patch("mcp_logseq.vector.index.StateManager") as mock_sm,
+            patch("mcp_logseq.vector.index.check_staleness", return_value=_make_fresh_report()),
+            patch("mcp_logseq.vector.index.create_embedder") as mock_emb,
+            patch("mcp_logseq.vector.index.VectorDB") as mock_db,
+        ):
+            mock_sm.return_value.load.return_value = ({}, _make_meta())
+            mock_emb.return_value.key = _make_meta().embedder_key
+            mock_emb.return_value.embed.return_value = [[0.1] * 512]
+
+            results = handler.run_tool({"query": "test"})
+
+            assert "returned 512 dimensions but the vector DB uses 2560" in results[0].text
+            assert "logseq-sync --rebuild" in results[0].text
+            mock_db.open_readonly.assert_not_called()
 
 
 class TestSyncVectorDBInertPointer:
@@ -180,6 +225,7 @@ class TestSyncVectorDBInertPointer:
         handler = SyncVectorDBToolHandler(config)
 
         desc = handler.get_tool_description().description
+        assert desc is not None
         assert "logseq-sync" in desc
         assert "host that owns the DB" in desc
 

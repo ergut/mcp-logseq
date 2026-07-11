@@ -1,5 +1,6 @@
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -7,7 +8,8 @@ portalocker = pytest.importorskip(
     "portalocker", reason="requires the optional 'vector' extra"
 )
 
-from mcp_logseq.bin.logseq_sync import _acquire_sync_lock, _release_sync_lock
+from mcp_logseq.bin.logseq_sync import _acquire_sync_lock, _release_sync_lock, _run_sync
+from mcp_logseq.config import EmbedderConfig
 
 
 def test_acquire_and_release_lock(tmp_path):
@@ -74,3 +76,45 @@ def test_release_swallows_exceptions(tmp_path):
         mock_pl.unlock.side_effect = RuntimeError("unexpected")
         # Should not raise
         _release_sync_lock(lock_file)
+
+
+@patch("mcp_logseq.vector.sync.SyncEngine")
+@patch("mcp_logseq.vector.state.StateManager")
+@patch("mcp_logseq.vector.db.VectorDB")
+@patch("mcp_logseq.vector.embedder.create_embedder")
+def test_run_sync_prints_selected_provider(
+    mock_create_embedder,
+    mock_vector_db,
+    mock_state_manager,
+    mock_sync_engine,
+    tmp_path,
+    capsys,
+):
+    embedder = MagicMock()
+    embedder.dimensions = 1536
+    embedder.key = "openai/text-embedding-3-small"
+    mock_create_embedder.return_value = embedder
+    mock_sync_engine.return_value.sync.return_value = SimpleNamespace(
+        duration_ms=10,
+        added=1,
+        updated=0,
+        deleted=0,
+        skipped=0,
+    )
+    config = SimpleNamespace(
+        db_path=str(tmp_path / "db"),
+        graph_path=str(tmp_path / "graph"),
+        embedder=EmbedderConfig(
+            provider="openai",
+            model="text-embedding-3-small",
+            api_key="test-api-key",
+        ),
+    )
+
+    _run_sync(config)
+
+    output = capsys.readouterr().out
+    assert "Connecting to embedding provider openai (text-embedding-3-small)" in output
+    assert "Ollama" not in output
+    mock_vector_db.open.assert_called_once_with(str(tmp_path / "db"), 1536)
+    mock_state_manager.assert_called_once_with(str(tmp_path / "db"))

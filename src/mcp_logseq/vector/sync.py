@@ -22,7 +22,7 @@ from mcp_logseq.vector.types import FileState, StalenessReport, SyncMeta, SyncRe
 
 logger = logging.getLogger("mcp-logseq.vector.sync")
 
-_EMBED_BATCH_SIZE = 16  # texts per Ollama call
+_EMBED_BATCH_SIZE = 16  # texts per embedding-provider call
 
 
 def _hash_file(path: Path) -> str:
@@ -94,7 +94,13 @@ class SyncEngine:
         if meta.embedder_key and meta.embedder_key != self._embedder.key:
             raise RuntimeError(
                 f"Embedder changed from '{meta.embedder_key}' to '{self._embedder.key}'. "
-                f"Run sync_vector_db with rebuild=true to re-index from scratch."
+                f"Run logseq-sync --rebuild to re-index from scratch."
+            )
+        if meta.dimensions and meta.dimensions != self._embedder.dimensions:
+            raise RuntimeError(
+                f"Embedder dimensions changed from {meta.dimensions} to "
+                f"{self._embedder.dimensions}. Run logseq-sync --rebuild to "
+                f"re-index from scratch."
             )
 
         # Guard: if graph path is inaccessible (e.g. container without vault mounted),
