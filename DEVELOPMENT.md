@@ -21,8 +21,8 @@ cd mcp-logseq
 # Install dependencies
 uv sync
 
-# Install development dependencies
-uv sync --dev
+# Install development dependencies (including vector extras required for tests)
+uv sync --dev --extra vector
 ```
 
 ### 2. Environment Configuration
