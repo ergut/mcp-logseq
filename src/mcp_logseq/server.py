@@ -101,10 +101,11 @@ def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None
     # Conditional vector tool registration — only when LOGSEQ_CONFIG_FILE is set
     # and vector.enabled is true in the config file
     try:
-        from .config import load_vector_config, load_exclude_tags
+        from .access import get_access_config
+        from .config import load_vector_config
         vector_config = load_vector_config()
         # Merge top-level exclude_tags into vector config (additive union)
-        top_level_exclude = load_exclude_tags()
+        top_level_exclude = get_access_config().exclude_tags
         if vector_config and top_level_exclude:
             merged = list(dict.fromkeys(top_level_exclude + vector_config.exclude_tags))
             vector_config.exclude_tags = merged

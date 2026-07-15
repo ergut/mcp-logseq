@@ -133,26 +133,35 @@ def test_no_rules_never_blocks():
     assert _is_namespace_blocked("anything/here", [], []) is False
 
 
+from mcp_logseq.access import AccessConfig
+
+
+def _acl_patch(include=None, exclude=None, tags=None):
+    """Patch the cached ACL config for a test."""
+    return patch(
+        "mcp_logseq.access.get_access_config",
+        return_value=AccessConfig(
+            exclude_tags=tags or [],
+            include_namespaces=include or [],
+            exclude_namespaces=exclude or [],
+        ),
+    )
+
+
 def test_is_page_blocked_by_tag(monkeypatch):
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]), \
-         patch("mcp_logseq.tools._include_namespaces", []), \
-         patch("mcp_logseq.tools._exclude_namespaces", []):
+    with _acl_patch(tags=["private"]):
         page = {"properties": {"tags": ["private"]}}
         assert _is_page_blocked(page, "work/x") is True
 
 
 def test_is_page_blocked_by_namespace(monkeypatch):
-    with patch("mcp_logseq.tools._exclude_tags", []), \
-         patch("mcp_logseq.tools._include_namespaces", []), \
-         patch("mcp_logseq.tools._exclude_namespaces", ["finance"]):
+    with _acl_patch(exclude=["finance"]):
         page = {"properties": {"tags": []}}
         assert _is_page_blocked(page, "finance/q3") is True
 
 
 def test_is_page_blocked_false_when_clear(monkeypatch):
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]), \
-         patch("mcp_logseq.tools._include_namespaces", []), \
-         patch("mcp_logseq.tools._exclude_namespaces", ["finance"]):
+    with _acl_patch(tags=["private"], exclude=["finance"]):
         page = {"properties": {"tags": ["notes"]}}
         assert _is_page_blocked(page, "work/x") is False
 
@@ -170,13 +179,8 @@ from mcp_logseq.tools import (
 
 
 def _ns(include=None, exclude=None):
-    """Patch namespace module config for a test."""
-    return patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=include or [],
-        _exclude_namespaces=exclude or [],
-        _exclude_tags=[],
-    )
+    """Patch namespace ACL config for a test."""
+    return _acl_patch(include=include, exclude=exclude)
 
 
 def test_get_page_content_denies_excluded_namespace():
@@ -303,12 +307,8 @@ def test_get_block_denies_when_page_tag_excluded():
     fake = Mock()
     fake.get_block_page_name.return_value = "work/vault"  # allowed namespace
     fake.get_page_content.return_value = {"page": {"properties": {"tags": ["keys"]}}}
-    with patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=["work"],
-        _exclude_namespaces=[],
-        _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+    with _acl_patch(include=["work"], tags=["keys"]), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
         with pytest.raises(AccessDenied):
             GetBlockToolHandler().run_tool({"block_uuid": "u-tag"})
 
@@ -319,12 +319,8 @@ def test_get_block_allowed_when_page_not_tag_excluded():
     fake.get_block_page_name.return_value = "work/vault"
     fake.get_page_content.return_value = {"page": {"properties": {"tags": ["notes"]}}}
     fake.get_block.return_value = {"content": "visible block content", "children": []}
-    with patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=["work"],
-        _exclude_namespaces=[],
-        _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+    with _acl_patch(include=["work"], tags=["keys"]), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
         out = GetBlockToolHandler().run_tool({"block_uuid": "u-ok"})[0].text
         assert "visible block content" in out
 
@@ -761,12 +757,8 @@ def test_db_search_filters_block_from_tag_excluded_page_text():
         "uuid-vault": "vault",
         "uuid-notes": "notes",
     }
-    with patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=[],
-        _exclude_namespaces=[],
-        _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._get_db_mode", return_value=True), \
+    with _acl_patch(tags=["keys"]), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "note"})[0].text
         assert "AKIA-leak" not in out
@@ -870,12 +862,8 @@ def test_query_filters_block_from_tag_excluded_page():
         return {"page": {"properties": {}}}
 
     fake.get_page_content.side_effect = _content
-    with patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=[],
-        _exclude_namespaces=[],
-        _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+    with _acl_patch(tags=["keys"]), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
         out = QueryToolHandler().run_tool({"query": "(page-tags)"})[0].text
         assert "AKIA-leak" not in out
         assert "public note" in out
@@ -902,12 +890,8 @@ def test_query_tag_fetch_deduped_per_owning_page():
         {"content": "beta", "page": {"originalName": "notes"}},
     ]
     fake.get_page_content.return_value = {"page": {"properties": {}}}
-    with patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=[],
-        _exclude_namespaces=[],
-        _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._make_api", return_value=fake):
+    with _acl_patch(tags=["keys"]), \
+            patch("mcp_logseq.tools._make_api", return_value=fake):
         out = QueryToolHandler().run_tool({"query": "(task TODO)"})[0].text
         assert "alpha" in out
         assert "beta" in out
@@ -943,12 +927,7 @@ def test_vector_results_filtered_by_tags():
 
 def _priv():
     """Patch config so the 'Private' namespace is excluded."""
-    return patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=[],
-        _exclude_namespaces=["Private"],
-        _exclude_tags=[],
-    )
+    return _acl_patch(exclude=["Private"])
 
 
 def test_regression_create_page_denies_private():
@@ -1097,12 +1076,7 @@ def _tagged_page_api(tag="keys"):
 
 
 def _tags_excluded(tag="keys"):
-    return patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=[],
-        _exclude_namespaces=[],
-        _exclude_tags=[tag],
-    )
+    return _acl_patch(tags=[tag])
 
 
 def test_update_page_denies_tag_excluded_existing_page():
@@ -1188,7 +1162,6 @@ def test_tag_on_write_fails_closed_when_page_fetch_raises():
 def test_vector_search_drops_tag_excluded_chunk(monkeypatch):
     """A #keys chunk in the shared DB must not surface when 'keys' is excluded."""
     pytest.importorskip("mcp_logseq.vector.index")
-    import mcp_logseq.vector.index as vindex
     from mcp_logseq.vector.index import VectorSearchToolHandler
     from mcp_logseq.vector.types import SearchResult
 
@@ -1211,9 +1184,7 @@ def test_vector_search_drops_tag_excluded_chunk(monkeypatch):
     meta.dimensions = 3
 
     with (
-        patch.object(vindex, "_exclude_tags", ["keys"]),
-        patch.object(vindex, "_include_namespaces", []),
-        patch.object(vindex, "_exclude_namespaces", []),
+        _acl_patch(tags=["keys"]),
         patch("mcp_logseq.vector.index.StateManager") as mock_sm,
         patch("mcp_logseq.vector.index.check_staleness") as mock_stale,
         patch("mcp_logseq.vector.index.create_embedder") as mock_emb,

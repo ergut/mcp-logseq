@@ -3,6 +3,7 @@ import json
 import pytest
 from unittest.mock import patch, Mock
 from mcp.types import TextContent
+from mcp_logseq.access import AccessConfig
 import mcp_logseq.tools as tools
 from mcp_logseq.tools import (
     CreatePageToolHandler,
@@ -1017,7 +1018,7 @@ class TestSearchToolHandler:
         mock_logseq_class.return_value = mock_api
 
         handler = SearchToolHandler()
-        with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+        with patch("mcp_logseq.access.get_access_config", return_value=AccessConfig(exclude_tags=["private"])):
             result = handler.run_tool({"query": "secret", "format": "json"})
 
         data = json.loads(result[0].text)
