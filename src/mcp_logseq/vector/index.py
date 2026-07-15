@@ -19,14 +19,10 @@ from typing import Protocol, TypeVar
 
 from mcp.types import TextContent, Tool
 
+from mcp_logseq import access
 from mcp_logseq.config import VectorConfig
-from mcp_logseq.tools import (
-    ToolHandler,
-    _is_namespace_blocked,
-    _include_namespaces,
-    _exclude_namespaces,
-    _exclude_tags,
-)
+from mcp_logseq.namespace import is_namespace_blocked
+from mcp_logseq.tools import ToolHandler
 from mcp_logseq.vector.db import VectorDB
 from mcp_logseq.vector.embedder import create_embedder
 from mcp_logseq.vector.state import StateManager
@@ -67,7 +63,7 @@ def _filter_results_by_namespace(
     """Drop vector search results whose page is blocked by namespace rules."""
     if not include and not exclude:
         return list(results)
-    return [r for r in results if not _is_namespace_blocked(r.page, include, exclude)]
+    return [r for r in results if not is_namespace_blocked(r.page, include, exclude)]
 
 
 def _filter_results_by_tags(
@@ -267,10 +263,11 @@ class VectorSearchToolHandler(ToolHandler):
         finally:
             db.close()
 
+        acl = access.get_access_config()
         results = _filter_results_by_namespace(
-            results, _include_namespaces, _exclude_namespaces
+            results, acl.include_namespaces, acl.exclude_namespaces
         )
-        results = _filter_results_by_tags(results, _exclude_tags)
+        results = _filter_results_by_tags(results, acl.exclude_tags)
         output = output_prefix + _format_search_results(results)
         return [TextContent(type="text", text=output)]
 

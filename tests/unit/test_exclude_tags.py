@@ -14,6 +14,7 @@ import pytest
 from unittest.mock import patch, Mock
 
 from mcp_logseq.config import load_exclude_tags
+from mcp_logseq.access import AccessConfig
 from mcp_logseq.tools import (
     _extract_tags,
     _is_page_excluded,
@@ -22,6 +23,14 @@ from mcp_logseq.tools import (
     SearchToolHandler,
     QueryToolHandler,
 )
+
+
+def _exclude_tags_patch(tags):
+    """Patch the cached ACL config with the given exclude tags."""
+    return patch(
+        "mcp_logseq.access.get_access_config",
+        return_value=AccessConfig(exclude_tags=tags),
+    )
 
 
 # =============================================================================
@@ -168,7 +177,7 @@ def test_list_pages_excludes_tagged_pages(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = ListPagesToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"include_journals": True})
 
     text = result[0].text
@@ -187,7 +196,7 @@ def test_list_pages_no_filter_when_exclude_empty(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = ListPagesToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", []):
+    with _exclude_tags_patch([]):
         result = handler.run_tool({})
 
     assert "Private Page" in result[0].text
@@ -205,7 +214,7 @@ def test_list_pages_multiple_excluded_tags(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = ListPagesToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private", "draft"]):
+    with _exclude_tags_patch(["private", "draft"]):
         result = handler.run_tool({})
 
     text = result[0].text
@@ -230,7 +239,7 @@ def test_get_page_content_raises_for_excluded_page(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = GetPageContentToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         with pytest.raises(RuntimeError, match="Access denied"):
             handler.run_tool({"page_name": "Secret Diary"})
 
@@ -246,7 +255,7 @@ def test_get_page_content_allows_non_excluded_page(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = GetPageContentToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"page_name": "Public Notes"})
 
     assert "Some notes content" in result[0].text
@@ -263,7 +272,7 @@ def test_get_page_content_no_block_when_exclude_empty(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = GetPageContentToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", []):
+    with _exclude_tags_patch([]):
         result = handler.run_tool({"page_name": "Private Page"})
 
     assert "private content" in result[0].text
@@ -291,7 +300,7 @@ def test_search_filters_excluded_page_names(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = SearchToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"query": "test"})
 
     text = result[0].text
@@ -313,7 +322,7 @@ def test_search_no_extra_api_call_when_no_exclude_tags(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = SearchToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", []):
+    with _exclude_tags_patch([]):
         handler.run_tool({"query": "test"})
 
     mock_api.list_pages.assert_not_called()
@@ -336,7 +345,7 @@ def test_search_snippets_dropped_when_exclusion_active(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = SearchToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"query": "test"})
 
     assert "some secret snippet" not in result[0].text
@@ -356,7 +365,7 @@ def test_search_snippets_shown_when_no_exclusion(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = SearchToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", []):
+    with _exclude_tags_patch([]):
         result = handler.run_tool({"query": "test"})
 
     assert "a visible snippet" in result[0].text
@@ -378,7 +387,7 @@ def test_query_filters_excluded_page_objects(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = QueryToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"query": "(page-property type x)"})
 
     text = result[0].text
@@ -397,7 +406,7 @@ def test_query_block_objects_pass_through(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = QueryToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", ["private"]):
+    with _exclude_tags_patch(["private"]):
         result = handler.run_tool({"query": "(page-property type x)"})
 
     assert "A block result" in result[0].text
@@ -413,7 +422,7 @@ def test_query_no_filter_when_exclude_empty(mock_logseq_class):
     mock_logseq_class.return_value = mock_api
 
     handler = QueryToolHandler()
-    with patch("mcp_logseq.tools._exclude_tags", []):
+    with _exclude_tags_patch([]):
         result = handler.run_tool({"query": "(page-property type x)"})
 
     assert "Private Page" in result[0].text

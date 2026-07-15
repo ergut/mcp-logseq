@@ -2,18 +2,24 @@ import json
 import re
 import logging
 from typing import Any
+from . import access
 from . import logseq
 from . import parser
-from .config import load_exclude_tags, load_include_namespaces, load_exclude_namespaces
+from .access import (
+    AccessDenied,
+    extract_tags as _extract_tags,
+    is_page_excluded as _is_page_excluded,
+    is_page_blocked as _is_page_blocked,
+    enforce_namespace_access as _enforce_namespace_access,
+    enforce_block_namespace_access as _enforce_block_namespace_access,
+    enforce_page_tag_access as _enforce_page_tag_access,
+    enforce_block_tag_access as _enforce_block_tag_access,
+)
 from .namespace import is_namespace_blocked as _is_namespace_blocked
 from .settings import get_settings
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
-
-_exclude_tags: list[str] = load_exclude_tags()
-_include_namespaces: list[str] = load_include_namespaces()
-_exclude_namespaces: list[str] = load_exclude_namespaces()
 
 
 def _get_db_mode() -> bool:
@@ -59,111 +65,6 @@ def _resolve_block_refs(content: str, uuid_map: dict[str, str]) -> str:
         return match.group(0)  # Keep original if not resolved
 
     return _UUID_REF_PATTERN.sub(_replace, content)
-
-
-def _extract_tags(properties: dict) -> list[str]:
-    """Extract tags from a Logseq properties dict (list or comma-string form)."""
-    raw = properties.get("tags", [])
-    if isinstance(raw, str):
-        return [t.strip() for t in raw.split(",") if t.strip()]
-    elif isinstance(raw, list):
-        return [str(t).strip() for t in raw if str(t).strip()]
-    return []
-
-
-def _is_page_excluded(page: dict, exclude_tags: list[str]) -> bool:
-    """Return True if the page has any tag in exclude_tags."""
-    if not exclude_tags:
-        return False
-    props = page.get("properties") or {}
-    return any(t in exclude_tags for t in _extract_tags(props))
-
-
-class AccessDenied(RuntimeError):
-    """Raised when a tool is blocked from accessing a restricted page."""
-
-
-def _is_page_blocked(page: dict | None, page_name: str) -> bool:
-    """Combined tag OR namespace block check (used for result filtering)."""
-    if page and _is_page_excluded(page, _exclude_tags):
-        return True
-    return _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces)
-
-
-def _enforce_namespace_access(page_name: str) -> None:
-    """Raise AccessDenied if page_name is blocked by namespace rules.
-
-    Name-based only (no tag check — that needs fetched page properties).
-    """
-    if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
-        raise AccessDenied(
-            f"Access denied: page '{page_name}' is restricted "
-            f"and cannot be accessed by this assistant."
-        )
-
-
-def _enforce_block_namespace_access(api, block_uuid: str) -> None:
-    """Resolve a block's owning page and enforce namespace rules.
-
-    Fail-closed: when namespace rules are configured but the page cannot be
-    resolved, access is denied. When no namespace rules exist, this is a no-op.
-    """
-    if not _include_namespaces and not _exclude_namespaces:
-        return
-    page_name = api.get_block_page_name(block_uuid)
-    if page_name is None:
-        raise AccessDenied(
-            f"Access denied: cannot verify the namespace of block '{block_uuid}'."
-        )
-    _enforce_namespace_access(page_name)
-
-
-def _enforce_page_tag_access(api, page_name: str) -> None:
-    """Raise AccessDenied if an EXISTING page carries an excluded tag.
-
-    Complements the name-based namespace check on write handlers: namespace
-    rules can be evaluated from the name alone, but tag exclusion requires the
-    page's properties, so this fetches the page. A no-op when no exclude tags
-    are configured.
-
-    Two cases are NOT excluded — but only the first is also a quiet pass:
-    - ``get_page_content`` returns None/empty: the page does not exist (or has
-      no properties) and therefore carries no tags. Treated as NOT excluded so
-      ``update_page`` keeps working for brand-new pages.
-    - ``get_page_content`` RAISES: with exclude tags configured we cannot verify
-      the page's tags, so we must NOT silently proceed with the write. The error
-      is allowed to propagate (no try/except) so the calling write handler
-      aborts the mutation via its normal error path (fail-closed). It is not an
-      AccessDenied, so it isn't mislabeled — it just isn't swallowed.
-    """
-    if not _exclude_tags:
-        return
-    # No try/except by design: when exclude tags are configured, a fetch error
-    # must abort the write rather than fail open. A non-existent page returns
-    # None and falls through as not-excluded.
-    result = api.get_page_content(page_name)
-    if result and _is_page_excluded(result.get("page", {}), _exclude_tags):
-        raise AccessDenied(
-            f"Access denied: page '{page_name}' is restricted "
-            f"and cannot be accessed by this assistant."
-        )
-
-
-def _enforce_block_tag_access(api, block_uuid: str) -> None:
-    """Resolve a block's owning page and enforce tag exclusion on it.
-
-    A no-op when no exclude tags are configured. When tags ARE configured but
-    the owning page cannot be resolved, access is denied (fail-closed), mirroring
-    ``_enforce_block_namespace_access``.
-    """
-    if not _exclude_tags:
-        return
-    page_name = api.get_block_page_name(block_uuid)
-    if page_name is None:
-        raise AccessDenied(
-            f"Access denied: cannot verify the owning page of block '{block_uuid}'."
-        )
-    _enforce_page_tag_access(api, page_name)
 
 
 class ToolHandler:
@@ -1295,8 +1196,9 @@ class SearchToolHandler(ToolHandler):
                 ]
 
             # Build excluded page name set (one extra API call only when needed)
+            acl = access.get_access_config()
             excluded_page_names = self._build_excluded_page_names(
-                api, _exclude_tags, _exclude_namespaces, _include_namespaces
+                api, acl.exclude_tags, acl.exclude_namespaces, acl.include_namespaces
             )
 
             if args.get("format") == "json":
@@ -1433,16 +1335,17 @@ class QueryToolHandler(ToolHandler):
 
     def _page_name_blocked(self, page_name: str, api) -> bool:
         """Tag OR namespace block decision for an already-resolved page name."""
-        if _is_namespace_blocked(page_name, _include_namespaces, _exclude_namespaces):
+        acl = access.get_access_config()
+        if _is_namespace_blocked(page_name, acl.include_namespaces, acl.exclude_namespaces):
             return True
-        if _exclude_tags:
+        if acl.exclude_tags:
             # Tag exclusion needs the page's properties; fetch the owning page
             # and inspect its tags. Fail-closed if it cannot be fetched.
             try:
                 page = api.get_page_content(page_name)
             except Exception:
                 return True
-            if page and _is_page_excluded(page.get("page", {}), _exclude_tags):
+            if page and _is_page_excluded(page.get("page", {}), acl.exclude_tags):
                 return True
         return False
 
@@ -1504,7 +1407,7 @@ class QueryToolHandler(ToolHandler):
             # are checkable too — block filtering must run whenever ANY rule is
             # active (tag-only profiles included). Resolution is fail-closed
             # (unresolvable owning page => dropped).
-            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+            if access.get_access_config().has_rules:
                 filtered = []
                 # Per-request memo so blocks sharing an owning page only trigger
                 # one tag/namespace resolution + fetch.
@@ -1636,7 +1539,7 @@ class FindPagesByPropertyToolHandler(ToolHandler):
                 return [TextContent(type="text", text=msg)]
 
             # Security: drop pages blocked by tag OR namespace before limiting
-            if _exclude_tags or _include_namespaces or _exclude_namespaces:
+            if access.get_access_config().has_rules:
                 kept = []
                 for item in result:
                     if isinstance(item, dict):

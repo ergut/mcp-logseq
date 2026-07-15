@@ -1,9 +1,8 @@
 """Pure, side-effect-free namespace matching.
 
-Shared by the query-time ACL layer (``tools.py``) and the index-time vector
+Shared by the query-time ACL layer (``access.py``) and the index-time vector
 indexer (``vector/chunker.py``). Kept dependency-free so the sync writer, which
-runs without ``LOGSEQ_API_TOKEN``, can import it without triggering ``tools.py``'s
-import-time environment checks.
+runs without ``LOGSEQ_API_TOKEN``, can import it in isolation.
 """
 
 from __future__ import annotations

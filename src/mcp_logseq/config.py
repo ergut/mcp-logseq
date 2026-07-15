@@ -70,11 +70,12 @@ class VectorConfig:
     watch_debounce_ms: int = 5000
 
 
-def load_vector_config() -> VectorConfig | None:
-    """
-    Load vector config from LOGSEQ_CONFIG_FILE.
-    Returns None if env var is not set, file is missing, or vector.enabled is not true.
-    Never raises — logs warnings on issues.
+def read_config_file() -> dict | None:
+    """Read and parse the JSON file pointed to by LOGSEQ_CONFIG_FILE.
+
+    Single choke point for config-file IO: returns None if the env var is not
+    set, the file is missing, or it cannot be parsed. Never raises — logs
+    warnings on issues.
     """
     config_path = os.getenv("LOGSEQ_CONFIG_FILE")
     if not config_path:
@@ -87,9 +88,20 @@ def load_vector_config() -> VectorConfig | None:
 
     try:
         with open(config_path) as f:
-            raw = json.load(f)
+            return json.load(f)
     except Exception as e:
         logger.warning(f"Failed to parse config file {config_path}: {e}")
+        return None
+
+
+def load_vector_config() -> VectorConfig | None:
+    """
+    Load vector config from LOGSEQ_CONFIG_FILE.
+    Returns None if env var is not set, file is missing, or vector.enabled is not true.
+    Never raises — logs warnings on issues.
+    """
+    raw = read_config_file()
+    if raw is None:
         return None
 
     vector_raw = raw.get("vector")
@@ -175,12 +187,15 @@ def load_vector_config() -> VectorConfig | None:
     )
 
 
-def _load_csv_config(env_var: str, config_key: str) -> list[str]:
-    """Load a comma/list config value from an env var or the config file root.
+def csv_config_value(raw: dict | None, env_var: str, config_key: str) -> list[str]:
+    """Resolve a comma/list config value from an env var or a parsed config dict.
 
     Priority: env var > config file root key > [] (no value).
     env var: comma-separated string. config file: list or comma-separated string.
     Strips whitespace and drops empties. Never raises.
+
+    ``raw`` is the already-parsed config file (``read_config_file()``), so
+    callers resolving several keys parse the file only once.
     """
     env_val = os.getenv(env_var, "").strip()
     if env_val:
@@ -189,17 +204,7 @@ def _load_csv_config(env_var: str, config_key: str) -> list[str]:
             logger.info(f"Loaded {len(items)} entries from {env_var}")
             return items
 
-    config_path = os.getenv("LOGSEQ_CONFIG_FILE")
-    if not config_path:
-        return []
-    config_path = os.path.expanduser(config_path)
-    if not os.path.exists(config_path):
-        return []
-    try:
-        with open(config_path) as f:
-            raw = json.load(f)
-    except Exception as e:
-        logger.warning(f"Failed to parse config file for {config_key} {config_path}: {e}")
+    if raw is None:
         return []
 
     raw_val = raw.get(config_key, [])
@@ -216,14 +221,14 @@ def _load_csv_config(env_var: str, config_key: str) -> list[str]:
 
 def load_exclude_tags() -> list[str]:
     """Load top-level exclude_tags. Priority: env var > config file > []."""
-    return _load_csv_config("LOGSEQ_EXCLUDE_TAGS", "exclude_tags")
+    return csv_config_value(read_config_file(), "LOGSEQ_EXCLUDE_TAGS", "exclude_tags")
 
 
 def load_include_namespaces() -> list[str]:
     """Load allow-list namespaces. Priority: env var > config file > []."""
-    return _load_csv_config("LOGSEQ_INCLUDE_NAMESPACES", "include_namespaces")
+    return csv_config_value(read_config_file(), "LOGSEQ_INCLUDE_NAMESPACES", "include_namespaces")
 
 
 def load_exclude_namespaces() -> list[str]:
     """Load deny-list namespaces. Priority: env var > config file > []."""
-    return _load_csv_config("LOGSEQ_EXCLUDE_NAMESPACES", "exclude_namespaces")
+    return csv_config_value(read_config_file(), "LOGSEQ_EXCLUDE_NAMESPACES", "exclude_namespaces")

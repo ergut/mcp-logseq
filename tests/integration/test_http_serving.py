@@ -19,7 +19,7 @@ Two layers are exercised:
   protocol rather than this project's security contract. Instead we drive the
   EXACT handler registry the served app exposes — ``build_app(read_only=...)``
   returns ``(server, handlers)`` where ``handlers`` is the same dict the app's
-  ``call_tool`` closure dispatches to — with the profile's ACL globals active.
+  ``call_tool`` closure dispatches to — with the profile's ACL config active.
   This proves denied-namespace content never surfaces and that the read-only
   app's tool set omits genuine write tools, end-to-end through the served app
   object, without re-testing the SDK.
@@ -30,25 +30,23 @@ from unittest.mock import Mock, patch
 import pytest
 from starlette.testclient import TestClient
 
+from mcp_logseq.access import AccessConfig, AccessDenied
 from mcp_logseq.transport.http import create_asgi_app
 from mcp_logseq.server import build_app, _WRITE_TOOL_NAMES
-from mcp_logseq.tools import AccessDenied
 
 
 TOKEN = "journal-profile-token"
 
 
 def _journal_only_profile():
-    """Activate the Journal-only ACL profile on the served handlers' globals.
+    """Activate the Journal-only ACL profile on the served handlers' config.
 
     ``include=['Journal']`` is a strict allow-list: only ``Journal`` and its
     children are reachable; ``Work/*`` (and every other namespace) is denied.
     """
-    return patch.multiple(
-        "mcp_logseq.tools",
-        _include_namespaces=["Journal"],
-        _exclude_namespaces=[],
-        _exclude_tags=[],
+    return patch(
+        "mcp_logseq.access.get_access_config",
+        return_value=AccessConfig(include_namespaces=["Journal"]),
     )
 
 
