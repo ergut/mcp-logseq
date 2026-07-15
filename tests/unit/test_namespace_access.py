@@ -1145,18 +1145,22 @@ def test_rename_page_denies_tag_excluded_source_page():
 
 def test_tag_on_write_fails_closed_when_page_fetch_raises():
     """With exclude tags configured, a page-fetch error must abort the write
-    rather than silently proceeding (no fail-open). The error propagates and the
-    write API is never called."""
+    rather than silently proceeding (no fail-open). The write API is never called.
+
+    Since A4 the tag guard runs as a declarative access policy at the base
+    ``run_tool`` choke point, before the handler body. A fetch error during that
+    check therefore propagates as an exception (fail-closed) instead of being
+    caught by the handler and reported as a soft message — the write still never
+    happens, which is the security invariant this test protects."""
     fake = Mock()
     fake.get_page_content.side_effect = RuntimeError("API down")
     with _tags_excluded(), patch("mcp_logseq.tools._make_api", return_value=fake):
-        out = UpdatePageToolHandler().run_tool(
-            {"page_name": "work/secrets", "content": "c"}
-        )
-        # The write did NOT succeed: update_page_with_blocks never ran, and the
-        # handler reported failure rather than success.
+        with pytest.raises(RuntimeError, match="API down"):
+            UpdatePageToolHandler().run_tool(
+                {"page_name": "work/secrets", "content": "c"}
+            )
+        # The write did NOT succeed: update_page_with_blocks never ran.
         fake.update_page_with_blocks.assert_not_called()
-        assert "Successfully updated" not in out[0].text
 
 
 def test_vector_search_drops_tag_excluded_chunk(monkeypatch):

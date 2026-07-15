@@ -5,17 +5,18 @@ import json
 from mcp.types import Tool, TextContent
 
 import mcp_logseq.tools as _t
-from ..access import (
-    AccessDenied,
-    enforce_block_namespace_access as _enforce_block_namespace_access,
-    enforce_block_tag_access as _enforce_block_tag_access,
-)
+from .. import access
 from .base import ToolHandler, logger
 # GetBlock reuses GetPageContent's block-tree formatter.
 from .pages import GetPageContentToolHandler
 
 
 class DeleteBlockToolHandler(ToolHandler):
+    access_policy = [
+        access.BlockNamespace("block_uuid"),
+        access.BlockTag("block_uuid"),
+    ]
+
     def __init__(self):
         super().__init__("delete_block")
 
@@ -35,24 +36,19 @@ class DeleteBlockToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "block_uuid" not in args:
             raise RuntimeError("block_uuid argument required")
 
         block_uuid = args["block_uuid"]
 
         try:
-            api = _t._make_api()
-            _enforce_block_namespace_access(api, block_uuid)
-            _enforce_block_tag_access(api, block_uuid)
             api.delete_block(block_uuid)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully deleted block '{block_uuid}'"
             )]
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -67,6 +63,11 @@ class DeleteBlockToolHandler(ToolHandler):
 
 
 class UpdateBlockToolHandler(ToolHandler):
+    access_policy = [
+        access.BlockNamespace("block_uuid"),
+        access.BlockTag("block_uuid"),
+    ]
+
     def __init__(self):
         super().__init__("update_block")
 
@@ -90,7 +91,7 @@ class UpdateBlockToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "block_uuid" not in args or "content" not in args:
             raise RuntimeError("block_uuid and content arguments required")
 
@@ -98,17 +99,12 @@ class UpdateBlockToolHandler(ToolHandler):
         content = args["content"]
 
         try:
-            api = _t._make_api()
-            _enforce_block_namespace_access(api, block_uuid)
-            _enforce_block_tag_access(api, block_uuid)
             api.update_block(block_uuid, content)
 
             return [TextContent(
                 type="text",
                 text=f"✅ Successfully updated block '{block_uuid}'"
             )]
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -124,6 +120,11 @@ class UpdateBlockToolHandler(ToolHandler):
 
 class GetBlockToolHandler(ToolHandler):
     """Retrieve a single block by UUID, including its content, properties, and children."""
+
+    access_policy = [
+        access.BlockNamespace("block_uuid"),
+        access.BlockTag("block_uuid"),
+    ]
 
     def __init__(self):
         super().__init__("get_block")
@@ -155,7 +156,7 @@ class GetBlockToolHandler(ToolHandler):
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "block_uuid" not in args:
             raise RuntimeError("block_uuid argument required")
 
@@ -164,9 +165,6 @@ class GetBlockToolHandler(ToolHandler):
         output_format = args.get("format", "text")
 
         try:
-            api = _t._make_api()
-            _enforce_block_namespace_access(api, block_uuid)
-            _enforce_block_tag_access(api, block_uuid)
             result = api.get_block(block_uuid, include_children=include_children)
 
             if output_format == "json":
@@ -197,8 +195,6 @@ class GetBlockToolHandler(ToolHandler):
 
             return [TextContent(type="text", text="\n".join(content_parts))]
 
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -210,6 +206,11 @@ class GetBlockToolHandler(ToolHandler):
 
 
 class InsertNestedBlockToolHandler(ToolHandler):
+    access_policy = [
+        access.BlockNamespace("parent_block_uuid"),
+        access.BlockTag("parent_block_uuid"),
+    ]
+
     def __init__(self):
         super().__init__("insert_nested_block")
 
@@ -243,7 +244,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Insert a nested block under an existing block."""
         if "parent_block_uuid" not in args or "content" not in args:
             raise RuntimeError("parent_block_uuid and content arguments required")
@@ -254,9 +255,6 @@ class InsertNestedBlockToolHandler(ToolHandler):
         sibling = args.get("sibling", False)
 
         try:
-            api = _t._make_api()
-            _enforce_block_namespace_access(api, parent_uuid)
-            _enforce_block_tag_access(api, parent_uuid)
             result = api.insert_block_as_child(
                 parent_block_uuid=parent_uuid,
                 content=content,
@@ -284,8 +282,6 @@ class InsertNestedBlockToolHandler(ToolHandler):
                 text=success_msg
             )]
 
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -300,6 +296,11 @@ class InsertNestedBlockToolHandler(ToolHandler):
 
 
 class SetBlockPropertiesToolHandler(ToolHandler):
+    access_policy = [
+        access.BlockNamespace("block_uuid"),
+        access.BlockTag("block_uuid"),
+    ]
+
     def __init__(self):
         super().__init__("set_block_properties")
 
@@ -324,7 +325,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Set DB-mode properties on a block."""
         if not _t._get_db_mode():
             return [TextContent(
@@ -339,9 +340,6 @@ class SetBlockPropertiesToolHandler(ToolHandler):
         properties = args["properties"]
 
         try:
-            api = _t._make_api()
-            _enforce_block_namespace_access(api, block_uuid)
-            _enforce_block_tag_access(api, block_uuid)
             results = []
 
             for prop_name, value in properties.items():
@@ -359,8 +357,6 @@ class SetBlockPropertiesToolHandler(ToolHandler):
                 text=f"Set properties on block {block_uuid}:\n" + "\n".join(results),
             )]
 
-        except AccessDenied:
-            raise
         except Exception as e:
             logger.error(f"Failed to set block properties: {str(e)}")
             return [TextContent(

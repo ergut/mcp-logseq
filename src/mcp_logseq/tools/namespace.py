@@ -2,15 +2,17 @@
 
 from mcp.types import Tool, TextContent
 
-import mcp_logseq.tools as _t
+from .. import access
 from ..access import (
     is_page_blocked as _is_page_blocked,
-    enforce_namespace_access as _enforce_namespace_access,
 )
 from .base import ToolHandler, logger
 
 
 class GetPagesFromNamespaceToolHandler(ToolHandler):
+    # Gate the queried namespace by name; results are filtered in _run.
+    access_policy = [access.NamespaceName("namespace")]
+
     def __init__(self):
         super().__init__("get_pages_from_namespace")
 
@@ -30,14 +32,11 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
 
-        _enforce_namespace_access(args["namespace"])
-
         try:
-            api = _t._make_api()
             result = api.get_pages_from_namespace(args["namespace"])
 
             # Security: silently drop pages blocked by tag OR namespace, e.g. an
@@ -74,6 +73,9 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
 
 
 class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
+    # Gate the root namespace by name; the tree is pruned in _run.
+    access_policy = [access.NamespaceName("namespace")]
+
     def __init__(self):
         super().__init__("get_pages_tree_from_namespace")
 
@@ -93,14 +95,11 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "namespace" not in args:
             raise RuntimeError("namespace argument required")
 
-        _enforce_namespace_access(args["namespace"])
-
         try:
-            api = _t._make_api()
             result = api.get_pages_tree_from_namespace(args["namespace"])
 
             # Security: silently prune nodes blocked by tag OR namespace, e.g. an

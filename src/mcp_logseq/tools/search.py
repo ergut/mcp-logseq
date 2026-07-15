@@ -15,6 +15,10 @@ from .base import ToolHandler, logger, _UUID_REF_PATTERN
 
 
 class SearchToolHandler(ToolHandler):
+    # No pre-dispatch gate: results are filtered via a bespoke fail-closed
+    # exclusion set (_build_excluded_page_names) inside _run.
+    access_policy = []
+
     def __init__(self):
         super().__init__("search")
 
@@ -334,7 +338,7 @@ class SearchToolHandler(ToolHandler):
 
         return out
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Execute search and format results."""
         logger.info(f"Searching with args: {args}")
 
@@ -351,7 +355,6 @@ class SearchToolHandler(ToolHandler):
             # Prepare search options
             search_options = {"limit": limit}
 
-            api = _t._make_api()
             result = api.search_content(query, search_options)
 
             if not result:
@@ -400,6 +403,10 @@ class SearchToolHandler(ToolHandler):
 
 class QueryToolHandler(ToolHandler):
     """Execute Logseq DSL queries to search pages and blocks."""
+
+    # No pre-dispatch gate: page and block results are filtered via a bespoke
+    # fail-closed tag/namespace check (_block_blocked / _is_page_blocked) in _run.
+    access_policy = []
 
     def __init__(self):
         super().__init__("query")
@@ -539,7 +546,7 @@ class QueryToolHandler(ToolHandler):
             name = item.get("originalName") or item.get("name") or str(item)[:50]
             return f"{index}. {name}"
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Execute DSL query and format results."""
         if "query" not in args:
             raise RuntimeError("query argument required")
@@ -549,7 +556,6 @@ class QueryToolHandler(ToolHandler):
         result_type = args.get("result_type", "all")
 
         try:
-            api = _t._make_api()
             result = api.query_dsl(query)
 
             if not result:

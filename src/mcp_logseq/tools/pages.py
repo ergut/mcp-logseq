@@ -11,8 +11,6 @@ from .. import access
 from ..access import (
     AccessDenied,
     is_page_blocked as _is_page_blocked,
-    enforce_namespace_access as _enforce_namespace_access,
-    enforce_page_tag_access as _enforce_page_tag_access,
 )
 from .base import (
     ToolHandler,
@@ -34,6 +32,8 @@ class CreatePageToolHandler(ToolHandler):
     - Blockquotes (>)
     - YAML frontmatter for page properties
     """
+
+    access_policy = [access.NamespaceName("title")]
 
     def __init__(self):
         super().__init__("create_page")
@@ -86,7 +86,7 @@ Introduction paragraph.
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "title" not in args:
             raise RuntimeError("title argument required")
 
@@ -94,11 +94,7 @@ Introduction paragraph.
         content = args.get("content", "")
         explicit_properties = args.get("properties", {})
 
-        _enforce_namespace_access(title)
-
         try:
-            api = _t._make_api()
-
             # Refuse to create a duplicate: Logseq auto-numbers pages with an
             # existing name ("Page(1)", "Page 2"), which silently fragments
             # content when a timed-out create_page is retried (issue #58).
@@ -141,6 +137,9 @@ Introduction paragraph.
 
 
 class ListPagesToolHandler(ToolHandler):
+    # No pre-dispatch gate: results are filtered per-page via is_page_blocked.
+    access_policy = []
+
     def __init__(self):
         super().__init__("list_pages")
 
@@ -161,11 +160,10 @@ class ListPagesToolHandler(ToolHandler):
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         include_journals = args.get("include_journals", False)
 
         try:
-            api = _t._make_api()
             result = api.list_pages()
 
             # Format pages for display
@@ -213,6 +211,10 @@ class ListPagesToolHandler(ToolHandler):
 
 
 class GetPageContentToolHandler(ToolHandler):
+    # Namespace is name-checkable up front; the tag/namespace check on the
+    # fetched page stays inline in _run (it needs the page body).
+    access_policy = [access.NamespaceName("page_name")]
+
     def __init__(self):
         super().__init__("get_page_content")
 
@@ -316,18 +318,14 @@ class GetPageContentToolHandler(ToolHandler):
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Get and format LogSeq page content."""
         logger.info(f"Getting page content with args: {args}")
 
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
-        # Pre-flight: namespace check is name-based, no API call needed
-        _enforce_namespace_access(args["page_name"])
-
         try:
-            api = _t._make_api()
             result = api.get_page_content(args["page_name"])
 
             if not result:
@@ -409,6 +407,11 @@ class GetPageContentToolHandler(ToolHandler):
 
 
 class DeletePageToolHandler(ToolHandler):
+    access_policy = [
+        access.NamespaceName("page_name"),
+        access.PageTag("page_name"),
+    ]
+
     def __init__(self):
         super().__init__("delete_page")
 
@@ -428,15 +431,11 @@ class DeletePageToolHandler(ToolHandler):
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
-        _enforce_namespace_access(args["page_name"])
-
         try:
-            api = _t._make_api()
-            _enforce_page_tag_access(api, args["page_name"])
             result = api.delete_page(args["page_name"])
 
             # Build detailed success message
@@ -455,8 +454,6 @@ class DeletePageToolHandler(ToolHandler):
             )
 
             return [TextContent(type="text", text=success_msg)]
-        except AccessDenied:
-            raise
         except ValueError as e:
             # Handle validation errors (page not found) gracefully
             return [TextContent(type="text", text=f"❌ Error: {str(e)}")]
@@ -478,6 +475,11 @@ class UpdatePageToolHandler(ToolHandler):
     - append: Add new blocks after existing content (default)
     - replace: Clear existing content and add new blocks
     """
+
+    access_policy = [
+        access.NamespaceName("page_name"),
+        access.PageTag("page_name"),
+    ]
 
     def __init__(self):
         super().__init__("update_page")
@@ -520,7 +522,7 @@ YAML frontmatter in content will be merged with explicit properties.""",
             },
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
@@ -528,8 +530,6 @@ YAML frontmatter in content will be merged with explicit properties.""",
         content = args.get("content", "")
         mode = args.get("mode", "append")
         explicit_properties = args.get("properties", {})
-
-        _enforce_namespace_access(page_name)
 
         # Validate that at least one update is provided
         if not content and not explicit_properties:
@@ -541,9 +541,6 @@ YAML frontmatter in content will be merged with explicit properties.""",
             ]
 
         try:
-            api = _t._make_api()
-            _enforce_page_tag_access(api, page_name)
-
             # Parse the content
             parsed = (
                 parser.parse_content(content) if content else parser.ParsedContent()
@@ -581,8 +578,6 @@ YAML frontmatter in content will be merged with explicit properties.""",
             msg_parts.append(f"Mode: {mode}")
 
             return [TextContent(type="text", text="\n".join(msg_parts))]
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
@@ -596,6 +591,9 @@ YAML frontmatter in content will be merged with explicit properties.""",
 
 class FindPagesByPropertyToolHandler(ToolHandler):
     """Find pages by property name and optional value."""
+
+    # No pre-dispatch gate: results are filtered via is_page_blocked below.
+    access_policy = []
 
     def __init__(self):
         super().__init__("find_pages_by_property")
@@ -636,7 +634,7 @@ class FindPagesByPropertyToolHandler(ToolHandler):
             raise ValueError(f"Invalid property name '{name}': only alphanumeric, hyphens, and underscores allowed")
         return name
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         """Find pages by property and format results."""
         if "property_name" not in args:
             raise RuntimeError("property_name argument required")
@@ -656,7 +654,6 @@ class FindPagesByPropertyToolHandler(ToolHandler):
             query = f'(page-property {property_name})'
 
         try:
-            api = _t._make_api()
             result = api.query_dsl(query)
 
             if not result:
@@ -721,6 +718,14 @@ class FindPagesByPropertyToolHandler(ToolHandler):
 
 
 class RenamePageToolHandler(ToolHandler):
+    # Both names are namespace-gated; the tag guard applies to the existing
+    # SOURCE page only (the target is a not-yet-existing page with no tags).
+    access_policy = [
+        access.NamespaceName("old_name"),
+        access.NamespaceName("new_name"),
+        access.PageTag("old_name"),
+    ]
+
     def __init__(self):
         super().__init__("rename_page")
 
@@ -744,21 +749,14 @@ class RenamePageToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "old_name" not in args or "new_name" not in args:
             raise RuntimeError("old_name and new_name arguments required")
 
         old_name = args["old_name"]
         new_name = args["new_name"]
 
-        _enforce_namespace_access(old_name)
-        _enforce_namespace_access(new_name)
-
         try:
-            api = _t._make_api()
-            # Tag-on-write: guard the SOURCE page (existing). The target name is
-            # a not-yet-existing page, so it has no prior tags to check.
-            _enforce_page_tag_access(api, old_name)
             api.rename_page(old_name, new_name)
 
             return [TextContent(
@@ -766,8 +764,6 @@ class RenamePageToolHandler(ToolHandler):
                 text=f"Successfully renamed page '{old_name}' to '{new_name}'\n"
                      f"All references in the graph have been updated."
             )]
-        except AccessDenied:
-            raise
         except ValueError as e:
             return [TextContent(
                 type="text",
@@ -782,6 +778,9 @@ class RenamePageToolHandler(ToolHandler):
 
 
 class GetPageBacklinksToolHandler(ToolHandler):
+    # Gate the queried page by name; referring pages are filtered in _run.
+    access_policy = [access.NamespaceName("page_name")]
+
     def __init__(self):
         super().__init__("get_page_backlinks")
 
@@ -806,17 +805,14 @@ class GetPageBacklinksToolHandler(ToolHandler):
             }
         )
 
-    def run_tool(self, args: dict) -> list[TextContent]:
+    def _run(self, api, args: dict) -> list[TextContent]:
         if "page_name" not in args:
             raise RuntimeError("page_name argument required")
 
         page_name = args["page_name"]
         include_content = args.get("include_content", True)
 
-        _enforce_namespace_access(page_name)
-
         try:
-            api = _t._make_api()
             result = api.get_page_linked_references(page_name)
 
             if not result:
