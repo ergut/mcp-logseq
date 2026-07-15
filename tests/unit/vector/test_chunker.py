@@ -119,6 +119,35 @@ def test_chunk_file_exclude_tags_filters_page(tmp_path):
     assert chunks == []
 
 
+def test_chunk_file_exclude_namespace_filters_page(tmp_path):
+    md_file = tmp_path / "Work___Secret.md"
+    md_file.write_text("- Confidential project notes with enough content here\n")
+    config = _make_config(graph_path=str(tmp_path), exclude_namespaces=["Work/Secret"])
+
+    chunks = chunk_file(md_file, config)
+    assert chunks == []
+
+
+def test_chunk_file_include_namespace_allowlist(tmp_path):
+    work = tmp_path / "Work___ProjectA.md"
+    work.write_text("- Work project notes with enough content to index here\n")
+    personal = tmp_path / "Personal___Health.md"
+    personal.write_text("- Personal health notes with enough content here too\n")
+    config = _make_config(graph_path=str(tmp_path), include_namespaces=["Work"])
+
+    assert chunk_file(personal, config) == []
+    assert len(chunk_file(work, config)) >= 1
+
+
+def test_chunk_file_namespace_match_is_segment_based(tmp_path):
+    # "Work" must not block "Workshop" — segment match, not prefix string match.
+    md_file = tmp_path / "Workshop___Notes.md"
+    md_file.write_text("- Workshop notes with plenty of content to index here\n")
+    config = _make_config(graph_path=str(tmp_path), exclude_namespaces=["Work"])
+
+    assert len(chunk_file(md_file, config)) >= 1
+
+
 def test_chunk_file_skips_journals_when_disabled(tmp_path):
     md_file = tmp_path / "2024_03_15.md"
     md_file.write_text("- Journal content with enough characters here\n")

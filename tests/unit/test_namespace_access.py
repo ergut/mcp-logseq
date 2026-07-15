@@ -81,8 +81,8 @@ def test_exclude_tags_still_works_after_refactor(monkeypatch):
 
 # --- _namespace_matches / _is_namespace_blocked / _is_page_blocked ---
 
+from mcp_logseq.namespace import namespace_matches as _namespace_matches
 from mcp_logseq.tools import (
-    _namespace_matches,
     _is_namespace_blocked,
     _is_page_blocked,
     AccessDenied,

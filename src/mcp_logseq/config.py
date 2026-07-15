@@ -20,10 +20,17 @@ Example config.json:
     },
     "include_journals": true,
     "exclude_tags": ["private"],
+    "include_namespaces": ["work"],
+    "exclude_namespaces": ["work/secret"],
     "min_chunk_length": 50,
     "watch_debounce_ms": 5000
   }
 }
+
+The vector-block "include_namespaces" / "exclude_namespaces" are INDEX-TIME:
+they decide which pages are embedded at all (global to the DB), unlike the
+root-level namespace keys, which filter query results per instance. Changing
+them takes effect only after `logseq-sync --rebuild`.
 
 Supported embedder providers are "ollama", "openai", and
 "openai-compatible". Hosted providers may also use "api_key" and "dimensions"
@@ -57,6 +64,8 @@ class VectorConfig:
     graph_path: str                         # logseq_graph_path from root config
     include_journals: bool = True
     exclude_tags: list[str] = field(default_factory=list)
+    include_namespaces: list[str] = field(default_factory=list)
+    exclude_namespaces: list[str] = field(default_factory=list)
     min_chunk_length: int = 50
     watch_debounce_ms: int = 5000
 
@@ -159,6 +168,8 @@ def load_vector_config() -> VectorConfig | None:
         graph_path=os.path.expanduser(graph_path),
         include_journals=vector_raw.get("include_journals", True),
         exclude_tags=vector_raw.get("exclude_tags", []),
+        include_namespaces=vector_raw.get("include_namespaces", []),
+        exclude_namespaces=vector_raw.get("exclude_namespaces", []),
         min_chunk_length=vector_raw.get("min_chunk_length", 50),
         watch_debounce_ms=vector_raw.get("watch_debounce_ms", 5000),
     )
