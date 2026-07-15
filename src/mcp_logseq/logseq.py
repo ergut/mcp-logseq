@@ -30,192 +30,154 @@ class LogSeq:
     def _get_headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}"}
 
-    def create_page(self, title: str, content: str = "") -> Any:
-        """Create a new LogSeq page with specified title and content."""
-        url = self.get_base_url()
-        logger.info(f"Creating page '{title}'")
+    def _call(
+        self, method: str, args: list, *, error_context: str | None = None
+    ) -> Any:
+        """Execute a single Logseq HTTP-API JSON-RPC call.
 
-        try:
-            # Step 1: Create the page
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.createPage",
-                    "args": [title, {}, {"createFirstBlock": True}],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            page_result = response.json()
+        Owns the request boilerplate shared by nearly every endpoint wrapper:
+        the POST to ``/api`` with auth headers, the SSL-verify / timeout config,
+        ``raise_for_status()`` and JSON decoding.
 
-            # Step 2: Add content if provided
-            if content and content.strip():
-                response = requests.post(
-                    url,
-                    headers=self._get_headers(),
-                    json={
-                        "method": "logseq.Editor.appendBlockInPage",
-                        "args": [title, content],
-                    },
-                    verify=self.verify_ssl,
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
+        On failure it logs ``"Error {error_context}: ..."`` when an
+        ``error_context`` is supplied (preserving each caller's historical log
+        message) and always re-raises, so callers keep their existing error
+        semantics. Callers that recover from failures (returning a default,
+        logging at a different level, or attaching a custom message) omit
+        ``error_context`` and handle the exception themselves.
 
-            return page_result
+        Args:
+            method: Logseq API method name (e.g. ``"logseq.Editor.getPage"``).
+            args: Positional arguments for the API method.
+            error_context: Optional phrase for the ``"Error {context}: ..."``
+                log line emitted on failure.
 
-        except Exception as e:
-            logger.error(f"Error creating page: {str(e)}")
-            raise
-
-    def page_exists(self, page_name: str) -> bool:
-        """Check whether a page with the given name already exists."""
-        url = self.get_base_url()
-
+        Returns:
+            The decoded JSON payload of the response.
+        """
         try:
             response = requests.post(
-                url,
+                self.get_base_url(),
                 headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPage", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            # Treat any falsy payload (null, {}) as "missing", matching
-            # get_page_content's defensive check on getPage responses.
-            return bool(response.json())
-
-        except Exception as e:
-            logger.error(f"Error checking if page exists: {str(e)}")
-            raise
-
-    def list_pages(self) -> Any:
-        """List all pages in the LogSeq graph."""
-        url = self.get_base_url()
-        logger.info("Listing pages")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getAllPages", "args": []},
+                json={"method": method, "args": args},
                 verify=self.verify_ssl,
                 timeout=self.timeout,
             )
             response.raise_for_status()
             return response.json()
-
         except Exception as e:
-            logger.error(f"Error listing pages: {str(e)}")
+            if error_context:
+                logger.error(f"Error {error_context}: {str(e)}")
             raise
+
+    def create_page(self, title: str, content: str = "") -> Any:
+        """Create a new LogSeq page with specified title and content."""
+        logger.info(f"Creating page '{title}'")
+
+        # Step 1: Create the page
+        page_result = self._call(
+            "logseq.Editor.createPage",
+            [title, {}, {"createFirstBlock": True}],
+            error_context="creating page",
+        )
+
+        # Step 2: Add content if provided
+        if content and content.strip():
+            self._call(
+                "logseq.Editor.appendBlockInPage",
+                [title, content],
+                error_context="creating page",
+            )
+
+        return page_result
+
+    def page_exists(self, page_name: str) -> bool:
+        """Check whether a page with the given name already exists."""
+        # Treat any falsy payload (null, {}) as "missing", matching
+        # get_page_content's defensive check on getPage responses.
+        return bool(
+            self._call(
+                "logseq.Editor.getPage",
+                [page_name],
+                error_context="checking if page exists",
+            )
+        )
+
+    def list_pages(self) -> Any:
+        """List all pages in the LogSeq graph."""
+        logger.info("Listing pages")
+        return self._call(
+            "logseq.Editor.getAllPages", [], error_context="listing pages"
+        )
 
     def get_page_content(self, page_name: str) -> Any:
         """Get content of a LogSeq page including metadata and block content."""
-        url = self.get_base_url()
         logger.info(f"Getting content for page '{page_name}'")
 
-        try:
-            # Step 1: Get page metadata (includes UUID)
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPage", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            page_info = response.json()
+        # Step 1: Get page metadata (includes UUID)
+        page_info = self._call(
+            "logseq.Editor.getPage",
+            [page_name],
+            error_context="getting page content",
+        )
 
-            if not page_info:
-                logger.error(f"Page '{page_name}' not found")
-                return None
+        if not page_info:
+            logger.error(f"Page '{page_name}' not found")
+            return None
 
-            # Step 2: Get page blocks using the page name
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPageBlocksTree", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            blocks = response.json()
+        # Step 2: Get page blocks using the page name
+        blocks = self._call(
+            "logseq.Editor.getPageBlocksTree",
+            [page_name],
+            error_context="getting page content",
+        )
 
-            # Step 3: Extract page properties from first block
-            # In Logseq, page properties are stored in the first block
-            properties = {}
-            if blocks and len(blocks) > 0:
-                properties = blocks[0].get("properties", {})
+        # Step 3: Extract page properties from first block
+        # In Logseq, page properties are stored in the first block
+        properties = {}
+        if blocks and len(blocks) > 0:
+            properties = blocks[0].get("properties", {})
 
-            return {
-                "page": {**page_info, "properties": properties},
-                "blocks": blocks or [],
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting page content: {str(e)}")
-            raise
+        return {
+            "page": {**page_info, "properties": properties},
+            "blocks": blocks or [],
+        }
 
     def search_content(self, query: str, options: dict | None = None) -> Any:
         """Search for content across LogSeq pages and blocks."""
-        url = self.get_base_url()
         logger.info(f"Searching for '{query}'")
 
         # Default search options
         search_options = options or {}
 
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.App.search", "args": [query, search_options]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error searching content: {str(e)}")
-            raise
+        return self._call(
+            "logseq.App.search",
+            [query, search_options],
+            error_context="searching content",
+        )
 
     def delete_page(self, page_name: str) -> Any:
         """Delete a LogSeq page by name."""
-        url = self.get_base_url()
         logger.info(f"Deleting page '{page_name}'")
 
-        try:
-            # Pre-delete validation: verify page exists
-            existing_pages = self.list_pages()
-            page_names = [
-                p.get("originalName") or p.get("name")
-                for p in existing_pages
-                if p.get("originalName") or p.get("name")
-            ]
+        # Pre-delete validation: verify page exists
+        existing_pages = self.list_pages()
+        page_names = [
+            p.get("originalName") or p.get("name")
+            for p in existing_pages
+            if p.get("originalName") or p.get("name")
+        ]
 
-            if page_name not in page_names:
-                raise ValueError(f"Page '{page_name}' does not exist")
+        if page_name not in page_names:
+            raise ValueError(f"Page '{page_name}' does not exist")
 
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.deletePage", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            result = response.json()
-            logger.info(f"Successfully deleted page '{page_name}'")
-            return result
-
-        except ValueError:
-            # Re-raise validation errors as-is
-            raise
-        except Exception as e:
-            logger.error(f"Error deleting page '{page_name}': {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.deletePage",
+            [page_name],
+            error_context=f"deleting page '{page_name}'",
+        )
+        logger.info(f"Successfully deleted page '{page_name}'")
+        return result
 
     # =========================================================================
     # Block-Level API Methods
@@ -231,23 +193,13 @@ class LogSeq:
         Returns:
             List of block entities with UUIDs
         """
-        url = self.get_base_url()
         logger.info(f"Getting blocks for page '{page_name}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPageBlocksTree", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json() or []
-
-        except Exception as e:
-            logger.error(f"Error getting page blocks: {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.getPageBlocksTree",
+            [page_name],
+            error_context="getting page blocks",
+        )
+        return result or []
 
     def remove_block(self, block_uuid: str) -> None:
         """
@@ -293,28 +245,14 @@ class LogSeq:
         Returns:
             List of created block entities
         """
-        url = self.get_base_url()
         logger.info(f"Inserting batch of {len(blocks)} blocks")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.insertBatchBlock",
-                    "args": [src_block, blocks, {"sibling": sibling}],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            result = response.json()
-            logger.info(f"Successfully inserted batch blocks")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error inserting batch blocks: {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.insertBatchBlock",
+            [src_block, blocks, {"sibling": sibling}],
+            error_context="inserting batch blocks",
+        )
+        logger.info(f"Successfully inserted batch blocks")
+        return result
 
     def append_block_in_page(
         self, page_name: str, content: str, properties: dict | None = None
@@ -330,27 +268,17 @@ class LogSeq:
         Returns:
             Created block entity
         """
-        url = self.get_base_url()
         logger.debug(f"Appending block to page '{page_name}'")
 
-        try:
-            args: list[Any] = [page_name, content]
-            if properties:
-                args.append({"properties": properties})
+        args: list[Any] = [page_name, content]
+        if properties:
+            args.append({"properties": properties})
 
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.appendBlockInPage", "args": args},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error appending block to page: {str(e)}")
-            raise
+        return self._call(
+            "logseq.Editor.appendBlockInPage",
+            args,
+            error_context="appending block to page",
+        )
 
     def create_page_with_blocks(
         self, title: str, blocks: list[dict], properties: dict | None = None
@@ -369,7 +297,6 @@ class LogSeq:
         Returns:
             Created page entity
         """
-        url = self.get_base_url()
         logger.info(f"Creating page '{title}' with {len(blocks)} blocks")
 
         # Guard against duplicates at the write layer: Logseq auto-numbers
@@ -390,18 +317,10 @@ class LogSeq:
                     api_props[key] = self._normalize_property_value(key, value)
 
             # Step 1: Create the page with page-level properties
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.createPage",
-                    "args": [title, api_props, {"createFirstBlock": True}],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
+            page_result = self._call(
+                "logseq.Editor.createPage",
+                [title, api_props, {"createFirstBlock": True}],
             )
-            response.raise_for_status()
-            page_result = response.json()
 
             # Step 2: If we have blocks to insert, get the first block and use it as anchor
             if blocks:
@@ -617,17 +536,8 @@ class LogSeq:
 
         Uses getPage which returns the page entity with its page-level properties.
         """
-        url = self.get_base_url()
         try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPage", "args": [page_name]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            page = response.json()
+            page = self._call("logseq.Editor.getPage", [page_name])
             if page and isinstance(page, dict):
                 return page.get("properties", {}) or {}
             return {}
@@ -643,22 +553,11 @@ class LogSeq:
         stores properties at the page entity level, making them visible in the
         page info panel and queryable via (page-property ...).
         """
-        url = self.get_base_url()
         api_props = {
             k: self._normalize_property_value(k, v) for k, v in properties.items()
         }
         try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.setPageProperties",
-                    "args": [page_name, api_props],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
+            self._call("logseq.Editor.setPageProperties", [page_name, api_props])
             logger.info(f"Set {len(properties)} page-level properties on '{page_name}'")
         except Exception as e:
             logger.error(f"Could not set page-level properties for '{page_name}': {e}")
@@ -743,20 +642,8 @@ class LogSeq:
             block_uuid: UUID of the block to update
             key: Property key to remove
         """
-        url = self.get_base_url()
-
         try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.removeBlockProperty",
-                    "args": [block_uuid, key],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
+            self._call("logseq.Editor.removeBlockProperty", [block_uuid, key])
         except Exception as e:
             logger.error(f"Failed to remove property '{key}' on block {block_uuid}: {e}")
             raise
@@ -770,20 +657,8 @@ class LogSeq:
             key: Property key
             value: Property value
         """
-        url = self.get_base_url()
-
         try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.upsertBlockProperty",
-                    "args": [block_uuid, key, value],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
+            self._call("logseq.Editor.upsertBlockProperty", [block_uuid, key, value])
         except Exception as e:
             logger.error(f"Failed to set property '{key}' on block {block_uuid}: {e}")
             raise
@@ -802,25 +677,12 @@ class LogSeq:
             List of result tuples, e.g. [["title", "My Page"], [":db/ident", ":logseq..."]]
             Each inner list corresponds to the :find clause bindings.
         """
-        url = self.get_base_url()
         logger.debug(f"Executing datascript query")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.DB.datascriptQuery",
-                    "args": [query],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error executing datascript query: {str(e)}")
-            raise
+        return self._call(
+            "logseq.DB.datascriptQuery",
+            [query],
+            error_context="executing datascript query",
+        )
 
     def get_block_db_properties(self, block_id: int) -> dict[str, str]:
         """Get DB-mode class properties for a block.
@@ -1062,48 +924,24 @@ class LogSeq:
         Returns:
             Block dict with content, properties, uuid, children, etc.
         """
-        url = self.get_base_url()
         logger.info(f"Getting block '{block_uuid}' (children={include_children})")
 
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.getBlock",
-                    "args": [block_uuid, {"includeChildren": include_children}],
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            result = response.json()
+        result = self._call(
+            "logseq.Editor.getBlock",
+            [block_uuid, {"includeChildren": include_children}],
+            error_context=f"getting block '{block_uuid}'",
+        )
 
-            if result is None:
-                raise ValueError(f"Block '{block_uuid}' not found")
+        if result is None:
+            raise ValueError(f"Block '{block_uuid}' not found")
 
-            logger.info(f"Successfully retrieved block '{block_uuid}'")
-            return result
-
-        except ValueError:
-            raise
-        except Exception as e:
-            logger.error(f"Error getting block '{block_uuid}': {str(e)}")
-            raise
+        logger.info(f"Successfully retrieved block '{block_uuid}'")
+        return result
 
     def _get_page_name_by_id(self, page_id) -> str | None:
         """Resolve a page's human-readable name from its db id (or uuid)."""
-        url = self.get_base_url()
         try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={"method": "logseq.Editor.getPage", "args": [page_id]},
-                verify=self.verify_ssl,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            page = response.json()
+            page = self._call("logseq.Editor.getPage", [page_id])
             if page and isinstance(page, dict):
                 return page.get("originalName") or page.get("name")
         except Exception as e:
@@ -1145,21 +983,11 @@ class LogSeq:
         Returns:
             Dict mapping UUID string to page name string.
         """
-        url = self.get_base_url()
         resolved = {}
 
         for uuid in set(uuids):
             try:
-                response = requests.post(
-                    url,
-                    headers=self._get_headers(),
-                    json={"method": "logseq.Editor.getPage", "args": [uuid]},
-                    verify=self.verify_ssl,
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                page = response.json()
-
+                page = self._call("logseq.Editor.getPage", [uuid])
                 if page and isinstance(page, dict):
                     name = page.get("originalName") or page.get("name")
                     if name:
@@ -1172,53 +1000,25 @@ class LogSeq:
 
     def delete_block(self, block_uuid: str) -> Any:
         """Delete a LogSeq block by UUID."""
-        url = self.get_base_url()
         logger.info(f"Deleting block '{block_uuid}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.removeBlock",
-                    "args": [block_uuid]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            result = response.json()
-            logger.info(f"Successfully deleted block '{block_uuid}'")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error deleting block '{block_uuid}': {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.removeBlock",
+            [block_uuid],
+            error_context=f"deleting block '{block_uuid}'",
+        )
+        logger.info(f"Successfully deleted block '{block_uuid}'")
+        return result
 
     def update_block(self, block_uuid: str, content: str) -> Any:
         """Update a LogSeq block's content by UUID."""
-        url = self.get_base_url()
         logger.info(f"Updating block '{block_uuid}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.updateBlock",
-                    "args": [block_uuid, content]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            result = response.json()
-            logger.info(f"Successfully updated block '{block_uuid}'")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error updating block '{block_uuid}': {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.updateBlock",
+            [block_uuid, content],
+            error_context=f"updating block '{block_uuid}'",
+        )
+        logger.info(f"Successfully updated block '{block_uuid}'")
+        return result
 
     def query_dsl(self, query: str) -> Any:
         """Execute a Logseq DSL query to search pages and blocks.
@@ -1229,72 +1029,26 @@ class LogSeq:
         Returns:
             List of matching pages/blocks from the query
         """
-        url = self.get_base_url()
         logger.info(f"Executing DSL query: {query}")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.DB.q",
-                    "args": [query]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error executing DSL query: {str(e)}")
-            raise
+        return self._call("logseq.DB.q", [query], error_context="executing DSL query")
 
     def get_pages_from_namespace(self, namespace: str) -> Any:
         """Get all pages within a namespace (flat list)."""
-        url = self.get_base_url()
         logger.info(f"Getting pages from namespace '{namespace}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.getPagesFromNamespace",
-                    "args": [namespace]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error getting pages from namespace: {str(e)}")
-            raise
+        return self._call(
+            "logseq.Editor.getPagesFromNamespace",
+            [namespace],
+            error_context="getting pages from namespace",
+        )
 
     def get_pages_tree_from_namespace(self, namespace: str) -> Any:
         """Get pages within a namespace as a tree structure."""
-        url = self.get_base_url()
         logger.info(f"Getting pages tree from namespace '{namespace}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.getPagesTreeFromNamespace",
-                    "args": [namespace]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error getting pages tree from namespace: {str(e)}")
-            raise
+        return self._call(
+            "logseq.Editor.getPagesTreeFromNamespace",
+            [namespace],
+            error_context="getting pages tree from namespace",
+        )
 
     def rename_page(self, old_name: str, new_name: str) -> Any:
         """Rename a page and update all references."""
@@ -1312,6 +1066,9 @@ class LogSeq:
             if new_name in page_names:
                 raise ValueError(f"Page '{new_name}' already exists")
 
+            # Kept as a direct POST (not routed through _call): renamePage returns
+            # null on success, so we inspect the raw response text to distinguish a
+            # null/empty body from a JSON payload rather than calling .json() blindly.
             response = requests.post(
                 url,
                 headers=self._get_headers(),
@@ -1336,26 +1093,12 @@ class LogSeq:
 
     def get_page_linked_references(self, page_name: str) -> Any:
         """Get all pages and blocks that reference this page (backlinks)."""
-        url = self.get_base_url()
         logger.info(f"Getting backlinks for page '{page_name}'")
-
-        try:
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.getPageLinkedReferences",
-                    "args": [page_name]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Error getting backlinks: {str(e)}")
-            raise
+        return self._call(
+            "logseq.Editor.getPageLinkedReferences",
+            [page_name],
+            error_context="getting backlinks",
+        )
 
     def insert_block_as_child(
         self,
@@ -1365,33 +1108,19 @@ class LogSeq:
         sibling: bool = False
     ) -> Any:
         """Insert a new block as a child of an existing block, enabling nested block structures."""
-        url = self.get_base_url()
         logger.info(f"Inserting block as {'sibling' if sibling else 'child'} of {parent_block_uuid}")
 
-        try:
-            options = {
-                "sibling": sibling
-            }
+        options = {
+            "sibling": sibling
+        }
 
-            if properties:
-                options["properties"] = properties
+        if properties:
+            options["properties"] = properties
 
-            response = requests.post(
-                url,
-                headers=self._get_headers(),
-                json={
-                    "method": "logseq.Editor.insertBlock",
-                    "args": [parent_block_uuid, content, options]
-                },
-                verify=self.verify_ssl,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            result = response.json()
-
-            logger.info(f"Successfully inserted block under {parent_block_uuid}")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error inserting nested block: {str(e)}")
-            raise
+        result = self._call(
+            "logseq.Editor.insertBlock",
+            [parent_block_uuid, content, options],
+            error_context="inserting nested block",
+        )
+        logger.info(f"Successfully inserted block under {parent_block_uuid}")
+        return result
