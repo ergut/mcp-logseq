@@ -1,76 +1,35 @@
 import json
-import math
-import os
 import re
 import logging
 from typing import Any
-from urllib.parse import urlparse
 from . import logseq
 from . import parser
 from .config import load_exclude_tags, load_include_namespaces, load_exclude_namespaces
 from .namespace import is_namespace_blocked as _is_namespace_blocked
+from .settings import get_settings
 from mcp.types import Tool, TextContent
 
 logger = logging.getLogger("mcp-logseq")
 
-api_key = os.getenv("LOGSEQ_API_TOKEN", "")
-if api_key == "":
-    raise ValueError("LOGSEQ_API_TOKEN environment variable required")
-else:
-    logger.info("Found LOGSEQ_API_TOKEN in environment")
-    logger.debug(f"API Token starts with: {api_key[:5]}...")
-
-_api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
-_parsed_url = urlparse(_api_url)
-_api_protocol = _parsed_url.scheme or "http"
-_api_host = _parsed_url.hostname or "127.0.0.1"
-_api_port = _parsed_url.port or 12315
-
-def _parse_positive_float_env(name: str, default: float) -> float:
-    raw_value = os.getenv(name, "").strip()
-    if not raw_value:
-        return default
-
-    try:
-        value = float(raw_value)
-    except ValueError:
-        value = None
-
-    if value is None or not math.isfinite(value) or value <= 0:
-        logger.warning(
-            f"{name} must be a positive number of seconds, got {raw_value!r}; "
-            f"falling back to default {default}"
-        )
-        return default
-
-    return value
-
-
-_api_connect_timeout = _parse_positive_float_env("LOGSEQ_API_CONNECT_TIMEOUT", 3)
-_api_read_timeout = _parse_positive_float_env("LOGSEQ_API_READ_TIMEOUT", 6)
-_api_timeout = (_api_connect_timeout, _api_read_timeout)
-
-_verify_ssl_env = os.getenv("LOGSEQ_VERIFY_SSL")
-if _verify_ssl_env is not None:
-    _api_verify_ssl = _verify_ssl_env.lower() not in ("0", "false", "no")
-else:
-    _api_verify_ssl = _api_protocol == "https"
-
-_db_mode = os.getenv("LOGSEQ_DB_MODE", "").lower() in ("1", "true", "yes")
 _exclude_tags: list[str] = load_exclude_tags()
 _include_namespaces: list[str] = load_include_namespaces()
 _exclude_namespaces: list[str] = load_exclude_namespaces()
 
 
+def _get_db_mode() -> bool:
+    return get_settings().db_mode
+
+
 def _make_api() -> logseq.LogSeq:
+    settings = get_settings()
     return logseq.LogSeq(
-        api_key=api_key,
-        protocol=_api_protocol,
-        host=_api_host,
-        port=_api_port,
-        verify_ssl=_api_verify_ssl,
-        timeout=_api_timeout,
-        db_mode=_db_mode,
+        api_key=settings.api_key,
+        protocol=settings.protocol,
+        host=settings.host,
+        port=settings.port,
+        verify_ssl=settings.verify_ssl,
+        timeout=settings.timeout,
+        db_mode=settings.db_mode,
     )
 
 
@@ -458,7 +417,7 @@ class GetPageContentToolHandler(ToolHandler):
 
         # In DB-mode, properties are NOT embedded in content — render from dict
         # In Markdown-mode, properties are already in block content — skip to avoid duplicates
-        if _db_mode:
+        if _get_db_mode():
             properties = block.get("properties", {})
             if properties:
                 for key, value in properties.items():
@@ -547,7 +506,7 @@ class GetPageContentToolHandler(ToolHandler):
             # Handle JSON format request
             if args.get("format") == "json":
                 # In DB mode with resolve_refs, enrich JSON with resolved page names
-                if _db_mode and args.get("resolve_refs", True):
+                if _get_db_mode() and args.get("resolve_refs", True):
                     blocks = result.get("blocks", [])
                     page_uuids = _collect_block_uuids(blocks)
                     if page_uuids:
@@ -569,7 +528,7 @@ class GetPageContentToolHandler(ToolHandler):
             # Fetch DB-mode class properties (only when LOGSEQ_DB_MODE is enabled)
             db_properties = {}
             uuid_map: dict[str, str] = {}
-            if _db_mode:
+            if _get_db_mode():
                 try:
                     db_properties = api.get_blocks_db_properties(blocks)
                     logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
@@ -956,7 +915,7 @@ class GetBlockToolHandler(ToolHandler):
 
             # Fetch DB-mode class properties when enabled
             db_properties = {}
-            if _db_mode:
+            if _get_db_mode():
                 try:
                     db_properties = api.get_blocks_db_properties([result])
                     logger.info(f"DB-mode properties found for {len(db_properties)} blocks")
@@ -1258,9 +1217,9 @@ class SearchToolHandler(ToolHandler):
         text formatters, but preserves the raw fields (uuid, page) so callers
         can build logseq:// deep links without follow-up calls.
         """
-        out: dict = {"query": query, "mode": "db" if _db_mode else "markdown"}
+        out: dict = {"query": query, "mode": "db" if _get_db_mode() else "markdown"}
 
-        if _db_mode:
+        if _get_db_mode():
             blocks = result.get("blocks", [])
             if include_pages:
                 out["pages"] = [
@@ -1350,7 +1309,7 @@ class SearchToolHandler(ToolHandler):
             content_parts = []
             content_parts.append(f"# Search Results for '{query}'\n")
 
-            if _db_mode:
+            if _get_db_mode():
                 content_parts.extend(
                     self._format_db_mode_results(result, limit, include_blocks, include_pages, include_files, excluded_page_names, api)
                 )
@@ -2163,7 +2122,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
 
     def run_tool(self, args: dict) -> list[TextContent]:
         """Set DB-mode properties on a block."""
-        if not _db_mode:
+        if not _get_db_mode():
             return [TextContent(
                 type="text",
                 text="❌ set_block_properties requires LOGSEQ_DB_MODE=true (only works with Logseq DB-mode graphs)",

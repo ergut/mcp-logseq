@@ -316,3 +316,19 @@ def mock_env_api_key(mock_api_key):
     """Mock the environment variable for API key."""
     with patch.dict("os.environ", {"LOGSEQ_API_TOKEN": mock_api_key}):
         yield mock_api_key
+
+
+@pytest.fixture(autouse=True)
+def _fresh_settings(monkeypatch):
+    """Give every test a valid token and an unfrozen settings cache.
+
+    Settings are resolved lazily via ``get_settings()`` (cached per process);
+    clearing the cache around each test keeps env patches effective and
+    prevents settings state from leaking between tests.
+    """
+    from mcp_logseq import settings
+
+    monkeypatch.setenv("LOGSEQ_API_TOKEN", "test_api_key_12345")
+    settings.get_settings.cache_clear()
+    yield
+    settings.get_settings.cache_clear()

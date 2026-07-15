@@ -38,18 +38,7 @@ except Exception as e:
 load_dotenv()
 
 from . import tools
-
-# Load environment variables with more verbose logging
-api_token = os.getenv("LOGSEQ_API_TOKEN")
-if not api_token:
-    logger.error("LOGSEQ_API_TOKEN not found in environment")
-    raise ValueError("LOGSEQ_API_TOKEN environment variable required")
-else:
-    logger.info("Found LOGSEQ_API_TOKEN in environment")
-    logger.debug("API token validation successful")
-
-api_url = os.getenv("LOGSEQ_API_URL", "http://localhost:12315")
-logger.info(f"Using API URL: {api_url}")
+from .settings import get_settings
 
 # Names of the genuine write tools — tools that mutate Logseq content. When
 # ``read_only`` is set these are NOT registered. ``sync_vector_db`` is NOT in
@@ -217,6 +206,9 @@ def get_tool_handler(name: str) -> tools.ToolHandler | None:
 
 async def main(read_only: bool = False):
     logger.info(f"Starting LogSeq MCP server (read_only={read_only})")
+    # Fail fast at startup (not import time) if configuration is invalid.
+    settings = get_settings()
+    logger.info(f"Using LogSeq API at {settings.protocol}://{settings.host}:{settings.port}")
     from mcp.server.stdio import stdio_server
 
     app, _ = build_app(read_only=read_only)

@@ -333,7 +333,7 @@ def test_set_block_properties_denies():
     # set_block_properties only runs in DB mode; patch _db_mode so the handler
     # reaches the enforcement call rather than returning the DB-mode guard early.
     with _ns(exclude=["finance"]), _api_with_block_page("finance/q3"), \
-            patch("mcp_logseq.tools._db_mode", True):
+            patch("mcp_logseq.tools._get_db_mode", return_value=True):
         with pytest.raises(AccessDenied):
             SetBlockPropertiesToolHandler().run_tool(
                 {"block_uuid": "u7", "properties": {"k": "v"}}
@@ -432,7 +432,7 @@ def test_markdown_search_suppresses_unidentified_blocks_when_excluding_text():
         {"originalName": "work/x", "properties": {}},
     ]
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=False), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "token"})[0].text
         assert "AKIA-leak" not in out
@@ -452,7 +452,7 @@ def test_markdown_search_suppresses_unidentified_blocks_when_excluding_json():
         {"originalName": "work/x", "properties": {}},
     ]
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=False), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "token", "format": "json"})[0].text
         assert "AKIA-leak" not in out
@@ -470,7 +470,7 @@ def test_markdown_search_shows_blocks_when_no_exclusion():
     }
     fake.list_pages.return_value = []
     with _ns(), \
-            patch("mcp_logseq.tools._db_mode", False), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=False), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "block"})[0].text
         assert "ordinary visible block" in out
@@ -705,7 +705,7 @@ def test_db_search_filters_block_from_excluded_namespace_text():
         "uuid-work": "work/x",
     }
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "data"})[0].text
         assert "AKIA-leak" not in out
@@ -731,7 +731,7 @@ def test_db_search_filters_block_from_excluded_namespace_json():
         "uuid-work": "work/x",
     }
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool(
             {"query": "data", "format": "json"}
@@ -766,7 +766,7 @@ def test_db_search_filters_block_from_tag_excluded_page_text():
         _include_namespaces=[],
         _exclude_namespaces=[],
         _exclude_tags=["keys"],
-    ), patch("mcp_logseq.tools._db_mode", True), \
+    ), patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "note"})[0].text
         assert "AKIA-leak" not in out
@@ -788,7 +788,7 @@ def test_db_search_block_fail_closed_when_unresolvable():
     ]
     fake.resolve_page_uuids.return_value = {}  # cannot resolve
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "x"})[0].text
         assert "AKIA-leak" not in out
@@ -805,7 +805,7 @@ def test_db_search_blocks_pass_when_no_rules():
     }
     fake.list_pages.return_value = []
     with _ns(), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "block"})[0].text
         assert "ordinary visible block" in out
@@ -824,7 +824,7 @@ def test_db_search_fails_closed_when_list_pages_raises_with_rules():
     }
     fake.list_pages.side_effect = RuntimeError("api down")
     with _ns(exclude=["finance"]), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "x"})[0].text
         assert "AKIA-leak" not in out
@@ -842,7 +842,7 @@ def test_search_no_rules_unaffected_by_list_pages():
     }
     fake.list_pages.side_effect = RuntimeError("api down")
     with _ns(), \
-            patch("mcp_logseq.tools._db_mode", True), \
+            patch("mcp_logseq.tools._get_db_mode", return_value=True), \
             patch("mcp_logseq.tools._make_api", return_value=fake):
         out = SearchToolHandler().run_tool({"query": "block"})[0].text
         assert "ordinary visible block" in out
@@ -991,7 +991,7 @@ def test_regression_insert_nested_block_denies_private():
 
 def test_regression_set_block_properties_denies_private():
     with _priv(), _api_with_block_page("Private/x"), \
-            patch("mcp_logseq.tools._db_mode", True):
+            patch("mcp_logseq.tools._get_db_mode", return_value=True):
         with pytest.raises(AccessDenied):
             SetBlockPropertiesToolHandler().run_tool(
                 {"block_uuid": "u1", "properties": {"k": "v"}}
@@ -1133,7 +1133,7 @@ def test_delete_block_denies_tag_excluded_owning_page():
 
 def test_set_block_properties_denies_tag_excluded_owning_page():
     with _tags_excluded(), _tagged_page_api(), \
-            patch("mcp_logseq.tools._db_mode", True):
+            patch("mcp_logseq.tools._get_db_mode", return_value=True):
         with pytest.raises(AccessDenied):
             SetBlockPropertiesToolHandler().run_tool(
                 {"block_uuid": "u1", "properties": {"k": "v"}}
