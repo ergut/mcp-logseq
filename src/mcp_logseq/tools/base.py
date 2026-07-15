@@ -64,6 +64,14 @@ def _resolve_block_refs(content: str, uuid_map: dict[str, str]) -> str:
 
 
 class ToolHandler:
+    #: Declarative pre-dispatch access checks (architecture review A4). Each
+    #: handler lists the ``access.AccessPolicy`` objects that gate it; the base
+    #: ``run_tool`` runs them at a single choke point before ``_run``, so a new
+    #: handler cannot silently ship without enforcement. An empty list means the
+    #: handler has no pre-dispatch gate (it either needs none or filters results
+    #: itself via ``access.is_page_blocked``).
+    access_policy: "list" = []
+
     def __init__(self, tool_name: str):
         self.name = tool_name
 
@@ -71,4 +79,24 @@ class ToolHandler:
         raise NotImplementedError()
 
     def run_tool(self, args: dict) -> list[TextContent]:
+        """Enforce the declared access policy, then dispatch to ``_run``.
+
+        This is the single choke point for pre-dispatch access control: the API
+        client is built once, every declared policy runs against it (raising
+        ``AccessDenied`` fail-loud, uniformly, before any handler logic), and the
+        same client is handed to ``_run``. Handlers implement ``_run`` and never
+        wire enforcement by hand.
+
+        ``_make_api`` is looked up via the package namespace (``_t._make_api``)
+        so ``patch("mcp_logseq.tools._make_api")`` in the test suite intercepts
+        it — the same indirection the submodule handlers use.
+        """
+        import mcp_logseq.tools as _t
+
+        api = _t._make_api()
+        for policy in self.access_policy:
+            policy.enforce(api, args)
+        return self._run(api, args)
+
+    def _run(self, api, args: dict) -> list[TextContent]:
         raise NotImplementedError()

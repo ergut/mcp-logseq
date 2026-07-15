@@ -175,3 +175,79 @@ def enforce_block_tag_access(api, block_uuid: str) -> None:
             f"Access denied: cannot verify the owning page of block '{block_uuid}'."
         )
     enforce_page_tag_access(api, page_name)
+
+
+# ---------------------------------------------------------------------------
+# Declarative access policies (architecture review A4)
+#
+# A handler no longer hand-wires ``enforce_*`` calls at the top of its
+# ``run_tool``; instead it *declares* an ``access_policy`` list of these
+# objects, and ``ToolHandler.run_tool`` runs them at a single choke point
+# before dispatch. Each policy is a thin, side-effect-free wrapper over the
+# ``enforce_*`` functions above — the enforcement logic is unchanged; only the
+# wiring becomes declarative and impossible for a new handler to forget.
+#
+# Every policy names the ``run_tool`` argument that carries the resource
+# identifier (a page name or a block UUID) and is a no-op when that argument
+# is absent or empty — argument-required validation remains the handler's job
+# and still runs (and raises) inside ``_run``.
+# ---------------------------------------------------------------------------
+
+
+class AccessPolicy:
+    """A declarative pre-dispatch access check.
+
+    ``enforce`` runs before the handler body and raises ``AccessDenied`` (or
+    propagates a fetch error, fail-closed) when the resource is restricted.
+    """
+
+    def enforce(self, api, args: dict) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class NamespaceName(AccessPolicy):
+    """Name-based namespace gate on the page name in ``args[arg]``."""
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> None:
+        name = args.get(self.arg)
+        if name:
+            enforce_namespace_access(name)
+
+
+@dataclass(frozen=True)
+class PageTag(AccessPolicy):
+    """Tag-exclusion gate on the EXISTING page named by ``args[arg]``."""
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> None:
+        name = args.get(self.arg)
+        if name:
+            enforce_page_tag_access(api, name)
+
+
+@dataclass(frozen=True)
+class BlockNamespace(AccessPolicy):
+    """Namespace gate on the owning page of the block in ``args[arg]``."""
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> None:
+        uuid = args.get(self.arg)
+        if uuid:
+            enforce_block_namespace_access(api, uuid)
+
+
+@dataclass(frozen=True)
+class BlockTag(AccessPolicy):
+    """Tag-exclusion gate on the owning page of the block in ``args[arg]``."""
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> None:
+        uuid = args.get(self.arg)
+        if uuid:
+            enforce_block_tag_access(api, uuid)
