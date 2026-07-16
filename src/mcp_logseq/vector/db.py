@@ -19,6 +19,18 @@ logger = logging.getLogger("mcp-logseq.vector.db")
 _TABLE_NAME = "chunks"
 
 
+def _list_table_names(db) -> list[str]:
+    """Return the table names in a LanceDB connection as a plain list.
+
+    ``list_tables()`` supersedes the deprecated ``table_names()``, but its
+    return shape has drifted across LanceDB versions: some return a plain list,
+    newer ones (e.g. 0.30.x) return a ``ListTablesResponse`` whose names live on
+    a ``.tables`` attribute. Normalize both to a list of names.
+    """
+    result = db.list_tables()
+    return list(getattr(result, "tables", result))
+
+
 def _get_schema(dimensions: int):
     import pyarrow as pa
     return pa.schema([
@@ -87,7 +99,7 @@ class VectorDB:
 
         os.makedirs(db_path, exist_ok=True)
         db = lancedb.connect(db_path)
-        table_names = db.table_names()
+        table_names = _list_table_names(db)
         logger.info(f"LanceDB at {db_path}: tables found = {table_names}")
 
         if _TABLE_NAME not in table_names:
@@ -125,7 +137,7 @@ class VectorDB:
             )
 
         db = lancedb.connect(db_path)
-        table_names = db.table_names()
+        table_names = _list_table_names(db)
         logger.info(f"LanceDB (read-only) at {db_path}: tables found = {table_names}")
 
         if _TABLE_NAME not in table_names:

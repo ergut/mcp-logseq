@@ -17,7 +17,7 @@ class TestLogSeqAPI:
         assert client.protocol == "http"
         assert client.host == "127.0.0.1"
         assert client.port == 12315
-        assert client.verify_ssl == False
+        assert client.verify_ssl == True
         assert client.timeout == (3, 6)
 
     def test_init_with_custom_timeout(self, mock_api_key):

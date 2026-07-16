@@ -347,58 +347,6 @@ class TestPropertyTypes:
         assert body["args"][1]["metadata"] == {"author": "John", "date": "2024-01-01"}
 
 
-class TestGetPageProperties:
-    """Test retrieving page properties."""
-
-    @responses.activate
-    def test_get_page_properties_helper(self, logseq_client):
-        """Test the _get_page_properties helper method."""
-        # Mock getPageBlocksTree
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[
-                {
-                    "uuid": "block-1",
-                    "content": "First block",
-                    "properties": {"priority": "high", "tags": ["test"]},
-                }
-            ],
-            status=200,
-        )
-
-        properties = logseq_client._get_page_properties("Test Page")
-        assert properties == {"priority": "high", "tags": ["test"]}
-
-    @responses.activate
-    def test_get_page_properties_empty_page(self, logseq_client):
-        """Test getting properties from page with no blocks."""
-        # Mock getPageBlocksTree returning empty list
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[],
-            status=200,
-        )
-
-        properties = logseq_client._get_page_properties("Empty Page")
-        assert properties == {}
-
-    @responses.activate
-    def test_get_page_properties_no_properties(self, logseq_client):
-        """Test getting properties from page with blocks but no properties."""
-        # Mock getPageBlocksTree
-        responses.add(
-            responses.POST,
-            "http://127.0.0.1:12315/api",
-            json=[{"uuid": "block-1", "content": "First block"}],
-            status=200,
-        )
-
-        properties = logseq_client._get_page_properties("Test Page")
-        assert properties == {}
-
-
 class TestPropertyValueNormalization:
     """Test property value normalization for Logseq compatibility."""
 

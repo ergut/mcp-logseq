@@ -12,7 +12,7 @@ class LogSeq:
         protocol: str = "http",
         host: str = "127.0.0.1",
         port: int = 12315,
-        verify_ssl: bool = False,
+        verify_ssl: bool = True,
         timeout: tuple[float, float] | None = None,
         db_mode: bool = False,
     ):
@@ -201,15 +201,6 @@ class LogSeq:
         )
         return result or []
 
-    def remove_block(self, block_uuid: str) -> None:
-        """
-        Remove a single block by UUID.
-
-        Args:
-            block_uuid: UUID of block to remove
-        """
-        self.delete_block(block_uuid)
-
     def clear_page_content(self, page_name: str) -> None:
         """
         Remove all blocks from a page.
@@ -223,7 +214,7 @@ class LogSeq:
         for block in blocks:
             block_uuid = block.get("uuid")
             if block_uuid:
-                self.remove_block(block_uuid)
+                self.delete_block(block_uuid)
 
         logger.info(f"Cleared {len(blocks)} blocks from page '{page_name}'")
 
@@ -336,7 +327,7 @@ class LogSeq:
                         logger.info(f"api_props={api_props!r}, will delete first block: {not api_props}")
                         if not api_props:
                             # No properties — remove the empty placeholder block
-                            self.remove_block(first_block_uuid)
+                            self.delete_block(first_block_uuid)
                         # When properties exist, keep the first block: createPage
                         # stores them there as a preBlock (tags:: val lines)
                 else:
@@ -493,20 +484,6 @@ class LogSeq:
         except Exception as e:
             logger.error(f"Error updating page with blocks: {str(e)}")
             raise
-
-    def _get_page_properties(self, page_name: str) -> dict:
-        """
-        Get current page properties from the first block.
-
-        Returns:
-            Dict of current page properties, or empty dict if none found
-        """
-        page_blocks = self.get_page_blocks(page_name)
-        if not page_blocks:
-            return {}
-
-        first_block = page_blocks[0]
-        return first_block.get("properties", {})
 
     def _normalize_property_value(self, key: str, value: Any) -> Any:
         """
