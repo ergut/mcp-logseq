@@ -177,3 +177,19 @@ def test_run_http_no_tls_passes_none(monkeypatch):
     http_mod.run_http("127.0.0.1", 12320, "tok")
     assert calls.get("ssl_certfile") is None
     assert calls.get("ssl_keyfile") is None
+
+
+def test_main_configures_logging_first(monkeypatch):
+    """main() must call _setup_logging() before dispatching to a transport."""
+    order = []
+    monkeypatch.setattr(mcp_logseq, "_setup_logging", lambda: order.append("logging"))
+    monkeypatch.setenv("MCP_HTTP_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(
+        mcp_logseq, "parse_args", lambda argv=None: parse_args(["--transport", "http"])
+    )
+    import mcp_logseq.transport.http as http_mod
+    monkeypatch.setattr(http_mod, "run_http", lambda *a, **k: order.append("run_http"))
+
+    mcp_logseq.main()
+
+    assert order == ["logging", "run_http"]

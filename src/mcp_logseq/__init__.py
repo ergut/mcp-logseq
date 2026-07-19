@@ -53,10 +53,55 @@ def _validate_http_options(args) -> None:
         )
 
 
+_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def _setup_logging():
+    """Configure process-wide logging for the CLI entrypoint.
+
+    Level comes from LOGSEQ_LOG_LEVEL (default INFO). Logs go to stderr;
+    a file handler is added only when LOGSEQ_LOG_FILE is set. Bad config
+    never crashes the server: it degrades to INFO / stderr-only with a
+    warning.
+    """
+    import logging
+    import os
+    import sys
+
+    level_name = os.environ.get("LOGSEQ_LOG_LEVEL", "INFO").upper()
+    level = logging.getLevelName(level_name)
+    invalid_level = not isinstance(level, int)
+    if invalid_level:
+        level = logging.INFO
+
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    log_file = os.environ.get("LOGSEQ_LOG_FILE")
+    file_error = None
+    if log_file:
+        try:
+            handlers.append(logging.FileHandler(log_file))
+        except OSError as e:
+            file_error = e
+
+    logging.basicConfig(level=level, format=_LOG_FORMAT, handlers=handlers, force=True)
+
+    logger = logging.getLogger("mcp-logseq")
+    if invalid_level:
+        logger.warning(
+            f"Invalid LOGSEQ_LOG_LEVEL {level_name!r}; falling back to INFO"
+        )
+    if file_error is not None:
+        logger.warning(
+            f"Could not open LOGSEQ_LOG_FILE {log_file!r}: {file_error}; "
+            f"logging to stderr only"
+        )
+
+
 def main():
     """Main entry point for the package."""
     import os
 
+    _setup_logging()
     args = parse_args()
     if args.transport == "stdio":
         import asyncio
