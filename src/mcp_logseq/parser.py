@@ -448,24 +448,14 @@ class MarkdownParser:
         self._add_block(list_block)
         return i
 
-    def _parse_nested_list_item(
-        self, lines: list[str], start: int, parent_indent: int
-    ) -> tuple[BlockNode, int]:
-        """
-        Parse a nested list item and return it without adding to root blocks.
-
-        Returns tuple of (BlockNode, next_line_index).
-        """
-        return self._parse_list_block(lines, start, is_root=False)
-
     def _parse_list_block(
         self, lines: list[str], start: int, *, is_root: bool
     ) -> tuple[BlockNode, int]:
         """
         Parse a list item and its nested children into a BlockNode.
 
-        Shared implementation behind _parse_list_item (top-level) and
-        _parse_nested_list_item (nested). The two differ only in how they
+        Serves both the top-level entry point (_parse_list_item) and its own
+        recursion for nested items. The two modes differ only in how they
         terminate at the item's own indent level:
 
         - Root items (is_root=True) end only at a same-level list marker or a
@@ -531,7 +521,7 @@ class MarkdownParser:
                 or NUMBERED_PATTERN.match(next_line)
                 or CAPITALIZED_MARKER_PATTERN.match(next_line)
             ):
-                nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
+                nested_block, i = self._parse_list_block(lines, i, is_root=False)
                 list_block.children.append(nested_block)
             elif LOGSEQ_PROPERTY_PATTERN.match(next_line):
                 # Inline Logseq property — attach to parent list block's properties
