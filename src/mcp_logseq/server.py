@@ -103,6 +103,36 @@ def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None
         logger.warning(f"Could not load vector config, vector tools disabled: {e}")
 
 
+async def _dispatch_tool_call(
+    handlers: dict, name: str, arguments: Any
+) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+    """Validate and dispatch one tool call.
+
+    Single choke point for tool dispatch: argument/result bodies are
+    deliberately NOT logged here — only the tool name, the argument keys,
+    and the result size (A5: page/block content must not reach log files).
+    """
+    if not isinstance(arguments, dict):
+        logger.error("Arguments must be dictionary")
+        raise RuntimeError("arguments must be dictionary")
+
+    tool_handler = handlers.get(name)
+    if not tool_handler:
+        logger.error(f"Unknown tool: {name}")
+        raise ValueError(f"Unknown tool: {name}")
+
+    logger.info(
+        f"Tool call: {name} (argument keys: {', '.join(sorted(arguments)) or 'none'})"
+    )
+    try:
+        result = await asyncio.to_thread(tool_handler.run_tool, arguments)
+        logger.debug(f"Tool {name} returned {len(result)} content item(s)")
+        return result
+    except Exception as e:
+        logger.error(f"Error running tool: {str(e)}", exc_info=True)
+        raise RuntimeError(f"Error: {str(e)}")
+
+
 def build_app(read_only: bool = False) -> tuple[Server, dict]:
     """Build a fully wired MCP ``Server`` plus its tool-handler registry.
 
@@ -132,25 +162,7 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
         name: str, arguments: Any
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
         """Handle tool calls."""
-        logger.info(f"Tool call: {name} with arguments {arguments}")
-
-        if not isinstance(arguments, dict):
-            logger.error("Arguments must be dictionary")
-            raise RuntimeError("arguments must be dictionary")
-
-        tool_handler = handlers.get(name)
-        if not tool_handler:
-            logger.error(f"Unknown tool: {name}")
-            raise ValueError(f"Unknown tool: {name}")
-
-        try:
-            logger.debug(f"Running tool {name}")
-            result = await asyncio.to_thread(tool_handler.run_tool, arguments)
-            logger.debug(f"Tool result: {result}")
-            return result
-        except Exception as e:
-            logger.error(f"Error running tool: {str(e)}", exc_info=True)
-            raise RuntimeError(f"Error: {str(e)}")
+        return await _dispatch_tool_call(handlers, name, arguments)
 
     return server, handlers
 

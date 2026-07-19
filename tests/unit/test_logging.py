@@ -1,10 +1,12 @@
 """Tests for logging configuration (A5): entrypoint setup, import purity, redaction."""
 
+import asyncio
 import logging
 import subprocess
 import sys
 
 import pytest
+from mcp.types import TextContent
 
 import mcp_logseq
 
@@ -98,3 +100,43 @@ class TestSetupLogging:
             isinstance(h, logging.FileHandler) for h in clean_root_logger.handlers
         )
         assert "LOGSEQ_LOG_FILE" in capsys.readouterr().err
+
+
+class _FakeHandler:
+    def run_tool(self, arguments):
+        return [TextContent(type="text", text="SECRET-RESULT-BODY")]
+
+
+class TestDispatchRedaction:
+    def test_argument_and_result_bodies_not_logged(self, caplog):
+        from mcp_logseq.server import _dispatch_tool_call
+
+        with caplog.at_level(logging.DEBUG, logger="mcp-logseq"):
+            result = asyncio.run(
+                _dispatch_tool_call(
+                    {"fake_tool": _FakeHandler()},
+                    "fake_tool",
+                    {"title": "T", "content": "SECRET-ARG-VALUE"},
+                )
+            )
+
+        assert len(result) == 1
+        # Identifiers are logged...
+        assert "fake_tool" in caplog.text
+        assert "content, title" in caplog.text  # sorted argument keys
+        assert "1 content item(s)" in caplog.text
+        # ...bodies are not.
+        assert "SECRET-ARG-VALUE" not in caplog.text
+        assert "SECRET-RESULT-BODY" not in caplog.text
+
+    def test_unknown_tool_still_raises_value_error(self):
+        from mcp_logseq.server import _dispatch_tool_call
+
+        with pytest.raises(ValueError, match="Unknown tool"):
+            asyncio.run(_dispatch_tool_call({}, "nope", {}))
+
+    def test_non_dict_arguments_still_raise_runtime_error(self):
+        from mcp_logseq.server import _dispatch_tool_call
+
+        with pytest.raises(RuntimeError, match="arguments must be dictionary"):
+            asyncio.run(_dispatch_tool_call({}, "any", "not-a-dict"))
