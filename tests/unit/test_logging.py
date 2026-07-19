@@ -101,6 +101,32 @@ class TestSetupLogging:
         )
         assert "LOGSEQ_LOG_FILE" in capsys.readouterr().err
 
+    def test_debug_level_caps_mcp_sdk_logger(self, monkeypatch, clean_root_logger):
+        mcp_logger = logging.getLogger("mcp")
+        saved = mcp_logger.level
+        try:
+            monkeypatch.setenv("LOGSEQ_LOG_LEVEL", "DEBUG")
+            monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
+            mcp_logseq._setup_logging()
+            assert mcp_logger.level == logging.INFO
+        finally:
+            mcp_logger.setLevel(saved)
+
+    def test_info_level_leaves_mcp_sdk_logger_alone(self, monkeypatch, clean_root_logger):
+        mcp_logger = logging.getLogger("mcp")
+        saved = mcp_logger.level
+        try:
+            monkeypatch.delenv("LOGSEQ_LOG_LEVEL", raising=False)
+            monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
+            mcp_logseq._setup_logging()
+            # Assert against the saved value rather than NOTSET: an earlier
+            # test in the same session may have already set the "mcp"
+            # logger's level (e.g. via a DEBUG-level run), and this test
+            # only needs to prove _setup_logging() didn't touch it at INFO.
+            assert mcp_logger.level == saved
+        finally:
+            mcp_logger.setLevel(saved)
+
 
 class _FakeHandler:
     def run_tool(self, arguments):
