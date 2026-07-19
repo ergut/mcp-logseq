@@ -207,7 +207,7 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
 - **`LOGSEQ_API_CONNECT_TIMEOUT`** (optional): HTTP connect timeout in seconds (default: `3`)
 - **`LOGSEQ_API_READ_TIMEOUT`** (optional): HTTP read timeout in seconds (default: `6`)
-- **`LOGSEQ_LOG_LEVEL`** (optional): Log verbosity — `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`). Logs go to stderr.
+- **`LOGSEQ_LOG_LEVEL`** (optional): Log verbosity — `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`). Logs go to stderr. At `DEBUG`, the MCP SDK's own logger stays capped at `INFO` so full request payloads are not logged.
 - **`LOGSEQ_LOG_FILE`** (optional): Path to a log file. When unset (the default), nothing is written to disk. Tool calls are logged with argument names and result sizes only, so page/block content does not appear in routine logs.
 - **`LOGSEQ_DB_MODE`** (optional): Set to `true` to enable DB-mode property support. Only for Logseq DB-mode graphs (beta). Markdown/file-based graph users should leave this unset.
 - **`LOGSEQ_EXCLUDE_TAGS`** (optional): Comma-separated tags — pages with these tags are hidden from all tools. See [Privacy & Access Control](#-privacy--access-control) below.

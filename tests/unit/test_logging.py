@@ -37,14 +37,19 @@ def clean_root_logger():
     """Snapshot and restore root logger handlers/level around a test.
 
     _setup_logging() uses basicConfig(force=True), which would otherwise leak
-    handler changes into the rest of the test session.
+    handler changes into the rest of the test session. Also snapshots and
+    restores the "mcp" SDK logger's level, since _setup_logging() may cap it
+    at INFO as a side effect and that would otherwise leak between tests.
     """
     root = logging.getLogger()
     saved_handlers = root.handlers[:]
     saved_level = root.level
+    mcp_logger = logging.getLogger("mcp")
+    saved_mcp_level = mcp_logger.level
     yield root
     root.handlers[:] = saved_handlers
     root.setLevel(saved_level)
+    mcp_logger.setLevel(saved_mcp_level)
 
 
 class TestSetupLogging:
@@ -103,29 +108,18 @@ class TestSetupLogging:
 
     def test_debug_level_caps_mcp_sdk_logger(self, monkeypatch, clean_root_logger):
         mcp_logger = logging.getLogger("mcp")
-        saved = mcp_logger.level
-        try:
-            monkeypatch.setenv("LOGSEQ_LOG_LEVEL", "DEBUG")
-            monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
-            mcp_logseq._setup_logging()
-            assert mcp_logger.level == logging.INFO
-        finally:
-            mcp_logger.setLevel(saved)
+        monkeypatch.setenv("LOGSEQ_LOG_LEVEL", "DEBUG")
+        monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
+        mcp_logseq._setup_logging()
+        assert mcp_logger.level == logging.INFO
 
     def test_info_level_leaves_mcp_sdk_logger_alone(self, monkeypatch, clean_root_logger):
         mcp_logger = logging.getLogger("mcp")
-        saved = mcp_logger.level
-        try:
-            monkeypatch.delenv("LOGSEQ_LOG_LEVEL", raising=False)
-            monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
-            mcp_logseq._setup_logging()
-            # Assert against the saved value rather than NOTSET: an earlier
-            # test in the same session may have already set the "mcp"
-            # logger's level (e.g. via a DEBUG-level run), and this test
-            # only needs to prove _setup_logging() didn't touch it at INFO.
-            assert mcp_logger.level == saved
-        finally:
-            mcp_logger.setLevel(saved)
+        mcp_logger.setLevel(logging.NOTSET)
+        monkeypatch.delenv("LOGSEQ_LOG_LEVEL", raising=False)
+        monkeypatch.delenv("LOGSEQ_LOG_FILE", raising=False)
+        mcp_logseq._setup_logging()
+        assert mcp_logger.level == logging.NOTSET
 
 
 class _FakeHandler:
