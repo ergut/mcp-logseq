@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Potentially breaking:** `LogSeq(...)` now defaults `verify_ssl=True` (was
+  `False`), so the safe path is the default. The bundled server is unaffected
+  (it always sets `verify_ssl` explicitly from the protocol), but external code
+  constructing the client directly against a self-signed HTTPS Logseq endpoint
+  must now pass `verify_ssl=False` explicitly (#89)
+
+### Internal
+
+- Tech-debt cleanup: migrate off the deprecated LanceDB `table_names()`, commit
+  `uv.lock` for reproducible installs, remove dead code (`_get_page_properties`,
+  the `remove_block` alias), and unify the duplicated list-parser logic (#89)
+
 ## [1.8.0] - 2026-06-19
 
 ### Added

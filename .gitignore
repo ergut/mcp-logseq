@@ -9,8 +9,6 @@ wheels/
 # Virtual environments
 .venv
 .env
-.git
-uv.lock
 
 # Local files
 *.local*

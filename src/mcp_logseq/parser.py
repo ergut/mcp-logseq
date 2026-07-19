@@ -439,9 +439,31 @@ class MarkdownParser:
 
     def _parse_list_item(self, lines: list[str], start: int) -> int:
         """
-        Parse a list item and its nested children.
+        Parse a top-level list item and its nested children, adding it to the
+        root block list.
 
         Returns the index of the next line to process.
+        """
+        list_block, i = self._parse_list_block(lines, start, is_root=True)
+        self._add_block(list_block)
+        return i
+
+    def _parse_list_block(
+        self, lines: list[str], start: int, *, is_root: bool
+    ) -> tuple[BlockNode, int]:
+        """
+        Parse a list item and its nested children into a BlockNode.
+
+        Serves both the top-level entry point (_parse_list_item) and its own
+        recursion for nested items. The two modes differ only in how they
+        terminate at the item's own indent level:
+
+        - Root items (is_root=True) end only at a same-level list marker or a
+          dedent; other same-level lines are consumed as continuation content.
+        - Nested items (is_root=False) stop as soon as indentation returns to
+          the item's level or shallower.
+
+        Returns a tuple of (BlockNode, next_line_index).
         """
         line = lines[start]
         item_content, indent_level, is_numbered = _parse_list_item_content(line)
@@ -462,10 +484,11 @@ class MarkdownParser:
 
             next_indent = _get_indent_level(next_line)
 
-            # If less or equal indent, this item is done
+            # Termination at the item's own level or shallower
             if next_indent <= indent_level:
-                # Check if it's still a list item at same level
-                if next_indent == indent_level:
+                if is_root and next_indent == indent_level:
+                    # A same-level list marker ends this item; other same-level
+                    # content is consumed as continuation.
                     if (
                         BULLET_PATTERN.match(next_line)
                         or NUMBERED_PATTERN.match(next_line)
@@ -498,7 +521,7 @@ class MarkdownParser:
                 or NUMBERED_PATTERN.match(next_line)
                 or CAPITALIZED_MARKER_PATTERN.match(next_line)
             ):
-                nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
+                nested_block, i = self._parse_list_block(lines, i, is_root=False)
                 list_block.children.append(nested_block)
             elif LOGSEQ_PROPERTY_PATTERN.match(next_line):
                 # Inline Logseq property — attach to parent list block's properties
@@ -508,74 +531,6 @@ class MarkdownParser:
                 i += 1
             else:
                 # Continuation text or other content under this list item
-                nested_block = BlockNode(content=next_line.strip(), level=next_indent)
-                list_block.children.append(nested_block)
-                i += 1
-
-        self._add_block(list_block)
-        return i
-
-    def _parse_nested_list_item(
-        self, lines: list[str], start: int, parent_indent: int
-    ) -> tuple[BlockNode, int]:
-        """
-        Parse a nested list item and return it without adding to root blocks.
-
-        Returns tuple of (BlockNode, next_line_index).
-        """
-        line = lines[start]
-        item_content, indent_level, is_numbered = _parse_list_item_content(line)
-
-        props = {"logseq.order-list-type": "number"} if is_numbered else {}
-        list_block = BlockNode(content=item_content, level=indent_level, properties=props)
-
-        i = start + 1
-
-        # Look for nested items
-        while i < len(lines):
-            next_line = lines[i]
-
-            if not next_line.strip():
-                i += 1
-                continue
-
-            next_indent = _get_indent_level(next_line)
-
-            # If indent is back to our level or less, we're done
-            if next_indent <= indent_level:
-                break
-
-            # Check if it's a special element - if so, stop list parsing
-            if (
-                HEADING_PATTERN.match(next_line)
-                or FENCED_CODE_START.match(next_line)
-                or HORIZONTAL_RULE_PATTERN.match(next_line)
-                or BLOCKQUOTE_PATTERN.match(next_line)
-            ):
-                break
-
-            # Deeper nested content
-            if DISPLAY_MATH_DELIMITER.match(next_line):
-                nested_block, i = self._parse_display_math_node(lines, i)
-                list_block.children.append(nested_block)
-            elif TABLE_ROW_PATTERN.match(next_line):
-                nested_block, i = self._parse_table_node(lines, i)
-                list_block.children.append(nested_block)
-            elif (
-                CHECKBOX_PATTERN.match(next_line)
-                or BULLET_PATTERN.match(next_line)
-                or NUMBERED_PATTERN.match(next_line)
-                or CAPITALIZED_MARKER_PATTERN.match(next_line)
-            ):
-                nested_block, i = self._parse_nested_list_item(lines, i, indent_level)
-                list_block.children.append(nested_block)
-            elif LOGSEQ_PROPERTY_PATTERN.match(next_line):
-                # Inline Logseq property — attach to parent list block's properties
-                # so the property belongs to the bullet, not a phantom child block.
-                key, _, value = next_line.strip().partition("::")
-                list_block.properties[key.strip()] = value.strip()
-                i += 1
-            else:
                 nested_block = BlockNode(content=next_line.strip(), level=next_indent)
                 list_block.children.append(nested_block)
                 i += 1
