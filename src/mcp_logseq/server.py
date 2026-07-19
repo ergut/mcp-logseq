@@ -1,9 +1,7 @@
 import asyncio
 import logging
-import sys
 from collections.abc import Sequence
 from typing import Any
-import os
 from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.types import (
@@ -13,27 +11,7 @@ from mcp.types import (
     EmbeddedResource,
 )
 
-# Configure logging to stderr with more verbose output
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-)
 logger = logging.getLogger("mcp-logseq")
-
-# Add a file handler to keep logs (in user's home directory to avoid permission issues)
-log_dir = os.path.expanduser("~/.cache/mcp-logseq")
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "mcp_logseq.log")
-try:
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.DEBUG)
-    logger.addHandler(file_handler)
-    logger.debug(f"Logging to: {log_file}")
-except Exception as e:
-    # If file logging fails, continue without it
-    logger.warning(f"Could not setup file logging: {e}")
-    pass
 
 load_dotenv()
 
@@ -125,6 +103,36 @@ def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None
         logger.warning(f"Could not load vector config, vector tools disabled: {e}")
 
 
+async def _dispatch_tool_call(
+    handlers: dict, name: str, arguments: Any
+) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+    """Validate and dispatch one tool call.
+
+    Single choke point for tool dispatch: argument/result bodies are
+    deliberately NOT logged here — only the tool name, the argument keys,
+    and the result size (A5: page/block content must not reach log files).
+    """
+    if not isinstance(arguments, dict):
+        logger.error("Arguments must be dictionary")
+        raise RuntimeError("arguments must be dictionary")
+
+    tool_handler = handlers.get(name)
+    if not tool_handler:
+        logger.error(f"Unknown tool: {name}")
+        raise ValueError(f"Unknown tool: {name}")
+
+    logger.info(
+        f"Tool call: {name} (argument keys: {', '.join(sorted(arguments)) or 'none'})"
+    )
+    try:
+        result = await asyncio.to_thread(tool_handler.run_tool, arguments)
+        logger.debug(f"Tool {name} returned {len(result)} content item(s)")
+        return result
+    except Exception as e:
+        logger.error(f"Error running tool: {str(e)}", exc_info=True)
+        raise RuntimeError(f"Error: {str(e)}")
+
+
 def build_app(read_only: bool = False) -> tuple[Server, dict]:
     """Build a fully wired MCP ``Server`` plus its tool-handler registry.
 
@@ -154,25 +162,7 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
         name: str, arguments: Any
     ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
         """Handle tool calls."""
-        logger.info(f"Tool call: {name} with arguments {arguments}")
-
-        if not isinstance(arguments, dict):
-            logger.error("Arguments must be dictionary")
-            raise RuntimeError("arguments must be dictionary")
-
-        tool_handler = handlers.get(name)
-        if not tool_handler:
-            logger.error(f"Unknown tool: {name}")
-            raise ValueError(f"Unknown tool: {name}")
-
-        try:
-            logger.debug(f"Running tool {name}")
-            result = await asyncio.to_thread(tool_handler.run_tool, arguments)
-            logger.debug(f"Tool result: {result}")
-            return result
-        except Exception as e:
-            logger.error(f"Error running tool: {str(e)}", exc_info=True)
-            raise RuntimeError(f"Error: {str(e)}")
+        return await _dispatch_tool_call(handlers, name, arguments)
 
     return server, handlers
 

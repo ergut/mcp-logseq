@@ -324,7 +324,7 @@ class LogSeq:
                         # Insert all blocks as siblings after the first block
                         self.insert_batch_block(first_block_uuid, blocks, sibling=True)
 
-                        logger.info(f"api_props={api_props!r}, will delete first block: {not api_props}")
+                        logger.info(f"api_props keys={sorted(api_props)}, will delete first block: {not api_props}")
                         if not api_props:
                             # No properties — remove the empty placeholder block
                             self.delete_block(first_block_uuid)
