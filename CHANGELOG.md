@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (it always sets `verify_ssl` explicitly from the protocol), but external code
   constructing the client directly against a self-signed HTTPS Logseq endpoint
   must now pass `verify_ssl=False` explicitly (#89)
+- **Potentially breaking:** logging is no longer configured at import time and
+  the server no longer writes `~/.cache/mcp-logseq/mcp_logseq.log` by default.
+  The CLI entrypoint now configures stderr logging at `INFO` (was `DEBUG`),
+  tunable via `LOGSEQ_LOG_LEVEL`; file logging is opt-in via `LOGSEQ_LOG_FILE`.
+  Tool arguments and results are redacted from logs — only tool names, argument
+  keys, and result sizes are recorded, so page/block content (including
+  ACL-gated pages) no longer lands in plaintext logs
 
 ### Internal
 
