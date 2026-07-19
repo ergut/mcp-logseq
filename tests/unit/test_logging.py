@@ -1,10 +1,33 @@
 """Tests for logging configuration (A5): entrypoint setup, import purity, redaction."""
 
 import logging
+import subprocess
+import sys
 
 import pytest
 
 import mcp_logseq
+
+
+def test_importing_server_does_not_configure_logging():
+    """Importing mcp_logseq.server must not touch root-logger config (A5).
+
+    Runs in a subprocess because this test process has long since imported
+    the module and configured logging itself.
+    """
+    code = (
+        "import logging, sys\n"
+        "import mcp_logseq.server\n"
+        "root = logging.getLogger()\n"
+        "assert root.level == logging.WARNING, f'root level changed: {root.level}'\n"
+        "assert root.handlers == [], f'root handlers added: {root.handlers}'\n"
+        "pkg = logging.getLogger('mcp-logseq')\n"
+        "assert pkg.handlers == [], f'package handlers added: {pkg.handlers}'\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture
