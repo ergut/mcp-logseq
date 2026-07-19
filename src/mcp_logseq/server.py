@@ -111,6 +111,39 @@ def _error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
 
 
+async def _dispatch_tool_call(handlers: dict, name: str, arguments: dict) -> CallToolResult:
+    """Validate and dispatch one tool call.
+
+    Single choke point for tool dispatch: argument/result bodies are
+    deliberately NOT logged here — only the tool name, the argument keys,
+    and the result size (A5: page/block content must not reach log files).
+    """
+    logger.info(
+        f"Tool call: {name} (argument keys: {', '.join(sorted(arguments)) or 'none'})"
+    )
+
+    tool_handler = handlers.get(name)
+    if not tool_handler:
+        logger.error(f"Unknown tool: {name}")
+        return _error_result(f"Unknown tool: {name}")
+
+    try:
+        jsonschema.validate(
+            instance=arguments, schema=tool_handler.get_tool_description().input_schema
+        )
+    except jsonschema.ValidationError as e:
+        logger.error(f"Input validation error for {name}: {e.message}")
+        return _error_result(f"Input validation error: {e.message}")
+
+    try:
+        result = await asyncio.to_thread(tool_handler.run_tool, arguments)
+        logger.debug(f"Tool {name} returned {len(result)} content item(s)")
+        return CallToolResult(content=list(result))
+    except Exception as e:
+        logger.error(f"Error running tool: {str(e)}", exc_info=True)
+        return _error_result(f"Error: {str(e)}")
+
+
 def build_app(read_only: bool = False) -> tuple[Server, dict]:
     """Build a fully wired MCP ``Server`` plus its tool-handler registry.
 
@@ -139,31 +172,7 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
         ctx: ServerRequestContext, params: CallToolRequestParams
     ) -> CallToolResult:
         """Handle tool calls."""
-        name = params.name
-        arguments = params.arguments or {}
-        logger.info(f"Tool call: {name} with arguments {arguments}")
-
-        tool_handler = handlers.get(name)
-        if not tool_handler:
-            logger.error(f"Unknown tool: {name}")
-            return _error_result(f"Unknown tool: {name}")
-
-        try:
-            jsonschema.validate(
-                instance=arguments, schema=tool_handler.get_tool_description().input_schema
-            )
-        except jsonschema.ValidationError as e:
-            logger.error(f"Input validation error for {name}: {e.message}")
-            return _error_result(f"Input validation error: {e.message}")
-
-        try:
-            logger.debug(f"Running tool {name}")
-            result = await asyncio.to_thread(tool_handler.run_tool, arguments)
-            logger.debug(f"Tool result: {result}")
-            return CallToolResult(content=list(result))
-        except Exception as e:
-            logger.error(f"Error running tool: {str(e)}", exc_info=True)
-            return _error_result(f"Error: {str(e)}")
+        return await _dispatch_tool_call(handlers, params.name, params.arguments or {})
 
     server = Server("mcp-logseq", on_list_tools=list_tools, on_call_tool=call_tool)
     return server, handlers
