@@ -56,7 +56,7 @@ def _validate_http_options(args) -> None:
 _LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
-def _setup_logging():
+def _setup_logging() -> None:
     """Configure process-wide logging for the CLI entrypoint.
 
     Level comes from LOGSEQ_LOG_LEVEL (default INFO). Logs go to stderr;
@@ -68,7 +68,7 @@ def _setup_logging():
     import os
     import sys
 
-    level_name = os.environ.get("LOGSEQ_LOG_LEVEL", "INFO").upper()
+    level_name = (os.environ.get("LOGSEQ_LOG_LEVEL") or "INFO").upper()
     level = logging.getLevelName(level_name)
     invalid_level = not isinstance(level, int)
     if invalid_level:
@@ -84,6 +84,11 @@ def _setup_logging():
             file_error = e
 
     logging.basicConfig(level=level, format=_LOG_FORMAT, handlers=handlers, force=True)
+
+    if level < logging.INFO:
+        # At DEBUG the MCP SDK logs entire inbound JSON-RPC requests (tool
+        # arguments included); cap it so redaction survives verbose mode.
+        logging.getLogger("mcp").setLevel(logging.INFO)
 
     logger = logging.getLogger("mcp-logseq")
     if invalid_level:
