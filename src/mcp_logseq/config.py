@@ -33,8 +33,10 @@ root-level namespace keys, which filter query results per instance. Changing
 them takes effect only after `logseq-sync --rebuild`.
 
 Supported embedder providers are "ollama", "openai", and
-"openai-compatible". Hosted providers may also use "api_key" and "dimensions"
-inside the embedder block.
+"openai-compatible". Hosted providers may also use "api_key_env" (name of an
+environment variable holding the API key — recommended), "api_key"
+(plaintext fallback), and "dimensions" inside the embedder block. When the
+variable named by "api_key_env" is set, it takes precedence over "api_key".
 """
 
 from __future__ import annotations
@@ -146,6 +148,27 @@ def load_vector_config() -> VectorConfig | None:
     ).strip()
     api_key_raw = embedder_raw.get("api_key")
     api_key = str(api_key_raw).strip() if api_key_raw is not None else None
+    api_key_env_raw = embedder_raw.get("api_key_env")
+    if api_key_env_raw is not None:
+        if not isinstance(api_key_env_raw, str) or not api_key_env_raw.strip():
+            logger.warning("Embedder 'api_key_env' must be a non-empty string")
+            return None
+        env_name = api_key_env_raw.strip()
+        env_value = os.getenv(env_name, "").strip()
+        if env_value:
+            api_key = env_value
+        elif api_key:
+            logger.warning(
+                f"Embedder 'api_key_env' variable '{env_name}' is unset or blank — "
+                "falling back to plaintext 'api_key' from config"
+            )
+        else:
+            logger.warning(
+                f"Embedder 'api_key_env' variable '{env_name}' is unset or blank "
+                f"and no usable 'api_key' fallback is configured — set {env_name} "
+                "to enable vector search"
+            )
+            return None
     dimensions = embedder_raw.get("dimensions")
 
     if not model:
