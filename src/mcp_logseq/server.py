@@ -1,16 +1,16 @@
 import asyncio
 import logging
 import sys
-from collections.abc import Sequence
-from typing import Any
 import os
+import jsonschema
 from dotenv import load_dotenv
-from mcp.server import Server
+from mcp.server import Server, ServerRequestContext
 from mcp.types import (
-    Tool,
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsResult,
+    PaginatedRequestParams,
     TextContent,
-    ImageContent,
-    EmbeddedResource,
 )
 
 # Configure logging to stderr with more verbose output
@@ -125,11 +125,19 @@ def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None
         logger.warning(f"Could not load vector config, vector tools disabled: {e}")
 
 
+def _error_result(message: str) -> CallToolResult:
+    """Report a failed tool call in-band, as a result the model can read.
+
+    The low-level server scrubs a raised exception into a generic JSON-RPC "Internal server error", which would hide why the call failed — an access denial, a missing page, an unreachable Logseq.
+    """
+    return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
+
+
 def build_app(read_only: bool = False) -> tuple[Server, dict]:
     """Build a fully wired MCP ``Server`` plus its tool-handler registry.
 
     Returns ``(server, handlers)`` where ``handlers`` is the very same dict the
-    server's ``list_tools`` / ``call_tool`` closures read from. Mutating that
+    server's ``list_tools`` / ``call_tool`` handlers read from. Mutating that
     dict after construction is therefore reflected by the served app.
 
     When ``read_only`` is True the genuine write tools are not registered, so
@@ -137,43 +145,49 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
     including ``sync_vector_db``). Default ``read_only=False`` registers
     everything, identical to prior behavior.
     """
-    server = Server("mcp-logseq")
     handlers: dict = {}
     _register_all_tool_handlers(handlers, read_only)
 
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
+    async def list_tools(
+        ctx: ServerRequestContext, params: PaginatedRequestParams | None
+    ) -> ListToolsResult:
         """List available tools."""
         logger.debug("Listing tools")
         tools_list = [th.get_tool_description() for th in handlers.values()]
         logger.debug(f"Found {len(tools_list)} tools")
-        return tools_list
+        return ListToolsResult(tools=tools_list)
 
-    @server.call_tool()
     async def call_tool(
-        name: str, arguments: Any
-    ) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
+        ctx: ServerRequestContext, params: CallToolRequestParams
+    ) -> CallToolResult:
         """Handle tool calls."""
+        name = params.name
+        arguments = params.arguments or {}
         logger.info(f"Tool call: {name} with arguments {arguments}")
-
-        if not isinstance(arguments, dict):
-            logger.error("Arguments must be dictionary")
-            raise RuntimeError("arguments must be dictionary")
 
         tool_handler = handlers.get(name)
         if not tool_handler:
             logger.error(f"Unknown tool: {name}")
-            raise ValueError(f"Unknown tool: {name}")
+            return _error_result(f"Unknown tool: {name}")
+
+        try:
+            jsonschema.validate(
+                instance=arguments, schema=tool_handler.get_tool_description().input_schema
+            )
+        except jsonschema.ValidationError as e:
+            logger.error(f"Input validation error for {name}: {e.message}")
+            return _error_result(f"Input validation error: {e.message}")
 
         try:
             logger.debug(f"Running tool {name}")
             result = await asyncio.to_thread(tool_handler.run_tool, arguments)
             logger.debug(f"Tool result: {result}")
-            return result
+            return CallToolResult(content=list(result))
         except Exception as e:
             logger.error(f"Error running tool: {str(e)}", exc_info=True)
-            raise RuntimeError(f"Error: {str(e)}")
+            return _error_result(f"Error: {str(e)}")
 
+    server = Server("mcp-logseq", on_list_tools=list_tools, on_call_tool=call_tool)
     return server, handlers
 
 

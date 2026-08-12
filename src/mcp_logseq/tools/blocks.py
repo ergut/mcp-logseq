@@ -24,7 +24,7 @@ class DeleteBlockToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Delete a block from LogSeq by its UUID.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "block_uuid": {
@@ -75,7 +75,7 @@ class UpdateBlockToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Update the content of an existing LogSeq block by UUID.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "block_uuid": {
@@ -133,7 +133,7 @@ class GetBlockToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Get a single block by its UUID. Returns the block content, properties, and child blocks (recursively). Useful for inspecting a specific block after finding its UUID via search or query.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "block_uuid": {
@@ -218,7 +218,7 @@ class InsertNestedBlockToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="""Insert a new block as a child or sibling of an existing block, enabling nested hierarchical structures""",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "parent_block_uuid": {
@@ -308,7 +308,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Set properties on a block in Logseq DB-mode. Properties must be defined on the block's tag/class. Use property display names (e.g. 'Content status', not the internal ident).",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "block_uuid": {

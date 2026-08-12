@@ -26,7 +26,7 @@ class SearchToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Search for content across LogSeq pages, blocks, and files",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query text"},
@@ -415,7 +415,7 @@ class QueryToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Execute a Logseq DSL query to search pages and blocks. Supports property queries, tag queries, task queries, and logical combinations. See https://docs.logseq.com/#/page/queries for query syntax.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "query": {
