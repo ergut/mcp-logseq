@@ -1,8 +1,39 @@
 import requests
 import logging
+import re
+from collections.abc import Iterator
 from typing import Any
 
 logger = logging.getLogger("mcp-logseq")
+
+# Logseq accepts a uuid only in the RFC 4122 layout — version 1-5, variant 8-b.
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+ID_PROPERTY_PATTERN = re.compile(r"^\s*id::\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _iter_batch_ids(blocks: list[dict]) -> Iterator[str]:
+    """Yield every explicit block id in an IBatchBlock tree."""
+    for block in blocks:
+        yield from ID_PROPERTY_PATTERN.findall(block.get("content") or "")
+        block_id = (block.get("properties") or {}).get("id")
+        if block_id is not None:
+            yield str(block_id)
+        yield from _iter_batch_ids(block.get("children") or [])
+
+
+def _batch_ids_are_valid(blocks: list[dict]) -> bool:
+    """Whether every explicit id in a batch is a uuid Logseq will accept."""
+    for block_id in _iter_batch_ids(blocks):
+        if not UUID_PATTERN.match(block_id):
+            logger.warning(
+                f"Block id '{block_id}' is not a valid uuid; inserting the batch "
+                f"with generated ids so Logseq does not discard it"
+            )
+            return False
+    return True
 
 
 class LogSeq:
@@ -226,6 +257,16 @@ class LogSeq:
 
         Uses Logseq's insertBatchBlock API to insert a tree of blocks.
 
+        Blocks whose content carries an explicit ``id:: <uuid>`` line keep that
+        uuid. Without ``keepUUID`` Logseq mints a fresh one and drops the
+        property, which turns every ``((uuid))`` reference elsewhere in the graph
+        into a dangling ref that Logseq then rewrites as plain text.
+
+        ``keepUUID`` is only requested when every id in the batch is well formed:
+        Logseq rejects a malformed uuid by discarding the whole batch and still
+        reporting success, so one bad id would wipe the page. Falling back to
+        generated uuids costs the ids but never the content.
+
         Args:
             src_block: UUID of anchor block (blocks will be inserted after this)
             blocks: List of IBatchBlock dicts with 'content', optional 'children',
@@ -237,9 +278,10 @@ class LogSeq:
             List of created block entities
         """
         logger.info(f"Inserting batch of {len(blocks)} blocks")
+        keep_uuid = _batch_ids_are_valid(blocks)
         result = self._call(
             "logseq.Editor.insertBatchBlock",
-            [src_block, blocks, {"sibling": sibling}],
+            [src_block, blocks, {"sibling": sibling, "keepUUID": keep_uuid}],
             error_context="inserting batch blocks",
         )
         logger.info(f"Successfully inserted batch blocks")
@@ -411,26 +453,27 @@ class LogSeq:
             # Insert new blocks FIRST, then set properties
             if blocks:
                 if mode == "replace":
-                    # After clearing, we need to add a first block to use as anchor
-                    first_block = blocks[0]
-                    anchor = self.append_block_in_page(
-                        page_name,
-                        first_block.get("content", ""),
-                        first_block.get("properties"),
-                    )
+                    # After clearing, we need an empty block to use as anchor.
+                    # Every block is then written through insertBatchBlock, which is
+                    # the only path that preserves an explicit id::; appendBlockInPage
+                    # would strip the uuid off whichever block went through it.
+                    anchor = self.append_block_in_page(page_name, "")
                     anchor_uuid = anchor.get("uuid") if anchor else None
 
-                    # Insert children of first block if any
-                    if anchor_uuid and first_block.get("children"):
-                        self.insert_batch_block(
-                            anchor_uuid,
-                            first_block["children"],
-                            sibling=False,  # Insert as children
+                    if anchor_uuid:
+                        self.insert_batch_block(anchor_uuid, blocks, sibling=True)
+                        # File graphs store page properties as `key:: value` lines in
+                        # the page's first block, so the anchor stays behind to serve
+                        # as that pre-block. Deleting it would push the properties
+                        # into the first block of real content.
+                        if self.db_mode or not properties:
+                            self.delete_block(anchor_uuid)
+                    else:
+                        logger.warning(
+                            "No anchor block found, using fallback append method"
                         )
-
-                    # Insert remaining blocks as siblings
-                    if len(blocks) > 1 and anchor_uuid:
-                        self.insert_batch_block(anchor_uuid, blocks[1:], sibling=True)
+                        for block in blocks:
+                            self._append_block_recursive(page_name, block)
 
                     results.append(("blocks_replaced", len(blocks)))
                 else:
