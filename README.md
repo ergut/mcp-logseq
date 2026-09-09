@@ -62,7 +62,7 @@ Transform your LogSeq knowledge base into an AI-powered workspace! This MCP serv
 2. Click the **API button (🔌)** in LogSeq → **"Start server"**
 3. **Generate API token**: API panel → "Authorization tokens" → Create new
 
-### Step 2: Add to Claude (No Installation Required!)
+### Step 2: Add to your MCP client (No Installation Required!)
 
 #### Claude Code
 ```bash
@@ -88,6 +88,32 @@ Add to your config file (`Settings → Developer → Edit Config`):
   }
 }
 ```
+
+#### Codex (local, macOS)
+
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and Logseq's HTTP API running (Step 1), add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.logseq]
+command = "/opt/homebrew/bin/uv"
+args = ["run", "--no-project", "--python", "3.11", "--with", "mcp-logseq==1.8.0", "--with", "mcp<2", "mcp-logseq"]
+
+[mcp_servers.logseq.env]
+LOGSEQ_API_TOKEN = "YOUR_LOGSEQ_TOKEN"
+LOGSEQ_API_URL = "http://127.0.0.1:12315"
+```
+
+Replace `YOUR_LOGSEQ_TOKEN` with your Logseq token. Run `which uv` in Terminal and use its output for `command` if the path differs. Keep your token private.
+
+Use the API base address above, **without `/mcp`**. Codex runs this adapter through STDIO; the adapter connects to Logseq's regular HTTP API.
+
+Restart Codex, open a new local task, and ask:
+
+> Use Logseq to list my journal pages, then read today's journal. Do not change anything.
+
+Keep Logseq and its API server running. Codex starts the adapter automatically—no tunnel or separate Terminal window is needed.
+
+*Tested with a Logseq DB graph for page listing and journal retrieval. The version constraints avoid an MCP 2.x startup error observed with `mcp-logseq` 1.8.0. This setup is for local Codex tasks, not cloud-hosted ChatGPT Chat.*
 
 ### Step 3: Start Using!
 ```
