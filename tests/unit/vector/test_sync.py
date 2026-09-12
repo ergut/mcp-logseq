@@ -30,6 +30,28 @@ def _make_embedder(dims: int = 4) -> MagicMock:
     return embedder
 
 
+# --- _embed_chunks_batched ---
+
+def test_failed_batch_retries_chunks_individually(tmp_path):
+    from types import SimpleNamespace
+
+    def embed(texts):
+        if len(texts) > 1:
+            raise RuntimeError("400 Bad Request")
+        if texts[0] == "bad":
+            raise RuntimeError("400 Bad Request")
+        return [[0.1, 0.2, 0.3, 0.4]]
+
+    embedder = _make_embedder()
+    embedder.embed.side_effect = embed
+    engine = SyncEngine(_make_config(str(tmp_path), str(tmp_path / "db")), MagicMock(), MagicMock(), embedder)
+    chunks = [SimpleNamespace(text=t, vector=None) for t in ["good", "bad", "also good"]]
+
+    engine._embed_chunks_batched(chunks)
+
+    assert [c.vector is not None for c in chunks] == [True, False, True]
+
+
 # --- check_staleness ---
 
 def test_staleness_empty_state_with_files(tmp_path):

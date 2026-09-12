@@ -110,6 +110,15 @@ def test_chunk_file_skips_short_chunks(tmp_path):
     assert len(chunks) == 0
 
 
+def test_chunk_file_skips_oversized_chunks(tmp_path):
+    md_file = tmp_path / "Big.md"
+    md_file.write_text("- " + "x" * 300 + "\n- a normal sized block here\n")
+    config = _make_config(graph_path=str(tmp_path), max_chunk_length=100)
+
+    chunks = chunk_file(md_file, config)
+    assert [c.block_index for c in chunks] == [1]
+
+
 def test_chunk_file_exclude_tags_filters_page(tmp_path):
     md_file = tmp_path / "Private Page.md"
     md_file.write_text("tags:: private\n\n- This should be excluded from indexing\n")
