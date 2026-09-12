@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-09-13
+
+### Added
+
+- Embedding provider API keys can be read from an environment variable via
+  `vector.embedder.api_key_env`, so the key never has to be written to
+  `config.json`. Plaintext `api_key` keeps working (#82, closes #81, by
+  ericfitz)
+- `vector.max_chunk_length` (default `10000`): blocks longer than this are
+  skipped at chunk time instead of being sent to the embedder, which rejected
+  them with a 400 (#97, closes #76)
+
 ### Changed
 
-- **Breaking (dependency):** the server now requires `mcp>=2.0` and is ported to the 2.x low-level API, which replaced the `@server.list_tools()` / `@server.call_tool()` decorators with constructor-based handler registration. Environments pinned to `mcp<2` must upgrade (#92)
+- **Breaking (dependency):** the server now requires `mcp>=2.0,<3` and is ported to the 2.x low-level API, which replaced the `@server.list_tools()` / `@server.call_tool()` decorators with constructor-based handler registration. Environments pinned to `mcp<2` must upgrade (#92)
 
 - **Potentially breaking:** `LogSeq(...)` now defaults `verify_ssl=True` (was
   `False`), so the safe path is the default. The bundled server is unaffected
@@ -28,6 +40,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The server no longer crashes on import with `'Server' object has no attribute 'list_tools'` (surfacing client-side as `MCP error -32000: Connection closed`) when mcp 2.x is installed (#92)
 - Tool-call failures still reach the model as in-band error results, and tool arguments are still validated against each tool's `inputSchema` — the 2.x low-level server does neither on a handler's behalf, so the server does both itself (#92)
+- Block uuids survive a page rewrite. `update_page` in replace mode used to
+  mint fresh uuids for every block, leaving `((uuid))` references elsewhere in
+  the graph dangling; `insertBatchBlock` is now called with `keepUUID` (only
+  when every id parses as an RFC 4122 uuid, since Logseq silently discards the
+  whole batch on a malformed one) and the first block no longer bypasses the
+  batch (#93, by sleeyax)
+- A failed embedding batch is retried one chunk at a time, so a single
+  rejected block no longer drops the other chunks in its batch (#97)
+
+### Documentation
+
+- README: Codex CLI (#94, by sqzhang-jeremy) and OpenCode (#95, from #73 by
+  extrospective) client setup sections
+- VECTOR_SEARCH.md: how to index multiple graphs (#96, closes #75)
 
 ### Internal
 

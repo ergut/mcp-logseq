@@ -89,21 +89,21 @@ Add to your config file (`Settings → Developer → Edit Config`):
 }
 ```
 
-#### Codex (local, macOS)
+#### Codex CLI
 
 With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and Logseq's HTTP API running (Step 1), add this to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.logseq]
-command = "/opt/homebrew/bin/uv"
-args = ["run", "--no-project", "--python", "3.11", "--with", "mcp-logseq==1.8.0", "--with", "mcp<2", "mcp-logseq"]
+command = "uv"
+args = ["run", "--with", "mcp-logseq", "mcp-logseq"]
 
 [mcp_servers.logseq.env]
 LOGSEQ_API_TOKEN = "YOUR_LOGSEQ_TOKEN"
 LOGSEQ_API_URL = "http://127.0.0.1:12315"
 ```
 
-Replace `YOUR_LOGSEQ_TOKEN` with your Logseq token. Run `which uv` in Terminal and use its output for `command` if the path differs. Keep your token private.
+Replace `YOUR_LOGSEQ_TOKEN` with your Logseq token. If Codex cannot find `uv`, run `which uv` in Terminal and use the full path for `command`. Keep your token private.
 
 Use the API base address above, **without `/mcp`**. Codex runs this adapter through STDIO; the adapter connects to Logseq's regular HTTP API.
 
@@ -113,7 +113,7 @@ Restart Codex, open a new local task, and ask:
 
 Keep Logseq and its API server running. Codex starts the adapter automatically—no tunnel or separate Terminal window is needed.
 
-*Tested with a Logseq DB graph for page listing and journal retrieval. The version constraints avoid an MCP 2.x startup error observed with `mcp-logseq` 1.8.0. This setup is for local Codex tasks, not cloud-hosted ChatGPT Chat.*
+*Tested with a Logseq DB graph for page listing and journal retrieval. This setup is for local Codex tasks, not cloud-hosted ChatGPT Chat.*
 
 #### OpenCode
 
