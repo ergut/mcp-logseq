@@ -176,6 +176,14 @@ def chunk_file(file_path: Path, config: VectorConfig) -> list[LogseqChunk]:
 
         if len(text_clean) < config.min_chunk_length:
             continue
+        if len(text_clean) > config.max_chunk_length:
+            # Logseq itself refuses to edit or search such blocks; embedding
+            # providers reject them outright (#76).
+            logger.info(
+                f"Skipping oversized block {page_title}::{block_index} "
+                f"({len(text_clean)} chars > max_chunk_length={config.max_chunk_length})"
+            )
+            continue
 
         chunk_id = f"{page_title}::{block_index}"
         chunks.append(LogseqChunk(

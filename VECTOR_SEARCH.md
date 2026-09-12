@@ -160,6 +160,7 @@ This keeps everything in one place:
 | `vector.include_journals` | no | Index journal pages (default: `true`) |
 | `vector.exclude_tags` | no | Additional tags to skip from the vector index only (additive with top-level `exclude_tags`). Use for noise filtering — e.g. large reference dumps that pollute semantic search but are fine to read directly. (default: `[]`) |
 | `vector.min_chunk_length` | no | Minimum characters per chunk (default: `50`) |
+| `vector.max_chunk_length` | no | Maximum characters per chunk. Longer blocks are skipped, matching Logseq's own handling of large blocks, since embedding providers reject them (default: `10000`) |
 
 **Important:** keep `db_path` outside your iCloud-synced Logseq folder. The DB is a generated binary artifact — syncing it to iCloud wastes bandwidth and can cause corruption.
 

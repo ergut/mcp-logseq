@@ -204,8 +204,16 @@ class SyncEngine:
                 batch_vectors = self._embedder.embed(batch)
                 vectors.extend(batch_vectors)
             except Exception as e:
-                logger.warning(f"Embedding batch {i//  _EMBED_BATCH_SIZE} failed: {e} — skipping {len(batch)} chunks")
-                vectors.extend([None] * len(batch))  # type: ignore[list-item]
+                logger.warning(
+                    f"Embedding batch {i // _EMBED_BATCH_SIZE} failed: {e}. "
+                    f"Retrying its {len(batch)} chunks one at a time"
+                )
+                for text in batch:
+                    try:
+                        vectors.extend(self._embedder.embed([text]))
+                    except Exception as e2:
+                        logger.warning(f"Skipping chunk that failed to embed: {e2}")
+                        vectors.append(None)  # type: ignore[arg-type]
 
         for chunk, vector in zip(chunks, vectors):
             chunk.vector = vector

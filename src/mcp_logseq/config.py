@@ -23,6 +23,7 @@ Example config.json:
     "include_namespaces": ["work"],
     "exclude_namespaces": ["work/secret"],
     "min_chunk_length": 50,
+    "max_chunk_length": 10000,
     "watch_debounce_ms": 5000
   }
 }
@@ -69,6 +70,7 @@ class VectorConfig:
     include_namespaces: list[str] = field(default_factory=list)
     exclude_namespaces: list[str] = field(default_factory=list)
     min_chunk_length: int = 50
+    max_chunk_length: int = 10000
     watch_debounce_ms: int = 5000
 
 
@@ -206,6 +208,7 @@ def load_vector_config() -> VectorConfig | None:
         include_namespaces=vector_raw.get("include_namespaces", []),
         exclude_namespaces=vector_raw.get("exclude_namespaces", []),
         min_chunk_length=vector_raw.get("min_chunk_length", 50),
+        max_chunk_length=vector_raw.get("max_chunk_length", 10000),
         watch_debounce_ms=vector_raw.get("watch_debounce_ms", 5000),
     )
 
