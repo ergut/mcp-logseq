@@ -68,7 +68,7 @@ Create a directory for all vector search files and a config file inside it:
 mkdir -p ~/.logseq-vector
 ```
 
-`~/.logseq-vector/config.json`:
+`~/.logseq-vector/config.json` (replace `logseq_graph_path` with the path to your own graph folder):
 
 ```json
 {
@@ -166,6 +166,20 @@ This keeps everything in one place:
 Prefer `api_key_env` so no key is stored in `config.json`. If you do use a
 plaintext `api_key`, do not commit or share the file, and restrict it to your
 user account, for example with `chmod 600 ~/.logseq-vector/config.json`.
+
+### Multiple graphs
+
+One config file describes one graph. To index several graphs, create one config file per graph, each with its own `logseq_graph_path` and its own `db_path`:
+
+```text
+~/.logseq-vector/
+  work.json        → "logseq_graph_path": "~/graphs/work",     "db_path": "~/.logseq-vector/work-db"
+  personal.json    → "logseq_graph_path": "~/graphs/personal", "db_path": "~/.logseq-vector/personal-db"
+```
+
+Then run `logseq-sync` once per config file, and register one MCP server entry per graph (for example `mcp-logseq-work` and `mcp-logseq-personal`), each with `LOGSEQ_CONFIG_FILE` pointing at its own file. Never share a `db_path` between two graphs.
+
+Note that only the vector index is per config file. The regular tools (`list_pages`, `get_page_content`, and so on) go through Logseq's HTTP API, which always serves whichever graph is currently open in Logseq.
 
 ---
 
