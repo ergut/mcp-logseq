@@ -115,6 +115,26 @@ Keep Logseq and its API server running. Codex starts the adapter automaticallyâ€
 
 *Tested with a Logseq DB graph for page listing and journal retrieval. The version constraints avoid an MCP 2.x startup error observed with `mcp-logseq` 1.8.0. This setup is for local Codex tasks, not cloud-hosted ChatGPT Chat.*
 
+#### OpenCode
+
+Add to `~/.config/opencode/opencode.json`:
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mcp-logseq": {
+      "type": "local",
+      "command": ["uv", "run", "--with", "mcp-logseq", "mcp-logseq"],
+      "enabled": true,
+      "environment": {
+        "LOGSEQ_API_URL": "http://localhost:12315",
+        "LOGSEQ_API_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
 ### Step 3: Start Using!
 ```
 "Please help me organize my LogSeq notes. Show me what pages I have."
