@@ -9,11 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking (dependency):** the server now requires `mcp>=2.0` and is ported to the 2.x low-level API, which replaced the `@server.list_tools()` / `@server.call_tool()` decorators with constructor-based handler registration. Environments pinned to `mcp<2` must upgrade (#92)
+
 - **Potentially breaking:** `LogSeq(...)` now defaults `verify_ssl=True` (was
   `False`), so the safe path is the default. The bundled server is unaffected
   (it always sets `verify_ssl` explicitly from the protocol), but external code
   constructing the client directly against a self-signed HTTPS Logseq endpoint
   must now pass `verify_ssl=False` explicitly (#89)
+
+### Fixed
+
+- The server no longer crashes on import with `'Server' object has no attribute 'list_tools'` (surfacing client-side as `MCP error -32000: Connection closed`) when mcp 2.x is installed (#92)
+- Tool-call failures still reach the model as in-band error results, and tool arguments are still validated against each tool's `inputSchema` — the 2.x low-level server does neither on a handler's behalf, so the server does both itself (#92)
 
 ### Internal
 

@@ -20,7 +20,7 @@ class GetPagesFromNamespaceToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Get all pages within a namespace hierarchy (flat list). Use this to discover subpages of a parent page.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "namespace": {
@@ -83,7 +83,7 @@ class GetPagesTreeFromNamespaceToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Get pages within a namespace as a hierarchical tree structure. Useful for understanding the full page hierarchy.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "namespace": {

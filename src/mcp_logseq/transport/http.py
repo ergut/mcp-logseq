@@ -3,7 +3,7 @@
 Wraps the MCP ``Server`` from :mod:`mcp_logseq.server` in a Starlette app and
 serves it over the Streamable HTTP transport.
 
-StreamableHTTPSessionManager (confirmed against installed mcp 1.27.2):
+StreamableHTTPSessionManager (confirmed against installed mcp 2.0.0):
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     StreamableHTTPSessionManager(app, event_store=None, json_response=False,
                                  stateless=False, ...)

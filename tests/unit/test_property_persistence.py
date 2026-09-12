@@ -199,8 +199,9 @@ class TestUpdatePageProperties:
         responses.add(responses.POST, url, json=[{"name": "Test Page", "originalName": "Test Page"}], status=200)  # list_pages
         responses.add(responses.POST, url, json=[{"uuid": "block-1", "content": "Old", "properties": {"priority": "low", "status": "old"}}], status=200)  # clear: get blocks
         responses.add(responses.POST, url, json=True, status=200)  # removeBlock (clear content)
-        responses.add(responses.POST, url, json={"uuid": "block-2", "content": "New"}, status=200)  # appendBlockInPage anchor
-        responses.add(responses.POST, url, json=[{"uuid": "block-2", "content": "New", "properties": {"priority": "low", "status": "old"}}], status=200)  # _replace_page_properties: get first block
+        responses.add(responses.POST, url, json={"uuid": "anchor-1", "content": ""}, status=200)  # appendBlockInPage anchor
+        responses.add(responses.POST, url, json=[{"uuid": "block-2"}], status=200)  # insertBatchBlock
+        responses.add(responses.POST, url, json=[{"uuid": "anchor-1", "content": "", "properties": {"priority": "low", "status": "old"}}], status=200)  # _replace_page_properties: get first block
         responses.add(responses.POST, url, json=True, status=200)  # removeBlockProperty / upsertBlockProperty (repeats)
 
         result = logseq_client.update_page_with_blocks(

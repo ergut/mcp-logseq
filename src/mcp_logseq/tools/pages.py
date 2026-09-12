@@ -68,7 +68,7 @@ Introduction paragraph.
   - Subtask A
 - Task 2
 ```""",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "Title of the new page"},
@@ -147,7 +147,7 @@ class ListPagesToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Lists all pages in a LogSeq graph.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "include_journals": {
@@ -290,7 +290,7 @@ class GetPageContentToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Get the content of a specific page from LogSeq.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "page_name": {
@@ -419,7 +419,7 @@ class DeletePageToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Delete a page from LogSeq.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "page_name": {
@@ -495,7 +495,7 @@ Supports two modes:
 
 Markdown is parsed into proper block hierarchy just like create_page.
 YAML frontmatter in content will be merged with explicit properties.""",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "page_name": {
@@ -602,7 +602,7 @@ class FindPagesByPropertyToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Find all pages that have a specific property, optionally filtered by value. Simpler alternative to the full query DSL.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "property_name": {
@@ -733,7 +733,7 @@ class RenamePageToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Rename an existing page. All references throughout the graph will be automatically updated.",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "old_name": {
@@ -788,7 +788,7 @@ class GetPageBacklinksToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Get all pages and blocks that link to a specific page (backlinks/linked references).",
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "page_name": {

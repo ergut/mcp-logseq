@@ -136,7 +136,7 @@ class VectorSearchToolHandler(ToolHandler):
                 "Weak match results (score > 0.80) may be tangential; use judgment when "
                 "presenting them to the user."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "query": {
@@ -285,7 +285,7 @@ class SyncVectorDBToolHandler(ToolHandler):
                 "writer — the logseq-sync CLI, run externally on the host that owns the DB. "
                 "Calling this tool just returns instructions; it does not start a sync."
             ),
-            inputSchema={
+            input_schema={
                 "type": "object",
                 "properties": {
                     "rebuild": {
@@ -316,7 +316,7 @@ class VectorDBStatusToolHandler(ToolHandler):
         return Tool(
             name=self.name,
             description="Show current state of the vector database without syncing.",
-            inputSchema={"type": "object", "properties": {}},
+            input_schema={"type": "object", "properties": {}},
         )
 
     def run_tool(self, args: dict) -> list[TextContent]:
