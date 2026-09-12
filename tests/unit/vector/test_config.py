@@ -250,3 +250,116 @@ def test_applies_defaults(monkeypatch, tmp_path):
     assert config.min_chunk_length == 50
     assert config.watch_debounce_ms == 5000
     assert config.embedder.base_url == "http://localhost:11434"
+
+
+def _openai_config(tmp_path, embedder_extra: dict) -> str:
+    return _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {"provider": "openai", **embedder_extra},
+        },
+    })
+
+
+def test_api_key_env_reads_key_from_environment(monkeypatch, tmp_path):
+    # Also proves api_key_env alone satisfies openai's requires-a-key check.
+    path = _openai_config(tmp_path, {"api_key_env": "TEST_EMBED_KEY"})
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.setenv("TEST_EMBED_KEY", "env-secret")
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.api_key == "env-secret"
+
+
+def test_api_key_env_takes_precedence_over_plaintext(monkeypatch, tmp_path):
+    path = _openai_config(
+        tmp_path, {"api_key_env": "TEST_EMBED_KEY", "api_key": "plain-key"}
+    )
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.setenv("TEST_EMBED_KEY", "env-secret")
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.api_key == "env-secret"
+
+
+def test_api_key_env_unset_falls_back_to_plaintext(monkeypatch, tmp_path):
+    path = _openai_config(
+        tmp_path, {"api_key_env": "TEST_EMBED_KEY", "api_key": "plain-key"}
+    )
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.delenv("TEST_EMBED_KEY", raising=False)
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.api_key == "plain-key"
+
+
+def test_api_key_env_unset_without_fallback_returns_none_openai(
+    monkeypatch, tmp_path
+):
+    path = _openai_config(tmp_path, {"api_key_env": "TEST_EMBED_KEY"})
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.delenv("TEST_EMBED_KEY", raising=False)
+
+    assert load_vector_config() is None
+
+
+def test_api_key_env_unset_without_fallback_returns_none_openai_compatible(
+    monkeypatch, tmp_path
+):
+    # openai-compatible allows keyless operation, but naming a variable
+    # signals intent to authenticate — do not silently proceed without it.
+    path = _write_config(tmp_path, {
+        "logseq_graph_path": "/some/path",
+        "vector": {
+            "enabled": True,
+            "embedder": {
+                "provider": "openai-compatible",
+                "model": "custom-embed-model",
+                "base_url": "https://embeddings.example.com/v1",
+                "api_key_env": "TEST_EMBED_KEY",
+            },
+        },
+    })
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.delenv("TEST_EMBED_KEY", raising=False)
+
+    assert load_vector_config() is None
+
+
+def test_api_key_env_blank_value_treated_as_unset(monkeypatch, tmp_path):
+    path = _openai_config(tmp_path, {"api_key_env": "TEST_EMBED_KEY"})
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.setenv("TEST_EMBED_KEY", "   ")
+
+    assert load_vector_config() is None
+
+
+@pytest.mark.parametrize("bad_name", [123, True, "", "   ", ["OPENAI_API_KEY"]])
+def test_api_key_env_invalid_returns_none(monkeypatch, tmp_path, bad_name):
+    # api_key is present, so failure proves the bad field is treated as a
+    # config error rather than falling back to the plaintext key.
+    path = _openai_config(
+        tmp_path, {"api_key_env": bad_name, "api_key": "plain-key"}
+    )
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+
+    assert load_vector_config() is None
+
+
+def test_plaintext_api_key_without_api_key_env_unchanged(monkeypatch, tmp_path):
+    # Back-compat regression: no api_key_env means exactly today's behavior.
+    path = _openai_config(tmp_path, {"api_key": "plain-key"})
+    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", path)
+    monkeypatch.delenv("TEST_EMBED_KEY", raising=False)
+
+    config = load_vector_config()
+
+    assert config is not None
+    assert config.embedder.api_key == "plain-key"
