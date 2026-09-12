@@ -290,8 +290,8 @@ name = "httpcore2"
 version = "2.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", version = "0.16.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "truststore" },
+    { name = "h11", version = "0.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
+    { name = "truststore", marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/83/a896fc59940fc5a6e2aff3a4be1d92fa890112936803b331cae75a993c34/httpcore2-2.10.0.tar.gz", hash = "sha256:13c0cc3d1919d4f28457f60cd2c2abe04113a8af184ccf1142811beba936f9dc", size = 67427, upload-time = "2026-08-09T09:11:32.123Z" }
 wheels = [
@@ -444,7 +444,7 @@ wheels = [
 
 [[package]]
 name = "mcp-logseq"
-version = "1.8.0"
+version = "1.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -477,7 +477,7 @@ dev = [
 requires-dist = [
     { name = "jsonschema", specifier = ">=4.20" },
     { name = "lancedb", marker = "extra == 'vector'", specifier = ">=0.6" },
-    { name = "mcp", specifier = ">=2.0" },
+    { name = "mcp", specifier = ">=2.0,<3" },
     { name = "portalocker", marker = "extra == 'vector'", specifier = ">=2.0" },
     { name = "pyarrow", marker = "extra == 'vector'", specifier = ">=14.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
