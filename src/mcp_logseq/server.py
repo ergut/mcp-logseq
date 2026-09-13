@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 import jsonschema
 from dotenv import load_dotenv
 from mcp.server import Server, ServerRequestContext
@@ -174,7 +175,13 @@ def build_app(read_only: bool = False) -> tuple[Server, dict]:
         """Handle tool calls."""
         return await _dispatch_tool_call(handlers, params.name, params.arguments or {})
 
-    server = Server("mcp-logseq", on_list_tools=list_tools, on_call_tool=call_tool)
+    try:
+        pkg_version = _pkg_version("mcp-logseq")
+    except PackageNotFoundError:
+        pkg_version = ""
+    server = Server(
+        "mcp-logseq", version=pkg_version, on_list_tools=list_tools, on_call_tool=call_tool
+    )
     return server, handlers
 
 

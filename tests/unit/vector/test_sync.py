@@ -296,6 +296,21 @@ def test_sync_treats_file_deleted_during_embedding_as_deleted(
     assert "page.md" not in saved_state
 
 
+# --- _walk_md_files ---
+
+def test_walk_skips_logseq_dir_and_hidden_dirs(tmp_path):
+    from mcp_logseq.vector.sync import _walk_md_files
+
+    for rel in ["pages/a.md", "journals/2026_01_01.md", "logseq/bak/pages/a/x.md",
+                "logseq/.recycle/pages_a.md", ".trash/b.md", "pages/.hidden/c.md"]:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("- x")
+
+    found = {str(p.relative_to(tmp_path)) for p in _walk_md_files(str(tmp_path))}
+
+    assert found == {"pages/a.md", "journals/2026_01_01.md"}
+
+
 # --- _migrate_to_relative_keys ---
 
 def test_migrate_no_op_when_already_relative(tmp_path):

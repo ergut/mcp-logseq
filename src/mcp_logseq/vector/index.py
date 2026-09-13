@@ -80,16 +80,28 @@ def _filter_results_by_tags(
     return [r for r in results if not any(t in exclude_tags for t in (r.tags or []))]
 
 
-def _format_search_results(results) -> str:
+_SCORE_NOTES = {
+    "hybrid": "Note: score is a rank-fusion (RRF) score of vector + full-text ranks — higher is more relevant.",
+    "keyword": "Note: score is a full-text (BM25) score — higher is more relevant.",
+}
+
+
+def _format_search_results(results, mode: str = "vector") -> str:
     if not results:
         return "No results found."
     lines = []
     has_weak = False
+    # Only vector mode returns a distance; hybrid/keyword scores are not comparable
+    # to the distance thresholds, so they get no relevance label
+    is_distance = mode not in _SCORE_NOTES
     for i, r in enumerate(results, 1):
-        label = _relevance_label(r.score)
-        if label == "weak match":
-            has_weak = True
-        lines.append(f"{i}. **{r.page}** (score: {r.score:.3f} — {label})")
+        if is_distance:
+            label = _relevance_label(r.score)
+            if label == "weak match":
+                has_weak = True
+            lines.append(f"{i}. **{r.page}** (score: {r.score:.3f} — {label})")
+        else:
+            lines.append(f"{i}. **{r.page}** (score: {r.score:.3f})")
         lines.append(f"   {r.text[:300]}{'...' if len(r.text) > 300 else ''}")
         meta_parts = []
         if r.tags:
@@ -99,11 +111,14 @@ def _format_search_results(results) -> str:
         if meta_parts:
             lines.append(f"   {' | '.join(meta_parts)}")
         lines.append("   ---")
-    lines.append(
-        "\nNote: score is a distance metric — lower is more relevant. "
-        + ("Weak match results may not address the query; use judgment when presenting them." if has_weak
-           else "All results are within the expected relevance range.")
-    )
+    if is_distance:
+        lines.append(
+            "\nNote: score is a distance metric — lower is more relevant. "
+            + ("Weak match results may not address the query; use judgment when presenting them." if has_weak
+               else "All results are within the expected relevance range.")
+        )
+    else:
+        lines.append("\n" + _SCORE_NOTES[mode])
     return "\n".join(lines)
 
 
@@ -132,9 +147,10 @@ class VectorSearchToolHandler(ToolHandler):
                 "Semantic search over Logseq notes using hybrid search (vector similarity + "
                 "full-text, combined by default). Use this for natural language queries about "
                 "topics, concepts, or meaning — not for exact title lookups. "
-                "Results include a relevance label and score (lower score = more relevant). "
-                "Weak match results (score > 0.80) may be tangential; use judgment when "
-                "presenting them to the user."
+                "Results are ordered best-first. In hybrid (default) and keyword modes the "
+                "score is a rank-fusion / BM25 score (higher = more relevant). In vector mode "
+                "the score is a distance (lower = more relevant) with a relevance label; weak "
+                "matches (distance > 0.80) may be tangential; use judgment when presenting them."
             ),
             input_schema={
                 "type": "object",
@@ -268,7 +284,7 @@ class VectorSearchToolHandler(ToolHandler):
             results, acl.include_namespaces, acl.exclude_namespaces
         )
         results = _filter_results_by_tags(results, acl.exclude_tags)
-        output = output_prefix + _format_search_results(results)
+        output = output_prefix + _format_search_results(results, search_mode)
         return [TextContent(type="text", text=output)]
 
 

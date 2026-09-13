@@ -113,6 +113,14 @@ class SearchToolHandler(ToolHandler):
         return bool(name) and name.lower() not in excluded_page_names
 
     @staticmethod
+    def _has_more(raw_flag, visible_blocks: list, limit: int, excluded_page_names: set[str]) -> bool:
+        """The API's has-more flag describes the unfiltered result set, so under
+        active exclusions it is derived from what is actually visible instead."""
+        if excluded_page_names:
+            return len(visible_blocks) > limit
+        return bool(raw_flag)
+
+    @staticmethod
     def _filter_db_block_results(
         block_results: list[dict],
         api,
@@ -174,17 +182,19 @@ class SearchToolHandler(ToolHandler):
             block_results, api, excluded_page_names
         )
 
-        if include_pages and page_results:
-            visible_pages = [
-                p for p in page_results
-                if SearchToolHandler._db_page_visible(p, excluded_page_names)
-            ]
-            if visible_pages:
-                parts.append(f"## Matching Pages ({len(visible_pages)} found)")
-                for page in visible_pages:
-                    name = page.get("fullTitle") or page.get("title") or page.get("content", "")
-                    parts.append(f"- {name}")
-                parts.append("")
+        visible_pages = [
+            p for p in page_results
+            if SearchToolHandler._db_page_visible(p, excluded_page_names)
+        ]
+        # Fail-closed: file paths carry page names, so they are hidden under exclusions
+        files = [] if excluded_page_names else result.get("files", [])
+
+        if include_pages and visible_pages:
+            parts.append(f"## Matching Pages ({len(visible_pages)} found)")
+            for page in visible_pages:
+                name = page.get("fullTitle") or page.get("title") or page.get("content", "")
+                parts.append(f"- {name}")
+            parts.append("")
 
         if include_blocks and block_results:
             parts.append(f"## Content Blocks ({len(block_results)} found)")
@@ -201,16 +211,18 @@ class SearchToolHandler(ToolHandler):
                     parts.append(f"   uuid: {uuid}  page: {page_id}")
             parts.append("")
 
-        if include_files and result.get("files"):
-            parts.append(f"## Matching Files ({len(result['files'])} found)")
-            for f in result["files"]:
+        if include_files and files:
+            parts.append(f"## Matching Files ({len(files)} found)")
+            for f in files:
                 parts.append(f"- {f}")
             parts.append("")
 
-        if result.get("hasMore?"):
+        if SearchToolHandler._has_more(result.get("hasMore?"), block_results, limit, excluded_page_names):
             parts.append("*More results available — increase limit to see more*")
 
-        total = len(blocks) + len(result.get("files", []))
+        # Count only what survived filtering; the raw count would reveal how many
+        # excluded pages match the query
+        total = len(visible_pages) + len(block_results) + len(files)
         parts.append(f"\n**Total results found: {total}**")
         return parts
 
@@ -228,11 +240,15 @@ class SearchToolHandler(ToolHandler):
         """
         parts: list[str] = []
 
-        if include_blocks and result.get("blocks") and not excluded_page_names:
-            # Only show blocks when no exclusion is active — markdown-mode blocks
-            # carry block/content but no page identifier, so we cannot verify they
-            # are safe to show (same rule as the page-snippets section below)
-            blocks = result["blocks"]
+        # Fail-closed: blocks and snippets carry no page identifier and file paths
+        # carry page names, so none of them are shown while an exclusion is active
+        hidden = bool(excluded_page_names)
+        blocks = [] if hidden else result.get("blocks", [])
+        snippets = [] if hidden else result.get("pages-content", [])
+        files = [] if hidden else result.get("files", [])
+        visible_pages = [p for p in result.get("pages", []) if p.lower() not in excluded_page_names]
+
+        if include_blocks and blocks:
             parts.append(f"## Content Blocks ({len(blocks)} found)")
             for i, block in enumerate(blocks[:limit]):
                 content = block.get("block/content", "").strip()
@@ -242,48 +258,35 @@ class SearchToolHandler(ToolHandler):
                     parts.append(f"{i + 1}. {content}")
             parts.append("")
 
-        if include_pages and result.get("pages-content"):
-            snippets = result["pages-content"]
-            if not excluded_page_names:
-                # Only show snippets when no exclusion is active — snippets carry no
-                # page identifier so we cannot verify they are safe to show
-                parts.append(f"## Page Snippets ({len(snippets)} found)")
-                for i, snippet in enumerate(snippets[:limit]):
-                    snippet_text = snippet.get("block/snippet", "").strip()
-                    if snippet_text:
-                        snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
-                            "$<pfts_2lqh$", ""
-                        )
-                        if len(snippet_text) > 200:
-                            snippet_text = snippet_text[:200] + "..."
-                        parts.append(f"{i + 1}. {snippet_text}")
-                parts.append("")
+        if include_pages and snippets:
+            parts.append(f"## Page Snippets ({len(snippets)} found)")
+            for i, snippet in enumerate(snippets[:limit]):
+                snippet_text = snippet.get("block/snippet", "").strip()
+                if snippet_text:
+                    snippet_text = snippet_text.replace("$pfts_2lqh>$", "").replace(
+                        "$<pfts_2lqh$", ""
+                    )
+                    if len(snippet_text) > 200:
+                        snippet_text = snippet_text[:200] + "..."
+                    parts.append(f"{i + 1}. {snippet_text}")
+            parts.append("")
 
-        if include_pages and result.get("pages"):
-            pages = result["pages"]
-            visible_pages = [p for p in pages if p.lower() not in excluded_page_names]
-            if visible_pages:
-                parts.append(f"## Matching Pages ({len(visible_pages)} found)")
-                for page in visible_pages:
-                    parts.append(f"- {page}")
-                parts.append("")
+        if include_pages and visible_pages:
+            parts.append(f"## Matching Pages ({len(visible_pages)} found)")
+            for page in visible_pages:
+                parts.append(f"- {page}")
+            parts.append("")
 
-        if include_files and result.get("files"):
-            files = result["files"]
+        if include_files and files:
             parts.append(f"## Matching Files ({len(files)} found)")
             for f in files:
                 parts.append(f"- {f}")
             parts.append("")
 
-        if result.get("has-more?"):
+        if SearchToolHandler._has_more(result.get("has-more?"), blocks, limit, excluded_page_names):
             parts.append("*More results available — increase limit to see more*")
 
-        total = (
-            len(result.get("blocks", []))
-            + len(result.get("pages", []))
-            + len(result.get("pages-content", []))
-            + len(result.get("files", []))
-        )
+        total = len(blocks) + len(visible_pages) + len(snippets) + len(files)
         parts.append(f"\n**Total results found: {total}**")
         return parts
 
@@ -325,8 +328,10 @@ class SearchToolHandler(ToolHandler):
                     block_results.append(block)
                 out["blocks"] = block_results
             if include_files:
-                out["files"] = result.get("files", [])
-            out["has_more"] = bool(result.get("hasMore?"))
+                out["files"] = [] if excluded_page_names else result.get("files", [])
+            out["has_more"] = SearchToolHandler._has_more(
+                result.get("hasMore?"), visible_blocks if include_blocks else [], limit, excluded_page_names
+            )
         else:
             if include_blocks and not excluded_page_names:
                 # Markdown-mode blocks carry block/content but no page
@@ -344,8 +349,10 @@ class SearchToolHandler(ToolHandler):
                     # is active (same rule as text mode)
                     out["pages_content"] = result.get("pages-content", [])[:limit]
             if include_files:
-                out["files"] = result.get("files", [])
-            out["has_more"] = bool(result.get("has-more?"))
+                out["files"] = [] if excluded_page_names else result.get("files", [])
+            out["has_more"] = SearchToolHandler._has_more(
+                result.get("has-more?"), out.get("blocks", []), limit, excluded_page_names
+            )
 
         return out
 

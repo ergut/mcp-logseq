@@ -1057,6 +1057,65 @@ class TestSearchToolHandler:
         assert [p["uuid"] for p in data["pages"]] == ["u1"]
 
 
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_db_mode_exclusions_hide_counts_files_and_has_more(self, mock_logseq_class):
+        """Raw counts, file paths and hasMore? must not reveal excluded matches."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [
+                {"page?": True, "fullTitle": "Secret Page", "uuid": "u2", "content": "Secret Page"},
+                {"page?": False, "content": "secret block", "uuid": "b1", "page": "secret-uuid"},
+            ],
+            "files": ["pages/Secret Page.md"],
+            "hasMore?": True,
+        }
+        mock_api.resolve_page_uuids.return_value = {"secret-uuid": "Secret Page"}
+        mock_api.list_pages.return_value = [
+            {"originalName": "Secret Page", "properties": {"tags": ["private"]}},
+        ]
+        mock_logseq_class.return_value = mock_api
+        handler = SearchToolHandler()
+
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True), \
+             patch("mcp_logseq.access.get_access_config", return_value=AccessConfig(exclude_tags=["private"])):
+            text = handler.run_tool({"query": "secret"})[0].text
+            data = json.loads(handler.run_tool({"query": "secret", "format": "json"})[0].text)
+
+        assert "Total results found: 0" in text
+        assert "Secret Page" not in text
+        assert "More results available" not in text
+        assert data["pages"] == [] and data["blocks"] == [] and data.get("files", []) == []
+        assert data["has_more"] is False
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_markdown_mode_exclusions_hide_counts_files_and_has_more(self, mock_logseq_class):
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [{"block/content": "secret block", "block/uuid": "b1", "block/page": 1}],
+            "pages": ["Secret Page", "Public Page"],
+            "pages-content": [{"block/snippet": "secret snippet"}],
+            "files": ["pages/Secret Page.md"],
+            "has-more?": True,
+        }
+        mock_api.list_pages.return_value = [
+            {"originalName": "Secret Page", "properties": {"tags": ["private"]}},
+        ]
+        mock_logseq_class.return_value = mock_api
+        handler = SearchToolHandler()
+
+        with patch("mcp_logseq.access.get_access_config", return_value=AccessConfig(exclude_tags=["private"])):
+            text = handler.run_tool({"query": "secret"})[0].text
+            data = json.loads(handler.run_tool({"query": "secret", "format": "json"})[0].text)
+
+        assert "Total results found: 1" in text  # only "Public Page"
+        assert "Secret Page" not in text
+        assert "More results available" not in text
+        assert data["pages"] == ["Public Page"] and data.get("files", []) == []
+        assert data["has_more"] is False
+
+
 class TestQueryToolHandler:
     """Test cases for QueryToolHandler."""
 

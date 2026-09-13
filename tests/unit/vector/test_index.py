@@ -314,3 +314,21 @@ class TestCheckWatcherRunning:
         pid_file.write_text(str(os.getpid()))  # current process is always alive
         result = _check_watcher_running(str(tmp_path))
         assert result.startswith("running (PID")
+
+
+class TestFormatSearchResults:
+    def _results(self):
+        from types import SimpleNamespace
+        return [SimpleNamespace(page="P", text="t", score=0.0167, tags=None, date=None)]
+
+    def test_hybrid_scores_are_not_distances(self):
+        from mcp_logseq.vector.index import _format_search_results
+        out = _format_search_results(self._results(), "hybrid")
+        assert "relevance" not in out.split("Note:")[0]  # no per-result label
+        assert "higher is more relevant" in out
+
+    def test_vector_scores_get_distance_label(self):
+        from mcp_logseq.vector.index import _format_search_results
+        out = _format_search_results(self._results(), "vector")
+        assert "high relevance" in out
+        assert "lower is more relevant" in out
