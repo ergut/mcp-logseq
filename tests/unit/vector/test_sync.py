@@ -263,11 +263,22 @@ def test_sync_skips_file_deleted_before_hashing(tmp_path):
     assert (result.added, result.skipped, result.deleted) == (0, 0, 0)
 
 
-def test_sync_treats_file_deleted_during_embedding_as_deleted(tmp_path):
+@pytest.mark.parametrize(
+    "previously_indexed, expected_counts",
+    [(True, (0, 0, 1)), (False, (0, 0, 0))],
+    ids=["existing-file", "new-file"],
+)
+def test_sync_treats_file_deleted_during_embedding_as_deleted(
+    tmp_path, previously_indexed, expected_counts
+):
     md = tmp_path / "page.md"
     md.write_text("- Some content for testing here\n")
     db = MagicMock()
     state_mgr = _empty_state_mgr()
+    if previously_indexed:
+        state_mgr.load.return_value[0]["page.md"] = FileState(
+            content_hash="oldhash", last_synced="2024-01-01T00:00:00+00:00", chunk_ids=["page::0"]
+        )
     embedder = _make_embedder()
 
     def embed_then_delete(texts):
@@ -279,7 +290,7 @@ def test_sync_treats_file_deleted_during_embedding_as_deleted(tmp_path):
 
     result = engine.sync()
 
-    assert result.deleted == 1
+    assert (result.added, result.updated, result.deleted) == expected_counts
     db.upsert.assert_not_called()
     saved_state = state_mgr.save.call_args[0][0]
     assert "page.md" not in saved_state

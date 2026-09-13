@@ -169,8 +169,11 @@ class SyncEngine:
             except FileNotFoundError:
                 # Deleted while embedding ran; its old chunks are already gone from the DB.
                 logger.warning(f"File disappeared during sync, treating as deleted: {path_str}")
-                state.pop(path_str, None)
-                deleted += 1
+                if state.pop(path_str, None) is None:
+                    added -= 1  # never indexed, so not a deletion either
+                else:
+                    updated -= 1
+                    deleted += 1
                 continue
 
             chunks = all_chunks_by_file[path_str]
