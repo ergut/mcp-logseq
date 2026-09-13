@@ -56,10 +56,17 @@ def _migrate_to_relative_keys(state: SyncState, graph_path: str) -> tuple[SyncSt
 
 
 def _walk_md_files(graph_dir: str) -> list[Path]:
+    """All .md files of the graph except Logseq's own `logseq/` dir (which holds
+    `bak/` backups and `.recycle/` deleted pages) and hidden directories."""
     root = Path(graph_dir)
     if not root.exists():
         return []
-    return sorted(root.rglob("*.md"))
+
+    def indexable(path: Path) -> bool:
+        parts = path.relative_to(root).parts
+        return parts[0] != "logseq" and not any(p.startswith(".") for p in parts)
+
+    return sorted(p for p in root.rglob("*.md") if indexable(p))
 
 
 class SyncEngine:

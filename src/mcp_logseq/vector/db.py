@@ -92,6 +92,9 @@ class VectorDB:
         self._db = db
         self._table = table
         self._dimensions = dimensions
+        # Mode that produced the last search's scores; differs from the requested
+        # mode when hybrid/keyword fell back to vector-only
+        self.last_mode = "vector"
 
     @classmethod
     def open(cls, db_path: str, dimensions: int) -> "VectorDB":
@@ -189,6 +192,7 @@ class VectorDB:
         top_k = params.top_k
         logger.debug(f"search: mode={params.mode} top_k={top_k} filter_page={params.filter_page!r} filter_tags={params.filter_tags!r}")
 
+        self.last_mode = params.mode if params.mode in ("keyword", "vector") else "hybrid"
         try:
             if params.mode == "keyword":
                 return self._keyword_search(params, top_k)
@@ -198,6 +202,7 @@ class VectorDB:
                 return self._hybrid_search(params, top_k)
         except Exception as e:
             logger.warning(f"Search failed, falling back to vector-only: {e}")
+            self.last_mode = "vector"
             try:
                 return self._vector_search(params, top_k)
             except Exception as e2:

@@ -154,7 +154,7 @@ Use [Ollama](https://ollama.com) for fully local embeddings, OpenAI, or another 
 
 ## 🛠️ Available Tools
 
-The server provides 16 tools with intelligent markdown parsing, plus 3 optional vector search tools:
+The server provides 17 tools with intelligent markdown parsing, plus 3 optional vector search tools:
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
@@ -165,6 +165,7 @@ The server provides 16 tools with intelligent markdown parsing, plus 3 optional 
 | **`delete_page`** | Remove pages | "Delete the old draft page" |
 | **`delete_block`** | Remove a block by UUID | "Delete this specific block" |
 | **`update_block`** | Edit block content by UUID | "Update this specific block text" |
+| **`get_block`** | Read a block by UUID with its properties and children | "Show me this specific block" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
 | **`query`** | Execute Logseq DSL queries | "Find all TODO tasks tagged #project" |
 | **`find_pages_by_property`** | Search pages by property | "Find all pages with status = active" |
@@ -251,6 +252,7 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 ### Environment Variables
 - **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
+- **`LOGSEQ_VERIFY_SSL`** (optional): Whether to verify the TLS certificate of an `https://` `LOGSEQ_API_URL`. Defaults to verifying when the URL is `https://`; set to `0`, `false`, or `no` to skip verification for self-signed certificates. Any other value enables verification.
 - **`LOGSEQ_API_CONNECT_TIMEOUT`** (optional): HTTP connect timeout in seconds (default: `3`)
 - **`LOGSEQ_API_READ_TIMEOUT`** (optional): HTTP read timeout in seconds (default: `6`)
 - **`LOGSEQ_LOG_LEVEL`** (optional): Log verbosity — `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`). Logs go to stderr. At `DEBUG`, the MCP SDK's own logger stays capped at `INFO` so full request payloads are not logged.

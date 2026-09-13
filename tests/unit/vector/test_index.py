@@ -58,6 +58,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             results = handler.run_tool({"query": "test"})
 
@@ -83,6 +84,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             results = handler.run_tool({"query": "test"})
             assert "Note:" not in results[0].text
@@ -101,6 +103,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             handler.run_tool({"query": "test"})
 
@@ -140,6 +143,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             handler.run_tool({"query": "test"})
             mock_sm.return_value.save.assert_not_called()
@@ -314,3 +318,39 @@ class TestCheckWatcherRunning:
         pid_file.write_text(str(os.getpid()))  # current process is always alive
         result = _check_watcher_running(str(tmp_path))
         assert result.startswith("running (PID")
+
+
+class TestFormatSearchResults:
+    def _results(self):
+        from types import SimpleNamespace
+        return [SimpleNamespace(page="P", text="t", score=0.0167, tags=None, date=None)]
+
+    def test_hybrid_scores_are_not_distances(self):
+        from mcp_logseq.vector.index import _format_search_results
+        out = _format_search_results(self._results(), "hybrid")
+        assert "relevance" not in out.split("Note:")[0]  # no per-result label
+        assert "higher is more relevant" in out
+
+    def test_vector_scores_get_distance_label(self):
+        from mcp_logseq.vector.index import _format_search_results
+        out = _format_search_results(self._results(), "vector")
+        assert "high relevance" in out
+        assert "lower is more relevant" in out
+
+
+class TestSearchFallbackMode:
+    def test_hybrid_failure_falls_back_and_reports_vector_mode(self):
+        from unittest.mock import MagicMock
+        from mcp_logseq.vector.db import VectorDB
+        from mcp_logseq.vector.types import SearchParams
+
+        db = VectorDB(MagicMock(), MagicMock(), 4)
+        db._hybrid_search = MagicMock(side_effect=RuntimeError("no fts index"))
+        db._vector_search = MagicMock(return_value=["r"])
+
+        assert db.search(SearchParams(query_text="q", query_vector=[0.1] * 4, top_k=1, mode="hybrid")) == ["r"]
+        assert db.last_mode == "vector"
+
+        db._hybrid_search = MagicMock(return_value=["r"])
+        db.search(SearchParams(query_text="q", query_vector=[0.1] * 4, top_k=1, mode="hybrid"))
+        assert db.last_mode == "hybrid"

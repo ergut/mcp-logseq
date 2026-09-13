@@ -178,9 +178,9 @@ Block hierarchy example:
 - Sibling block
 ```
 
-## Current Status (as of v1.4.0)
+## Current Status
 
-15 tools implemented. Block CRUD is complete:
+17 core tools implemented, plus 3 vector search tools (`vector_search`, `sync_vector_db`, `vector_db_status`) registered when vector search is enabled. Block CRUD is complete:
 
 | Operation | Tool | Status |
 | --------- | ---- | ------ |
