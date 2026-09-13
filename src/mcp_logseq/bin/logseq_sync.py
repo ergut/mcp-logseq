@@ -52,12 +52,10 @@ def _acquire_sync_lock(db_path: str):
         return lock_file
     except portalocker.LockException:
         lock_file.close()
-        print(
-            "Error: another sync process is already running. "
-            "Wait for it to finish or check for stale sync.lock.",
-            file=sys.stderr,
+        raise RuntimeError(
+            "another sync process is already running. "
+            "Wait for it to finish or check for stale sync.lock."
         )
-        sys.exit(1)
 
 
 def _release_sync_lock(lock_file):
@@ -87,7 +85,11 @@ def _run_sync(config, rebuild: bool = False) -> None:
     from mcp_logseq.vector.state import StateManager
     from mcp_logseq.vector.sync import SyncEngine
 
-    lock_file = _acquire_sync_lock(config.db_path)
+    try:
+        lock_file = _acquire_sync_lock(config.db_path)
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
     try:
         print(
             f"Connecting to embedding provider {config.embedder.provider} "
