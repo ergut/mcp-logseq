@@ -215,6 +215,20 @@ class TestListPagesToolHandler:
 
     @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
     @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_limit(self, mock_logseq_class):
+        mock_api = Mock()
+        mock_api.list_pages.return_value = [
+            {"originalName": n, "journal?": False} for n in ["C", "A", "B"]
+        ]
+        mock_logseq_class.return_value = mock_api
+
+        text = ListPagesToolHandler().run_tool({"limit": 2})[0].text
+
+        assert "- A\n- B" in text and "- C" not in text
+        assert "Showing 2 of 3 pages" in text
+
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
     def test_run_tool_success_exclude_journals(self, mock_logseq_class):
         """Test successful page listing excluding journals."""
         # Setup mock

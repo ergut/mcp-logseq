@@ -154,7 +154,12 @@ class ListPagesToolHandler(ToolHandler):
                         "type": "boolean",
                         "description": "Whether to include journal/daily notes in the list",
                         "default": False,
-                    }
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Return at most this many pages (alphabetical). Omit for all.",
+                    },
                 },
                 "required": [],
             },
@@ -162,6 +167,7 @@ class ListPagesToolHandler(ToolHandler):
 
     def _run(self, api, args: dict) -> list[TextContent]:
         include_journals = args.get("include_journals", False)
+        limit = args.get("limit")
 
         try:
             result = api.list_pages()
@@ -192,7 +198,12 @@ class ListPagesToolHandler(ToolHandler):
             pages_info.sort()
 
             # Build response
-            count_msg = f"\nTotal pages: {len(pages_info)}"
+            total = len(pages_info)
+            if limit is not None and total > limit:
+                pages_info = pages_info[:limit]
+                count_msg = f"\nShowing {limit} of {total} pages"
+            else:
+                count_msg = f"\nTotal pages: {total}"
             journal_msg = (
                 " (excluding journal pages)"
                 if not include_journals
