@@ -360,7 +360,7 @@ class SearchToolHandler(ToolHandler):
             raise RuntimeError("query argument required")
 
         query = args["query"]
-        limit = args.get("limit", 20)
+        limit = int(args.get("limit", 20))  # JSON Schema accepts 20.0 as an integer
         include_blocks = args.get("include_blocks", True)
         include_pages = args.get("include_pages", True)
         include_files = args.get("include_files", False)
@@ -566,7 +566,7 @@ class QueryToolHandler(ToolHandler):
             raise RuntimeError("query argument required")
 
         query = args["query"]
-        limit = args.get("limit", 100)
+        limit = int(args.get("limit", 100))  # JSON Schema accepts 100.0 as an integer
         result_type = args.get("result_type", "all")
 
         try:

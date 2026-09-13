@@ -274,7 +274,7 @@ class VectorSearchToolHandler(ToolHandler):
             _t_q = time.perf_counter()
             results = db.search(params)
             # Scores are distances if hybrid/keyword fell back to vector-only
-            score_mode = db.last_mode if isinstance(db.last_mode, str) else search_mode
+            score_mode = db.last_mode
             logger.debug(f"vector_search: query done in {(time.perf_counter() - _t_q) * 1000:.1f}ms, {len(results)} results")
         except Exception as e:
             return [TextContent(type="text", text=f"Search failed: {e}")]

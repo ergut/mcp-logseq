@@ -58,6 +58,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             results = handler.run_tool({"query": "test"})
 
@@ -83,6 +84,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             results = handler.run_tool({"query": "test"})
             assert "Note:" not in results[0].text
@@ -101,6 +103,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             handler.run_tool({"query": "test"})
 
@@ -140,6 +143,7 @@ class TestVectorSearchReadOnly:
             mock_emb.return_value.key = _make_meta().embedder_key
             mock_emb.return_value.embed.return_value = [[0.1] * 2560]
             mock_db.open_readonly.return_value.search.return_value = []
+            mock_db.open_readonly.return_value.last_mode = "vector"
 
             handler.run_tool({"query": "test"})
             mock_sm.return_value.save.assert_not_called()
