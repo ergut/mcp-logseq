@@ -90,7 +90,7 @@ uv run pytest --cov=mcp_logseq --cov-report=html
 - **Unit tests**: Test individual components (LogSeq API client, tool handlers)
 - **Integration tests**: Test MCP server functionality end-to-end
 - **HTTP mocking**: Uses `responses` library for reliable testing
-- **50+ comprehensive tests** with 100% success rate
+- **680+ tests** with 100% success rate (see TESTING.md for current counts)
 
 For detailed testing documentation, see [TESTING.md](TESTING.md).
 
@@ -131,11 +131,15 @@ print('Success!')
 
 ### Logging
 
-The server uses comprehensive logging. Check the log file:
+The CLI entrypoint logs to stderr at `INFO` by default. There is no default log file.
+
+- `LOGSEQ_LOG_LEVEL` sets the level (e.g. `DEBUG`); an invalid value falls back to `INFO`.
+- `LOGSEQ_LOG_FILE` (opt-in) additionally writes the same log to the given file. If the file cannot be opened, logging continues to stderr only.
 
 ```bash
-# Log file is now stored in user cache directory
-tail -f ~/.cache/mcp-logseq/mcp_logseq.log
+# Verbose logging to stderr plus a file
+LOGSEQ_LOG_LEVEL=DEBUG LOGSEQ_LOG_FILE=/tmp/mcp-logseq.log \
+  uv run --directory /path/to/mcp-logseq mcp-logseq
 ```
 
 ## Project Structure
@@ -143,13 +147,27 @@ tail -f ~/.cache/mcp-logseq/mcp_logseq.log
 ```
 mcp-logseq/
 ├── src/mcp_logseq/
-│   ├── __init__.py          # Package entry point
-│   ├── server.py            # MCP server initialization
-│   ├── logseq.py           # LogSeq API client
-│   └── tools.py            # MCP tool handlers
+│   ├── __init__.py          # CLI entry point (argument parsing, logging setup)
+│   ├── server.py            # MCP server initialization and tool registration
+│   ├── logseq.py            # LogSeq API client
+│   ├── settings.py          # Runtime settings (env vars / config file)
+│   ├── config.py            # Config file loading (incl. vector config)
+│   ├── access.py            # Access control: exclude tags, namespaces, access policies
+│   ├── namespace.py         # Namespace matching helpers
+│   ├── parser.py            # Markdown block parsing
+│   ├── tools/               # MCP tool handlers
+│   │   ├── base.py          # ToolHandler base class, API factory
+│   │   ├── pages.py         # Page tools
+│   │   ├── blocks.py        # Block tools
+│   │   ├── namespace.py     # Namespace tools
+│   │   └── search.py        # search / query tools
+│   ├── vector/              # Optional vector search (chunker, db, embedder, index, state, sync, types)
+│   ├── transport/           # HTTP transport and auth
+│   └── bin/
+│       └── logseq_sync.py   # logseq-sync CLI entrypoint
 ├── tests/
-│   ├── unit/               # Unit tests
-│   └── integration/        # Integration tests
+│   ├── unit/                # Unit tests (tests/unit/vector/ for vector search)
+│   └── integration/         # Integration tests
 ├── README.md               # User documentation
 ├── DEVELOPMENT.md          # This file
 ├── ROADMAP.md             # Project roadmap
@@ -163,7 +181,9 @@ mcp-logseq/
 
 - **`server.py`**: MCP server setup, tool registration, request handling
 - **`logseq.py`**: LogSeq API client with JSON-RPC methods
-- **`tools.py`**: Tool handlers that transform API responses for Claude
+- **`tools/`**: Tool handlers that transform API responses for Claude (`pages.py`, `blocks.py`, `namespace.py`, `search.py`; base class in `base.py`)
+- **`access.py`**: Access control lists and the declarative `AccessPolicy` classes handlers attach to
+- **`vector/`**: Optional vector search tools, registered only when enabled in the config file
 
 ### Tool Handler Pattern
 
@@ -171,12 +191,19 @@ Each LogSeq operation is implemented as a `ToolHandler` subclass:
 
 ```python
 class ExampleToolHandler(ToolHandler):
+    access_policy = [access.NamespaceName("page_name")]
+
+    def __init__(self):
+        super().__init__("example_tool")
+
     def get_tool_description(self) -> Tool:
         # Define tool schema
-        
-    def run_tool(self, args: dict) -> list[TextContent]:
-        # Implement tool logic
+
+    def _run(self, api, args: dict) -> list[TextContent]:
+        # Implement tool logic; `api` is the LogSeq client
 ```
+
+The base `ToolHandler.run_tool` builds the API client, runs every policy in `access_policy` (raising `AccessDenied` on a restricted page or block), then calls `_run`. Handlers never wire access checks by hand.
 
 ## Contributing
 
@@ -196,12 +223,14 @@ class ExampleToolHandler(ToolHandler):
 
 ### Adding New Tools
 
-1. Create a new `ToolHandler` subclass in `tools.py`
-2. Implement required methods
-3. Register the tool in `server.py`
-4. Add corresponding LogSeq API method if needed
-5. Write unit and integration tests
-6. Update documentation
+1. Create a new `ToolHandler` subclass in the matching module under `src/mcp_logseq/tools/` (`pages.py`, `blocks.py`, `namespace.py`, `search.py`) and export it from `tools/__init__.py`
+2. Implement `__init__` (tool name), `get_tool_description` and `_run`
+3. Declare `access_policy`: a list of `access.AccessPolicy` objects (`NamespaceName`, `PageTag`, `BlockNamespace`, `BlockTag`), each naming the argument that carries the page name or block UUID. Use `[]` only if the tool needs no pre-dispatch gate or filters results itself via `access.is_page_blocked`
+4. Register it in `_register_all_tool_handlers` in `server.py`; if it writes to the graph, also add its name to `_WRITE_TOOL_NAMES` so `--read-only` skips it
+5. Add the handler to `EXPECTED_POLICIES` in `tests/unit/test_access_policy_coverage.py` (the test fails otherwise)
+6. Add corresponding LogSeq API method if needed
+7. Write unit and integration tests
+8. Update documentation
 
 ## Building and Distribution
 

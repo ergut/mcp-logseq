@@ -10,12 +10,36 @@ The testing framework is built using pytest and provides comprehensive coverage 
 
 ```
 tests/
-├── conftest.py                 # Shared fixtures and test configuration
-├── unit/                      # Unit tests for individual components
-│   ├── test_logseq_api.py     # Tests for LogSeq API client
-│   └── test_tool_handlers.py  # Tests for MCP tool handlers
-└── integration/               # Integration tests for system components
-    └── test_mcp_server.py     # Tests for MCP server integration
+├── conftest.py                          # Shared fixtures and test configuration
+├── unit/                                # Unit tests for individual components
+│   ├── test_access.py                   # Access control helpers (exclude tags, namespaces)
+│   ├── test_access_policy_coverage.py   # Every handler declares the expected access_policy
+│   ├── test_block_id_preservation.py    # Block UUIDs survive updates
+│   ├── test_cli.py                      # CLI argument parsing and entrypoint
+│   ├── test_db_properties.py            # DB-mode property handling
+│   ├── test_exclude_tags.py             # Exclude-tag filtering across tools
+│   ├── test_http_transport.py           # HTTP transport and auth
+│   ├── test_logging.py                  # LOGSEQ_LOG_LEVEL / LOGSEQ_LOG_FILE setup
+│   ├── test_logseq_api.py               # LogSeq API client
+│   ├── test_namespace_access.py         # Namespace include/exclude rules
+│   ├── test_parser.py                   # Markdown block parser
+│   ├── test_property_persistence.py     # Page property round-trips
+│   ├── test_server_info.py              # Server version reporting
+│   ├── test_settings.py                 # Settings resolution (env / config file)
+│   ├── test_tool_handlers.py            # MCP tool handlers
+│   └── vector/                          # Vector search components
+│       ├── test_asyncio_regression.py
+│       ├── test_chunker.py
+│       ├── test_config.py
+│       ├── test_embedder.py
+│       ├── test_index.py
+│       ├── test_logseq_sync.py
+│       ├── test_state.py
+│       └── test_sync.py
+└── integration/                         # Integration tests for system components
+    ├── test_http_serving.py             # HTTP serving end-to-end
+    ├── test_mcp_protocol.py             # MCP protocol conformance
+    └── test_mcp_server.py               # MCP server integration
 ```
 
 ## Dependencies
@@ -231,7 +255,7 @@ The testing framework is designed to work well in CI environments:
 
 - All tests are isolated and don't require external services
 - HTTP requests are mocked to avoid network dependencies
-- Tests run quickly (< 1 second for full suite)
+- Tests run quickly (a few seconds for the full suite)
 - Clear error messages for debugging failures
 
 ## Debugging Tests
@@ -265,7 +289,7 @@ def test_debug_example(self):
 
 ## Performance Considerations
 
-- **Fast Execution**: Full test suite runs in < 1 second
+- **Fast Execution**: Full test suite runs in a few seconds
 - **Parallel Execution**: Tests can run in parallel (use `pytest-xdist`)
 - **Resource Usage**: Minimal memory footprint with proper mocking
 
@@ -293,8 +317,9 @@ uv sync --dev --upgrade
 
 Current test coverage:
 
-- **Total Tests**: 50
-- **Unit Tests**: 35
-- **Integration Tests**: 15
+- **Total Tests**: 686
+- **Unit Tests**: 655
+- **Integration Tests**: 31
 - **Success Rate**: 100%
-- **Execution Time**: ~0.3 seconds
+
+Counts drift; `uv run pytest --collect-only -q` gives the current numbers.

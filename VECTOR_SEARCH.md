@@ -252,9 +252,9 @@ These tools are called by Claude on your behalf — you don't invoke them direct
 "Search for meeting notes with action items from last week"
 "What did I write about machine learning?"
 "Is my search index up to date?"
-"Sync the vector DB"
-"Rebuild the search index from scratch"
 ```
+
+Syncing is done outside Claude with the `logseq-sync` CLI (see below).
 
 ---
 
@@ -274,18 +274,18 @@ Semantic search across your notes. Claude calls this when you ask it to find not
 | `filter_tags` | array | — | Only return pages with ALL these tags |
 | `filter_page` | string | — | Restrict to a single page |
 
-**Auto-sync:** If your graph has changed files since the last sync, `vector_search` automatically starts a background sync and returns current results immediately. The next search will benefit from the updated index.
+**Reading scores:** In `hybrid` (default) and `keyword` modes the score is a rank-fusion (RRF) or full-text (BM25) score — higher is more relevant, and no relevance label is shown. In `vector` mode the score is a distance — lower is more relevant — and each result gets a relevance label. If a hybrid or keyword search fails, the server falls back to vector-only and the distance note is shown instead.
+
+**Staleness note:** `vector_search` never writes to the index. If files changed since the last sync, the results are prefixed with a note saying how many pages changed and reminding you to run `logseq-sync --watch` on the host that owns the DB.
 
 ### `sync_vector_db`
 
-Triggers an incremental sync — only changed files are re-embedded. Claude calls this when you ask it to update or sync the search index.
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `rebuild` | boolean | `false` | Drop and re-index everything from scratch |
+Does not sync. The vector DB has a single writer, the `logseq-sync` CLI, so this tool only returns the commands to run on the host that owns the DB (`--once`, `--watch`, `--rebuild`). The `rebuild` parameter is accepted and ignored.
 
 Run `logseq-sync --rebuild` if you change the embedding provider, model, or
 configured dimensions.
+
+The sync indexes `.md` files under the graph, except the graph's own `logseq/` directory (which holds `bak/` backups and `.recycle/` deleted pages) and hidden directories. Entries indexed from those locations by older versions are removed on the next sync run.
 
 ### `vector_db_status`
 
@@ -326,7 +326,7 @@ For continuous sync without the MCP auto-trigger, `--watch` is the recommended a
 
 - Confirm `LOGSEQ_CONFIG_FILE` is set in the MCP server env
 - Confirm `vector.enabled: true` in the config file
-- Check the server log: `~/.cache/mcp-logseq/mcp_logseq.log`
+- Check the server log: logs go to stderr at `INFO`. Set `LOGSEQ_LOG_LEVEL=DEBUG` for more detail and `LOGSEQ_LOG_FILE=/path/to/file.log` to also write to a file
 - Look for: `Vector search tools registered (3 tools)`
 
 ### "Cannot connect to Ollama"
