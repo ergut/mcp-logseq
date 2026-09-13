@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-09-13
+
+### Added
+
+- `list_pages` accepts an optional `limit` (alphabetical first N, with a
+  "Showing N of M pages" footer) so a large graph no longer dumps every page
+  name into the client's context (#102)
+- The MCP `initialize` response now reports the installed package version in
+  `serverInfo.version` instead of an empty string (#102)
+
+### Fixed
+
+- `search` no longer reveals excluded matches through counts: `Total results
+  found` and the file list are derived from the filtered result set in text
+  and JSON output. A namespace- or tag-restricted client used to see the raw
+  match count with nothing listed, which works as an oracle for whether a
+  term appears in hidden pages, and file paths carried hidden page names.
+  While `exclude_tags` or namespace rules are active, `has_more` is always
+  `false` and the "more results available" hint is never shown, because the
+  API's flag describes the unfiltered set; results past `limit` may be cut
+  off without a hint (#102)
+- Vector sync skips the graph's `logseq/` directory and hidden directories.
+  `logseq/bak/` backups and `logseq/.recycle/` deleted pages were being
+  indexed, so a deleted page stayed searchable under a mangled `pages/...`
+  title. Stale entries are dropped on the next sync (#102)
+- `vector_search` score semantics follow the search mode. Hybrid (default)
+  and keyword modes return RRF / BM25 scores where higher is better; they no
+  longer get distance-based relevance labels or the "lower is more relevant"
+  note, which only applies to vector mode. If a hybrid or keyword search
+  fails and falls back to vector-only, the distance note is shown (#102)
+- `search`, `query` and `list_pages` accept a `limit` sent as a JSON number
+  like `20.0` (JSON Schema treats it as an integer) instead of failing with
+  a `TypeError` (#102)
+- The "Vector DB not initialized" message from `vector_search` and
+  `vector_db_status` now points at `logseq-sync --once` instead of the
+  `sync_vector_db` tool, which does not sync (#102)
+
+### Documentation
+
+- README: tool count, missing `get_block` row, `LOGSEQ_VERIFY_SSL`.
+  VECTOR_SEARCH.md: how to read scores, what the sync indexes,
+  `vector_search` is read-only and `sync_vector_db` only points at the CLI.
+  DEVELOPMENT.md and TESTING.md: current package layout, how to add a tool
+  with an access policy, stderr logging, regenerated test tree (#102)
+
 ## [1.9.1] - 2026-09-13
 
 ### Fixed
