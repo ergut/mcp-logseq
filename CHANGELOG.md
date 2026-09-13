@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-09-13
+
+### Fixed
+
+- `logseq-sync` no longer aborts the whole run when a page is deleted or
+  renamed while the sync is in progress. A file that vanishes before hashing
+  is skipped and picked up next run; one that vanishes during embedding is
+  treated as deleted. Previously a single missing file threw away all
+  embedding work of that run and left the index stale (#99, closes #91)
+- `search` exclusion filtering in DB mode now fails closed: a page result
+  with neither `fullTitle` nor `title` is hidden when `exclude_tags` or
+  namespace rules are active, instead of leaking through via `content`.
+  Text and JSON output share the same check (#99, closes #57)
+
+### Changed
+
+- `_acquire_sync_lock` raises `RuntimeError` on a lock conflict instead of
+  calling `sys.exit`; the CLI entrypoint decides to exit (#99, closes #37)
+- The sdist now ships only `src/` (plus README, LICENSE and pyproject), down
+  from 1.5 MB to about 72 KB. Tests, docs, `uv.lock` and stray working-tree
+  files are no longer packaged (#99)
+
 ## [1.9.0] - 2026-09-13
 
 ### Added
