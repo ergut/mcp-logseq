@@ -27,7 +27,7 @@ def test_acquire_creates_db_dir(tmp_path):
     _release_sync_lock(lock_file)
 
 
-def test_acquire_lock_conflict_exits(tmp_path, capsys):
+def test_acquire_lock_conflict_raises(tmp_path):
     # Hold the lock from "another process" by locking the file directly
     lock_path = tmp_path / "sync.lock"
     lock_path.touch()
@@ -35,12 +35,8 @@ def test_acquire_lock_conflict_exits(tmp_path, capsys):
     portalocker.lock(holder, portalocker.LOCK_EX | portalocker.LOCK_NB)
 
     try:
-        with patch("sys.exit") as mock_exit:
+        with pytest.raises(RuntimeError, match="another sync process is already running"):
             _acquire_sync_lock(str(tmp_path))
-            mock_exit.assert_called_once_with(1)
-
-        captured = capsys.readouterr()
-        assert "another sync process is already running" in captured.err
     finally:
         portalocker.unlock(holder)
         holder.close()
@@ -76,6 +72,15 @@ def test_release_swallows_exceptions(tmp_path):
         mock_pl.unlock.side_effect = RuntimeError("unexpected")
         # Should not raise
         _release_sync_lock(lock_file)
+
+
+def test_run_sync_exits_on_lock_conflict(tmp_path, capsys):
+    config = SimpleNamespace(db_path=str(tmp_path), graph_path=str(tmp_path), embedder=None)
+    with patch("mcp_logseq.bin.logseq_sync._acquire_sync_lock", side_effect=RuntimeError("busy")):
+        with pytest.raises(SystemExit) as excinfo:
+            _run_sync(config)
+    assert excinfo.value.code == 1
+    assert "Error: busy" in capsys.readouterr().err
 
 
 @patch("mcp_logseq.vector.sync.SyncEngine")

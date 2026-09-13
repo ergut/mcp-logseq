@@ -125,7 +125,12 @@ class SyncEngine:
         # Collect all chunks to embed in batches
         files_to_process: list[tuple[str, Path]] = []
         for path_str, file_path in current_paths.items():
-            file_hash = _hash_file(file_path)
+            try:
+                file_hash = _hash_file(file_path)
+            except FileNotFoundError:
+                # Vanished between the directory walk and now; next run sees it as deleted.
+                logger.warning(f"File disappeared during sync, skipping: {path_str}")
+                continue
             if path_str in state and state[path_str].content_hash == file_hash:
                 skipped += 1
                 continue
@@ -159,12 +164,23 @@ class SyncEngine:
 
         # Upsert into DB and update state
         for path_str, file_path in files_to_process:
+            try:
+                file_hash = _hash_file(file_path)
+            except FileNotFoundError:
+                # Deleted while embedding ran; its old chunks are already gone from the DB.
+                logger.warning(f"File disappeared during sync, treating as deleted: {path_str}")
+                if state.pop(path_str, None) is None:
+                    added -= 1  # never indexed, so not a deletion either
+                else:
+                    updated -= 1
+                    deleted += 1
+                continue
+
             chunks = all_chunks_by_file[path_str]
             embedded = [c for c in chunks if c.vector is not None]
             if embedded:
                 self._db.upsert(embedded)
 
-            file_hash = _hash_file(file_path)
             state[path_str] = FileState(
                 content_hash=file_hash,
                 last_synced=now_iso(),

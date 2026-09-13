@@ -100,6 +100,19 @@ class SearchToolHandler(ToolHandler):
             raise
 
     @staticmethod
+    def _db_page_visible(page: dict, excluded_page_names: set[str]) -> bool:
+        """Fail-closed exclusion check for a DB-mode page result.
+
+        Only 'fullTitle'/'title' identify a page; 'content' is display text and
+        must not be trusted as a name. With active exclusions, a page with no
+        identifiable name is hidden.
+        """
+        if not excluded_page_names:
+            return True
+        name = page.get("fullTitle") or page.get("title")
+        return bool(name) and name.lower() not in excluded_page_names
+
+    @staticmethod
     def _filter_db_block_results(
         block_results: list[dict],
         api,
@@ -164,8 +177,7 @@ class SearchToolHandler(ToolHandler):
         if include_pages and page_results:
             visible_pages = [
                 p for p in page_results
-                if (p.get("fullTitle") or p.get("title") or p.get("content", "")).lower()
-                not in excluded_page_names
+                if SearchToolHandler._db_page_visible(p, excluded_page_names)
             ]
             if visible_pages:
                 parts.append(f"## Matching Pages ({len(visible_pages)} found)")
@@ -296,8 +308,7 @@ class SearchToolHandler(ToolHandler):
                 out["pages"] = [
                     p for p in blocks
                     if p.get("page?")
-                    and (p.get("fullTitle") or p.get("title") or p.get("content", "")).lower()
-                    not in excluded_page_names
+                    and SearchToolHandler._db_page_visible(p, excluded_page_names)
                 ]
             if include_blocks:
                 visible_blocks = SearchToolHandler._filter_db_block_results(

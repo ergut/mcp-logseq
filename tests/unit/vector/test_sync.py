@@ -240,6 +240,62 @@ def test_sync_deletes_chunks_for_removed_files(tmp_path):
     db.delete_by_ids.assert_called_with(["deleted::0", "deleted::1"])
 
 
+# --- mid-sync file deletion (#91) ---
+
+def _empty_state_mgr() -> MagicMock:
+    state_mgr = MagicMock()
+    state_mgr.load.return_value = (
+        {},
+        SyncMeta(embedder_key="ollama/nomic-embed-text", dimensions=4, last_full_sync=None),
+    )
+    return state_mgr
+
+
+def test_sync_skips_file_deleted_before_hashing(tmp_path):
+    (tmp_path / "page.md").write_text("- Some content for testing here\n")
+    engine = SyncEngine(
+        _make_config(str(tmp_path), str(tmp_path / "db")), MagicMock(), _empty_state_mgr(), _make_embedder()
+    )
+
+    with patch("mcp_logseq.vector.sync._hash_file", side_effect=FileNotFoundError):
+        result = engine.sync()
+
+    assert (result.added, result.skipped, result.deleted) == (0, 0, 0)
+
+
+@pytest.mark.parametrize(
+    "previously_indexed, expected_counts",
+    [(True, (0, 0, 1)), (False, (0, 0, 0))],
+    ids=["existing-file", "new-file"],
+)
+def test_sync_treats_file_deleted_during_embedding_as_deleted(
+    tmp_path, previously_indexed, expected_counts
+):
+    md = tmp_path / "page.md"
+    md.write_text("- Some content for testing here\n")
+    db = MagicMock()
+    state_mgr = _empty_state_mgr()
+    if previously_indexed:
+        state_mgr.load.return_value[0]["page.md"] = FileState(
+            content_hash="oldhash", last_synced="2024-01-01T00:00:00+00:00", chunk_ids=["page::0"]
+        )
+    embedder = _make_embedder()
+
+    def embed_then_delete(texts):
+        md.unlink()
+        return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
+
+    embedder.embed.side_effect = embed_then_delete
+    engine = SyncEngine(_make_config(str(tmp_path), str(tmp_path / "db")), db, state_mgr, embedder)
+
+    result = engine.sync()
+
+    assert (result.added, result.updated, result.deleted) == expected_counts
+    db.upsert.assert_not_called()
+    saved_state = state_mgr.save.call_args[0][0]
+    assert "page.md" not in saved_state
+
+
 # --- _migrate_to_relative_keys ---
 
 def test_migrate_no_op_when_already_relative(tmp_path):

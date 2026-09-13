@@ -1026,6 +1026,37 @@ class TestSearchToolHandler:
         assert "pages_content" not in data
 
 
+    @patch.dict("os.environ", {"LOGSEQ_API_TOKEN": "test_token"})
+    @patch("mcp_logseq.tools.logseq.LogSeq")
+    def test_run_tool_db_mode_hides_unnamed_pages_when_exclusions_active(self, mock_logseq_class):
+        """DB-mode page results without fullTitle/title fail closed under exclusions (#57)."""
+        mock_api = Mock()
+        mock_api.search_content.return_value = {
+            "blocks": [
+                {"page?": True, "fullTitle": "Public Page", "uuid": "u1", "content": "Public Page"},
+                {"page?": True, "fullTitle": "Secret Page", "uuid": "u2", "content": "Secret Page"},
+                {"page?": True, "uuid": "u3", "content": "some unrelated text"},
+            ],
+            "hasMore?": False,
+        }
+        mock_api.list_pages.return_value = [
+            {"originalName": "Secret Page", "properties": {"tags": ["private"]}},
+        ]
+        mock_logseq_class.return_value = mock_api
+        handler = SearchToolHandler()
+
+        with patch("mcp_logseq.tools._get_db_mode", return_value=True), \
+             patch("mcp_logseq.access.get_access_config", return_value=AccessConfig(exclude_tags=["private"])):
+            text = handler.run_tool({"query": "page"})[0].text
+            data = json.loads(handler.run_tool({"query": "page", "format": "json"})[0].text)
+
+        assert "Matching Pages (1 found)" in text
+        assert "Public Page" in text
+        assert "Secret Page" not in text
+        assert "unrelated" not in text
+        assert [p["uuid"] for p in data["pages"]] == ["u1"]
+
+
 class TestQueryToolHandler:
     """Test cases for QueryToolHandler."""
 
