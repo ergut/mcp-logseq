@@ -172,7 +172,6 @@ mcp-logseq/
 ├── DEVELOPMENT.md          # This file
 ├── ROADMAP.md             # Project roadmap
 ├── pyproject.toml         # Package configuration
-└── .env.example           # Environment template
 ```
 
 ## Architecture

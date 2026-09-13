@@ -205,7 +205,7 @@ class VectorSearchToolHandler(ToolHandler):
         if not meta.embedder_key:
             return [TextContent(
                 type="text",
-                text="Vector DB not initialized. Run sync_vector_db first.",
+                text="Vector DB not initialized. Run `logseq-sync --once` on the host that owns the DB first.",
             )]
 
         # Staleness check — informational only, no writes
@@ -347,7 +347,7 @@ class VectorDBStatusToolHandler(ToolHandler):
         if not meta.embedder_key:
             return [TextContent(
                 type="text",
-                text="Vector DB not initialized. Run sync_vector_db first.",
+                text="Vector DB not initialized. Run `logseq-sync --once` on the host that owns the DB first.",
             )]
 
         try:

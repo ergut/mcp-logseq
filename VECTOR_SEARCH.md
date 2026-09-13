@@ -316,7 +316,7 @@ uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --rebuild  # drop
 uv run --with ".[vector]" python -m mcp_logseq.bin.logseq_sync --status   # staleness report, no sync
 ```
 
-For continuous sync without the MCP auto-trigger, `--watch` is the recommended approach. It debounces file system events and re-embeds only changed files.
+For continuous sync, `--watch` is the recommended approach. It debounces file system events and re-embeds only changed files.
 
 ---
 

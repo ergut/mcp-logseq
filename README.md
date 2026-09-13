@@ -252,7 +252,7 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 ### Environment Variables
 - **`LOGSEQ_API_TOKEN`** (required): Your LogSeq API token
 - **`LOGSEQ_API_URL`** (optional): Server URL (default: `http://localhost:12315`)
-- **`LOGSEQ_VERIFY_SSL`** (optional): Whether to verify the TLS certificate of an `https://` `LOGSEQ_API_URL`. Defaults to verifying when the URL is `https://` (since 1.9.0); set to `0`, `false`, or `no` to skip verification for self-signed certificates. Any other value enables verification.
+- **`LOGSEQ_VERIFY_SSL`** (optional): Whether to verify the TLS certificate of an `https://` `LOGSEQ_API_URL`. Defaults to verifying when the URL is `https://`; set to `0`, `false`, or `no` to skip verification for self-signed certificates. Any other value enables verification.
 - **`LOGSEQ_API_CONNECT_TIMEOUT`** (optional): HTTP connect timeout in seconds (default: `3`)
 - **`LOGSEQ_API_READ_TIMEOUT`** (optional): HTTP read timeout in seconds (default: `6`)
 - **`LOGSEQ_LOG_LEVEL`** (optional): Log verbosity — `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`). Logs go to stderr. At `DEBUG`, the MCP SDK's own logger stays capped at `INFO` so full request payloads are not logged.
