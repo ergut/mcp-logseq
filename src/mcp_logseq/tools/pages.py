@@ -168,6 +168,8 @@ class ListPagesToolHandler(ToolHandler):
     def _run(self, api, args: dict) -> list[TextContent]:
         include_journals = args.get("include_journals", False)
         limit = args.get("limit")
+        if limit is not None:
+            limit = int(limit)  # JSON Schema accepts 10.0 as an integer
 
         try:
             result = api.list_pages()

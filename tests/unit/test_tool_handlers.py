@@ -222,7 +222,7 @@ class TestListPagesToolHandler:
         ]
         mock_logseq_class.return_value = mock_api
 
-        text = ListPagesToolHandler().run_tool({"limit": 2})[0].text
+        text = ListPagesToolHandler().run_tool({"limit": 2.0})[0].text
 
         assert "- A\n- B" in text and "- C" not in text
         assert "Showing 2 of 3 pages" in text

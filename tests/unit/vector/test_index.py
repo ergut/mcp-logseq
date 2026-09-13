@@ -332,3 +332,21 @@ class TestFormatSearchResults:
         out = _format_search_results(self._results(), "vector")
         assert "high relevance" in out
         assert "lower is more relevant" in out
+
+
+class TestSearchFallbackMode:
+    def test_hybrid_failure_falls_back_and_reports_vector_mode(self):
+        from unittest.mock import MagicMock
+        from mcp_logseq.vector.db import VectorDB
+        from mcp_logseq.vector.types import SearchParams
+
+        db = VectorDB(MagicMock(), MagicMock(), 4)
+        db._hybrid_search = MagicMock(side_effect=RuntimeError("no fts index"))
+        db._vector_search = MagicMock(return_value=["r"])
+
+        assert db.search(SearchParams(query_text="q", query_vector=[0.1] * 4, top_k=1, mode="hybrid")) == ["r"]
+        assert db.last_mode == "vector"
+
+        db._hybrid_search = MagicMock(return_value=["r"])
+        db.search(SearchParams(query_text="q", query_vector=[0.1] * 4, top_k=1, mode="hybrid"))
+        assert db.last_mode == "hybrid"

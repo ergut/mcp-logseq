@@ -273,6 +273,8 @@ class VectorSearchToolHandler(ToolHandler):
             logger.debug(f"vector_search: query start (mode={search_mode})")
             _t_q = time.perf_counter()
             results = db.search(params)
+            # Scores are distances if hybrid/keyword fell back to vector-only
+            score_mode = db.last_mode if isinstance(db.last_mode, str) else search_mode
             logger.debug(f"vector_search: query done in {(time.perf_counter() - _t_q) * 1000:.1f}ms, {len(results)} results")
         except Exception as e:
             return [TextContent(type="text", text=f"Search failed: {e}")]
@@ -284,7 +286,7 @@ class VectorSearchToolHandler(ToolHandler):
             results, acl.include_namespaces, acl.exclude_namespaces
         )
         results = _filter_results_by_tags(results, acl.exclude_tags)
-        output = output_prefix + _format_search_results(results, search_mode)
+        output = output_prefix + _format_search_results(results, score_mode)
         return [TextContent(type="text", text=output)]
 
 

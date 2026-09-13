@@ -113,12 +113,12 @@ class SearchToolHandler(ToolHandler):
         return bool(name) and name.lower() not in excluded_page_names
 
     @staticmethod
-    def _has_more(raw_flag, visible_blocks: list, limit: int, excluded_page_names: set[str]) -> bool:
-        """The API's has-more flag describes the unfiltered result set, so under
-        active exclusions it is derived from what is actually visible instead."""
-        if excluded_page_names:
-            return len(visible_blocks) > limit
-        return bool(raw_flag)
+    def _has_more(raw_flag, excluded_page_names: set[str]) -> bool:
+        """The API's has-more flag describes the unfiltered result set, so it would
+        reveal that hidden pages match. The API is queried with `limit`, so the
+        visible set can never exceed it either; under active exclusions the only
+        safe answer is False (results may be cut off without a hint)."""
+        return not excluded_page_names and bool(raw_flag)
 
     @staticmethod
     def _filter_db_block_results(
@@ -217,7 +217,7 @@ class SearchToolHandler(ToolHandler):
                 parts.append(f"- {f}")
             parts.append("")
 
-        if SearchToolHandler._has_more(result.get("hasMore?"), block_results, limit, excluded_page_names):
+        if SearchToolHandler._has_more(result.get("hasMore?"), excluded_page_names):
             parts.append("*More results available — increase limit to see more*")
 
         # Count only what survived filtering; the raw count would reveal how many
@@ -283,7 +283,7 @@ class SearchToolHandler(ToolHandler):
                 parts.append(f"- {f}")
             parts.append("")
 
-        if SearchToolHandler._has_more(result.get("has-more?"), blocks, limit, excluded_page_names):
+        if SearchToolHandler._has_more(result.get("has-more?"), excluded_page_names):
             parts.append("*More results available — increase limit to see more*")
 
         total = len(blocks) + len(visible_pages) + len(snippets) + len(files)
@@ -329,9 +329,7 @@ class SearchToolHandler(ToolHandler):
                 out["blocks"] = block_results
             if include_files:
                 out["files"] = [] if excluded_page_names else result.get("files", [])
-            out["has_more"] = SearchToolHandler._has_more(
-                result.get("hasMore?"), visible_blocks if include_blocks else [], limit, excluded_page_names
-            )
+            out["has_more"] = SearchToolHandler._has_more(result.get("hasMore?"), excluded_page_names)
         else:
             if include_blocks and not excluded_page_names:
                 # Markdown-mode blocks carry block/content but no page
@@ -350,9 +348,7 @@ class SearchToolHandler(ToolHandler):
                     out["pages_content"] = result.get("pages-content", [])[:limit]
             if include_files:
                 out["files"] = [] if excluded_page_names else result.get("files", [])
-            out["has_more"] = SearchToolHandler._has_more(
-                result.get("has-more?"), out.get("blocks", []), limit, excluded_page_names
-            )
+            out["has_more"] = SearchToolHandler._has_more(result.get("has-more?"), excluded_page_names)
 
         return out
 
