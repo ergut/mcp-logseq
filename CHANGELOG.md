@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `list_pages` shows each page's last-updated time (UTC) and accepts
+  `sort` (`"name"` default, or `"updated"` for most recent first) and
+  `updated_since` (epoch ms or ISO-8601) to find recently modified pages;
+  `limit` applies after filtering and sorting
+
 ## [1.9.2] - 2026-09-13
 
 ### Added

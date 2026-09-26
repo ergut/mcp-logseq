@@ -158,7 +158,7 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
-| **`list_pages`** | Browse your graph | "Show me all my pages" |
+| **`list_pages`** | Browse your graph; `sort: "updated"` / `updated_since` find recently modified pages | "Which pages did I change this week?" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
 | **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |
 | **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |

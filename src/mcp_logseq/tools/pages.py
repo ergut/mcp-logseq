@@ -2,6 +2,7 @@
 
 import json
 import re
+from datetime import datetime, timezone
 
 from mcp.types import Tool, TextContent
 
@@ -146,7 +147,11 @@ class ListPagesToolHandler(ToolHandler):
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="Lists all pages in a LogSeq graph.",
+            description=(
+                "Lists all pages in a LogSeq graph, each with its last-updated time (UTC). "
+                "To find recently modified pages, use sort='updated' (most recent first) "
+                "and/or updated_since."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -158,24 +163,60 @@ class ListPagesToolHandler(ToolHandler):
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Return at most this many pages (alphabetical). Omit for all.",
+                        "description": "Return at most this many pages (applied after filtering and sorting). Omit for all.",
+                    },
+                    "sort": {
+                        "type": "string",
+                        "enum": ["name", "updated"],
+                        "description": "Sort by page name (default) or by last update, most recent first (pages without an update time go last).",
+                        "default": "name",
+                    },
+                    "updated_since": {
+                        "type": ["integer", "string"],
+                        "description": "Only pages updated at or after this time: epoch milliseconds, or an ISO-8601 date/datetime (naive values are UTC). Pages without an update time are excluded.",
                     },
                 },
                 "required": [],
             },
         )
 
+    @staticmethod
+    def _parse_since(value) -> int:
+        """Epoch ms (int or numeric string) or ISO-8601 (naive => UTC) to epoch ms."""
+        if isinstance(value, bool):
+            raise ValueError(f"Invalid updated_since: {value!r}")
+        if isinstance(value, (int, float)):
+            return int(value)
+        text = str(value).strip()
+        if text.isdigit():
+            return int(text)
+        try:
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError(
+                f"Invalid updated_since: {value!r}. Use epoch milliseconds or an "
+                "ISO-8601 date/datetime such as '2026-09-01' or '2026-09-01T12:00:00Z'."
+            ) from None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp() * 1000)
+
     def _run(self, api, args: dict) -> list[TextContent]:
         include_journals = args.get("include_journals", False)
         limit = args.get("limit")
         if limit is not None:
             limit = int(limit)  # JSON Schema accepts 10.0 as an integer
+        sort = args.get("sort") or "name"
+        if sort not in ("name", "updated"):
+            raise ValueError(f"Invalid sort: {sort!r}. Use 'name' or 'updated'.")
+        since = args.get("updated_since")
+        if since is not None:
+            since = self._parse_since(since)
 
         try:
             result = api.list_pages()
 
-            # Format pages for display
-            pages_info = []
+            pages = []  # (name, is_journal, updated_ms or None)
             for page in result:
                 # Skip if it's a journal page and we don't want to include those
                 is_journal = page.get("journal?", False)
@@ -186,23 +227,24 @@ class ListPagesToolHandler(ToolHandler):
                 if _is_page_blocked(page, name_for_check):
                     continue
 
-                # Get page information
+                updated = page.get("updatedAt")
+                if not isinstance(updated, (int, float)) or isinstance(updated, bool):
+                    updated = None
+                if since is not None and (updated is None or updated < since):
+                    continue
+
                 name = page.get("originalName") or page.get("name", "<unknown>")
+                pages.append((name, is_journal, updated))
 
-                # Build page info string
-                info_parts = [f"- {name}"]
-                if is_journal:
-                    info_parts.append("[journal]")
-
-                pages_info.append(" ".join(info_parts))
-
-            # Sort alphabetically by page name
-            pages_info.sort()
+            pages.sort(key=lambda p: p[0])
+            if sort == "updated":
+                # Stable sort: ties and undated pages stay alphabetical; undated last.
+                pages.sort(key=lambda p: (p[2] is None, -(p[2] or 0)))
 
             # Build response
-            total = len(pages_info)
+            total = len(pages)
             if limit is not None and total > limit:
-                pages_info = pages_info[:limit]
+                pages = pages[:limit]
                 count_msg = f"\nShowing {limit} of {total} pages"
             else:
                 count_msg = f"\nTotal pages: {total}"
@@ -211,6 +253,16 @@ class ListPagesToolHandler(ToolHandler):
                 if not include_journals
                 else " (including journal pages)"
             )
+
+            pages_info = []
+            for name, is_journal, updated in pages:
+                info_parts = [f"- {name}"]
+                if is_journal:
+                    info_parts.append("[journal]")
+                if updated is not None:
+                    ts = datetime.fromtimestamp(updated / 1000, tz=timezone.utc)
+                    info_parts.append(f"(updated {ts:%Y-%m-%d %H:%M} UTC)")
+                pages_info.append(" ".join(info_parts))
 
             response = (
                 "LogSeq Pages:\n\n" + "\n".join(pages_info) + count_msg + journal_msg

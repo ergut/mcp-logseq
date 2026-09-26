@@ -277,6 +277,57 @@ class TestListPagesToolHandler:
         assert "(including journal pages)" in text
 
 
+    # 2026-09-01T00:00:00Z = 1788220800000 ms
+    RECENCY_PAGES = [
+        {"originalName": "Old", "journal?": False, "updatedAt": 1788220800000 - 86400000},
+        {"originalName": "New", "journal?": False, "updatedAt": 1788220800000 + 3600000},
+        {"originalName": "Mid", "journal?": False, "updatedAt": 1788220800000},
+        {"originalName": "Undated", "journal?": False, "updatedAt": None},
+        {"originalName": "Secret", "journal?": False, "updatedAt": 1788220800000 + 7200000,
+         "properties": {"tags": ["private"]}},
+    ]
+
+    def _run_recency(self, args):
+        mock_api = Mock()
+        mock_api.list_pages.return_value = self.RECENCY_PAGES
+        with patch("mcp_logseq.tools._make_api", return_value=mock_api), \
+             patch("mcp_logseq.access.get_access_config",
+                   return_value=AccessConfig(exclude_tags=["private"])):
+            return ListPagesToolHandler().run_tool(args)[0].text
+
+    def test_sort_updated_most_recent_first_undated_last(self):
+        text = self._run_recency({"sort": "updated"})
+        assert text.index("- New") < text.index("- Mid") < text.index("- Old") < text.index("- Undated")
+        assert "- New (updated 2026-09-01 01:00 UTC)" in text
+        assert "- Undated\n" in text  # no timestamp when updatedAt missing
+        assert "Secret" not in text  # ACL still applied
+        assert "Total pages: 4" in text
+
+    def test_default_sort_is_name_with_timestamps(self):
+        text = self._run_recency({})
+        assert text.index("- Mid") < text.index("- New") < text.index("- Old") < text.index("- Undated")
+        assert "- Old (updated 2026-08-31 00:00 UTC)" in text
+
+    @pytest.mark.parametrize("since", [1788220800000, "1788220800000", "2026-09-01", "2026-09-01T00:00:00", "2026-09-01T03:00:00+03:00"])
+    def test_updated_since_ms_and_iso(self, since):
+        text = self._run_recency({"updated_since": since})
+        assert "- New" in text and "- Mid" in text
+        assert "- Old" not in text
+        assert "Undated" not in text  # excluded when filter set
+        assert "Secret" not in text
+        assert "Total pages: 2" in text
+
+    def test_limit_applies_after_sort(self):
+        text = self._run_recency({"sort": "updated", "limit": 1})
+        assert "- New" in text and "- Mid" not in text
+        assert "Showing 1 of 4 pages" in text
+
+    @pytest.mark.parametrize("args", [{"updated_since": "last week"}, {"updated_since": True}, {"sort": "size"}])
+    def test_invalid_args_raise(self, args):
+        with pytest.raises(ValueError, match="Invalid"):
+            self._run_recency(args)
+
+
 class TestGetPageContentToolHandler:
     """Test cases for GetPageContentToolHandler."""
 
