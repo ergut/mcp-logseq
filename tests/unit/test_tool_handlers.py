@@ -1357,6 +1357,21 @@ class TestQueryToolHandler:
         assert data["results"][0]["uuid"] == "u1"
 
 
+    @pytest.mark.parametrize("fmt", ["text", "json"])
+    def test_run_tool_logseq_error_sentinel(self, fmt):
+        """Logseq answers raw datalog with ["error"]; report failure, not a result."""
+        mock_api = Mock()
+        mock_api.query_dsl.return_value = ["error"]
+        with patch("mcp_logseq.tools._make_api", return_value=mock_api):
+            text = QueryToolHandler().run_tool(
+                {"query": "[:find ?p :where [?p :block/name]]", "format": fmt}
+            )[0].text
+        assert "Query failed" in text
+        assert "rejected" in text
+        assert "not supported" in text
+        assert '"results"' not in text
+
+
 class TestFindPagesByPropertyToolHandler:
     """Test cases for FindPagesByPropertyToolHandler."""
 
