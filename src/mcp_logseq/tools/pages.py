@@ -34,7 +34,7 @@ class CreatePageToolHandler(ToolHandler):
     - YAML frontmatter for page properties
     """
 
-    access_policy = [access.NamespaceName("title")]
+    access_policy = [access.NamespaceName("title"), access.WriteNamespaceName("title")]
 
     def __init__(self):
         super().__init__("create_page")
@@ -470,6 +470,7 @@ class DeletePageToolHandler(ToolHandler):
     access_policy = [
         access.NamespaceName("page_name"),
         access.PageTag("page_name"),
+        access.WriteNamespaceName("page_name"),
     ]
 
     def __init__(self):
@@ -539,6 +540,7 @@ class UpdatePageToolHandler(ToolHandler):
     access_policy = [
         access.NamespaceName("page_name"),
         access.PageTag("page_name"),
+        access.WriteNamespaceName("page_name"),
     ]
 
     def __init__(self):
@@ -784,6 +786,8 @@ class RenamePageToolHandler(ToolHandler):
         access.NamespaceName("old_name"),
         access.NamespaceName("new_name"),
         access.PageTag("old_name"),
+        access.WriteNamespaceName("old_name"),
+        access.WriteNamespaceName("new_name"),
     ]
 
     def __init__(self):

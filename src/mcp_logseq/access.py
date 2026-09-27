@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 
 from .config import csv_config_value, read_config_file
-from .namespace import is_namespace_blocked
+from .namespace import is_namespace_blocked, namespace_matches
 
 logger = logging.getLogger("mcp-logseq")
 
@@ -29,6 +29,9 @@ class AccessConfig:
     exclude_tags: list[str] = field(default_factory=list)
     include_namespaces: list[str] = field(default_factory=list)
     exclude_namespaces: list[str] = field(default_factory=list)
+    # Write allow-list: when non-empty, write tools may only target pages in
+    # these namespaces. Applied ON TOP of the read rules, never instead of them.
+    write_namespaces: list[str] = field(default_factory=list)
 
     @property
     def has_rules(self) -> bool:
@@ -40,11 +43,11 @@ class AccessConfig:
 def load_access_config() -> AccessConfig:
     """Resolve the ACL lists from env vars / the config file.
 
-    Parses the config file once for all three lists (env vars take priority
-    per list). Never raises.
+    Parses the config file once for all lists (env vars take priority per
+    list). Never raises.
     """
     raw = read_config_file()
-    return AccessConfig(
+    acl = AccessConfig(
         exclude_tags=csv_config_value(raw, "LOGSEQ_EXCLUDE_TAGS", "exclude_tags"),
         include_namespaces=csv_config_value(
             raw, "LOGSEQ_INCLUDE_NAMESPACES", "include_namespaces"
@@ -52,7 +55,21 @@ def load_access_config() -> AccessConfig:
         exclude_namespaces=csv_config_value(
             raw, "LOGSEQ_EXCLUDE_NAMESPACES", "exclude_namespaces"
         ),
+        write_namespaces=csv_config_value(
+            raw, "LOGSEQ_WRITE_NAMESPACES", "write_namespaces"
+        ),
     )
+    if acl.write_namespaces:
+        logger.info(f"Write namespaces: {', '.join(acl.write_namespaces)}")
+        for ns in acl.write_namespaces:
+            if acl.include_namespaces and not any(
+                namespace_matches(ns, inc) for inc in acl.include_namespaces
+            ):
+                logger.warning(
+                    f"Write namespace '{ns}' is not covered by the include list; "
+                    f"writes there will be denied by the read rules"
+                )
+    return acl
 
 
 @functools.cache
@@ -177,6 +194,22 @@ def enforce_block_tag_access(api, block_uuid: str) -> None:
     enforce_page_tag_access(api, page_name)
 
 
+def enforce_write_namespace_access(page_name: str) -> None:
+    """Raise AccessDenied if page_name is outside the write allow-list.
+
+    A no-op when no write namespaces are configured. Callers run the read
+    checks first, so a hidden page is reported with the read message and its
+    existence is not leaked through this one.
+    """
+    acl = get_access_config()
+    if acl.write_namespaces and not any(
+        namespace_matches(page_name, ns) for ns in acl.write_namespaces
+    ):
+        raise AccessDenied(
+            f"Access denied: page '{page_name}' is read-only for this assistant."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Declarative access policies (architecture review A4)
 #
@@ -199,9 +232,11 @@ class AccessPolicy:
 
     ``enforce`` runs before the handler body and raises ``AccessDenied`` (or
     propagates a fetch error, fail-closed) when the resource is restricted.
+    Write gates return the target page name for the write audit log line;
+    every other policy returns None.
     """
 
-    def enforce(self, api, args: dict) -> None:
+    def enforce(self, api, args: dict) -> str | None:
         raise NotImplementedError
 
 
@@ -251,3 +286,51 @@ class BlockTag(AccessPolicy):
         uuid = args.get(self.arg)
         if uuid:
             enforce_block_tag_access(api, uuid)
+
+
+# Write gates. Append them AFTER the read policies in a write handler's
+# ``access_policy`` so the read denial wins for pages the assistant cannot
+# see. Each returns the target page name, which ``ToolHandler.run_tool`` logs
+# as the write audit line.
+
+
+@dataclass(frozen=True)
+class WriteNamespaceName(AccessPolicy):
+    """Write allow-list gate on the page name in ``args[arg]``."""
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> str | None:
+        name = args.get(self.arg)
+        if name:
+            enforce_write_namespace_access(name)
+        return name
+
+
+@dataclass(frozen=True)
+class WriteBlockNamespace(AccessPolicy):
+    """Write allow-list gate on the owning page of the block in ``args[arg]``.
+
+    Fail-closed: with a write list configured, an unresolvable owner is
+    denied. Without one, the owner is NOT resolved (no extra API call, same
+    behavior as before the write list existed) and the audit line carries
+    the block UUID instead.
+    """
+
+    arg: str
+
+    def enforce(self, api, args: dict) -> str | None:
+        uuid = args.get(self.arg)
+        if not uuid:
+            return None
+        if not get_access_config().write_namespaces:
+            return f"(block {uuid})"
+        # ponytail: re-resolves the owner already fetched by BlockNamespace /
+        # BlockTag when read rules are set; memoize per call if it ever matters.
+        page_name = api.get_block_page_name(uuid)
+        if page_name is None:
+            raise AccessDenied(
+                f"Access denied: cannot verify the owning page of block '{uuid}'."
+            )
+        enforce_write_namespace_access(page_name)
+        return page_name

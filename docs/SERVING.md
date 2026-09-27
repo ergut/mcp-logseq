@@ -2,7 +2,7 @@
 
 > **Advanced deployment guide.** For local single-user use you need none of this — the default **stdio** transport (covered in the [README](../README.md)) is spawned by your client as a subprocess. This guide covers running `mcp-logseq` as a networked **HTTP** service for sandboxed or remote clients: the server-side security model, the per-profile multi-instance pattern, the separate vector sync writer, and TLS.
 
-For the namespace/tag access-control env vars themselves (`LOGSEQ_INCLUDE_NAMESPACES`, `LOGSEQ_EXCLUDE_NAMESPACES`, `LOGSEQ_EXCLUDE_TAGS`), see [Privacy & Access Control](../README.md#-privacy--access-control) in the README — they apply to every transport.
+For the namespace/tag access-control env vars themselves (`LOGSEQ_INCLUDE_NAMESPACES`, `LOGSEQ_EXCLUDE_NAMESPACES`, `LOGSEQ_WRITE_NAMESPACES`, `LOGSEQ_EXCLUDE_TAGS`), see [Privacy & Access Control](../README.md#-privacy--access-control) in the README — they apply to every transport.
 
 ## 🔒 Security model
 
@@ -55,6 +55,13 @@ LOGSEQ_CONFIG_FILE=~/.logseq/data.json \
 LOGSEQ_EXCLUDE_TAGS=keys,secret \
 MCP_HTTP_AUTH_TOKEN=$PERSONAL_TOKEN \
 mcp-logseq --transport http --port 12322
+
+# "family" — reads Family/ and Beren/, but may only write under Beren/.
+LOGSEQ_CONFIG_FILE=~/.logseq/data.json \
+LOGSEQ_INCLUDE_NAMESPACES=Family,Beren \
+LOGSEQ_WRITE_NAMESPACES=Beren \
+MCP_HTTP_AUTH_TOKEN=$FAMILY_TOKEN \
+mcp-logseq --transport http --port 12323
 ```
 
 The `LOGSEQ_CONFIG_FILE` is identical across all three instances; the per-process env block is what makes each one a distinct profile. Because each instance is its own process, one profile's env (token, namespace scope, excluded tags) is never loaded by another — isolation is the process boundary.

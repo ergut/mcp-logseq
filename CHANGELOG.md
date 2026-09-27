@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sort` (`"name"` default, or `"updated"` for most recent first) and
   `updated_since` (epoch ms or ISO-8601) to find recently modified pages;
   `limit` applies after filtering and sorting
+- `LOGSEQ_WRITE_NAMESPACES` (config key `write_namespaces`): a write
+  allow-list applied on top of the read rules, so an assistant can read a
+  wider area than it may edit. Write tools outside the list are denied with
+  a distinct "read-only" message; block writes check the owning page
+  (fail-closed). Unset keeps today's behavior.
+- Allowed writes are logged at INFO as one `Write: tool=<name> page=<name>`
+  audit line (page names only, never content).
 
 ### Fixed
 

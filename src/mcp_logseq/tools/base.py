@@ -85,7 +85,8 @@ class ToolHandler:
         client is built once, every declared policy runs against it (raising
         ``AccessDenied`` fail-loud, uniformly, before any handler logic), and the
         same client is handed to ``_run``. Handlers implement ``_run`` and never
-        wire enforcement by hand.
+        wire enforcement by hand. Write gates return the target page(s), which
+        are logged as one ``Write:`` audit line.
 
         ``_make_api`` is looked up via the package namespace (``_t._make_api``)
         so ``patch("mcp_logseq.tools._make_api")`` in the test suite intercepts
@@ -94,8 +95,15 @@ class ToolHandler:
         import mcp_logseq.tools as _t
 
         api = _t._make_api()
+        written = []
         for policy in self.access_policy:
-            policy.enforce(api, args)
+            page = policy.enforce(api, args)
+            if page:
+                written.append(page)
+        if written:
+            # Write audit (only write gates return a page): page NAMES only,
+            # never content (A5). Logged once every access check has passed.
+            logger.info(f"Write: tool={self.name} page={' -> '.join(map(str, written))}")
         return self._run(api, args)
 
     def _run(self, api, args: dict) -> list[TextContent]:
