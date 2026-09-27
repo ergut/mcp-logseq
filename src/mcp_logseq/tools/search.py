@@ -584,8 +584,7 @@ class QueryToolHandler(ToolHandler):
                 return [TextContent(
                     type="text",
                     text=(
-                        f"❌ Query failed: Logseq rejected the query `{query}` "
-                        f"(returned {json.dumps(result)[:200]}).\n\n"
+                        f"❌ Query failed: Logseq rejected the query `{query}`.\n\n"
                         "This tool accepts only simple Logseq DSL queries such as "
                         "`(page-property type customer)`, `(task TODO)` or "
                         "`(and [[tag]] (task DONE))`. Raw datalog / advanced queries "

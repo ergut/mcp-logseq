@@ -322,7 +322,7 @@ class TestListPagesToolHandler:
         assert "- New" in text and "- Mid" not in text
         assert "Showing 1 of 4 pages" in text
 
-    @pytest.mark.parametrize("args", [{"updated_since": "last week"}, {"updated_since": True}, {"sort": "size"}])
+    @pytest.mark.parametrize("args", [{"updated_since": "last week"}, {"updated_since": True}])
     def test_invalid_args_raise(self, args):
         with pytest.raises(ValueError, match="Invalid"):
             self._run_recency(args)

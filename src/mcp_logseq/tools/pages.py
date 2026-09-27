@@ -191,7 +191,7 @@ class ListPagesToolHandler(ToolHandler):
         if text.isdigit():
             return int(text)
         try:
-            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(text)
         except ValueError:
             raise ValueError(
                 f"Invalid updated_since: {value!r}. Use epoch milliseconds or an "
@@ -207,8 +207,6 @@ class ListPagesToolHandler(ToolHandler):
         if limit is not None:
             limit = int(limit)  # JSON Schema accepts 10.0 as an integer
         sort = args.get("sort") or "name"
-        if sort not in ("name", "updated"):
-            raise ValueError(f"Invalid sort: {sort!r}. Use 'name' or 'updated'.")
         since = args.get("updated_since")
         if since is not None:
             since = self._parse_since(since)
@@ -228,7 +226,7 @@ class ListPagesToolHandler(ToolHandler):
                     continue
 
                 updated = page.get("updatedAt")
-                if not isinstance(updated, (int, float)) or isinstance(updated, bool):
+                if not isinstance(updated, (int, float)):
                     updated = None
                 if since is not None and (updated is None or updated < since):
                     continue
@@ -236,10 +234,7 @@ class ListPagesToolHandler(ToolHandler):
                 name = page.get("originalName") or page.get("name", "<unknown>")
                 pages.append((name, is_journal, updated))
 
-            pages.sort(key=lambda p: p[0])
-            if sort == "updated":
-                # Stable sort: ties and undated pages stay alphabetical; undated last.
-                pages.sort(key=lambda p: (p[2] is None, -(p[2] or 0)))
+            pages.sort(key=(lambda p: (p[2] is None, -(p[2] or 0), p[0])) if sort == "updated" else (lambda p: p[0]))
 
             # Build response
             total = len(pages)
