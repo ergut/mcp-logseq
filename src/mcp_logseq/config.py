@@ -10,6 +10,7 @@ Example config.json:
   "exclude_tags": ["private", "secret"],
   "include_namespaces": ["work", "projects"],
   "exclude_namespaces": ["work/secret"],
+  "write_namespaces": ["work/drafts"],
   "vector": {
     "enabled": true,
     "db_path": "~/.logseq-vector",
