@@ -5,27 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.0] - 2026-09-27
 
 ### Added
 
 - `list_pages` shows each page's last-updated time (UTC) and accepts
   `sort` (`"name"` default, or `"updated"` for most recent first) and
   `updated_since` (epoch ms or ISO-8601) to find recently modified pages;
-  `limit` applies after filtering and sorting
+  `limit` applies after filtering and sorting (#104)
 - `LOGSEQ_WRITE_NAMESPACES` (config key `write_namespaces`): a write
   allow-list applied on top of the read rules, so an assistant can read a
   wider area than it may edit. Write tools outside the list are denied with
   a distinct "read-only" message; block writes check the owning page
-  (fail-closed). Unset keeps today's behavior.
+  (fail-closed). Unset keeps today's behavior (#105)
 - Allowed writes are logged at INFO as one `Write: tool=<name> page=<name>`
-  audit line (page names only, never content).
+  audit line (page names only, never content) (#105)
 
 ### Fixed
 
 - `query` no longer reports Logseq's `["error"]` response (e.g. for raw
   datalog) as a single result; it returns a clear failure explaining that
-  only simple Logseq DSL is supported
+  only simple Logseq DSL is supported (#104)
 
 ## [1.9.2] - 2026-09-13
 
