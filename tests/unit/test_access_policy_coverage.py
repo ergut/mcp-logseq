@@ -23,30 +23,40 @@ from mcp_logseq import tools
 # Order does not matter; the SET of (type, arg) pairs is the contract.
 EXPECTED_POLICIES = {
     # Page handlers -----------------------------------------------------------
-    tools.CreatePageToolHandler: {(access.NamespaceName, "title")},
+    tools.CreatePageToolHandler: {
+        (access.NamespaceName, "title"),
+        (access.WriteNamespaceName, "title"),
+    },
     tools.GetPageContentToolHandler: {(access.NamespaceName, "page_name")},
     tools.DeletePageToolHandler: {
         (access.NamespaceName, "page_name"),
         (access.PageTag, "page_name"),
+        (access.WriteNamespaceName, "page_name"),
     },
     tools.UpdatePageToolHandler: {
         (access.NamespaceName, "page_name"),
         (access.PageTag, "page_name"),
+        (access.WriteNamespaceName, "page_name"),
     },
     tools.RenamePageToolHandler: {
         (access.NamespaceName, "old_name"),
         (access.NamespaceName, "new_name"),
         (access.PageTag, "old_name"),
+        (access.WriteNamespaceName, "old_name"),
+        (access.WriteNamespaceName, "new_name"),
     },
     tools.GetPageBacklinksToolHandler: {(access.NamespaceName, "page_name")},
-    # Block handlers (identical namespace + tag pair on the uuid argument) -----
+    # Block handlers (namespace + tag pair on the uuid argument; writes add ----
+    # the write gate) ----------------------------------------------------------
     tools.DeleteBlockToolHandler: {
         (access.BlockNamespace, "block_uuid"),
         (access.BlockTag, "block_uuid"),
+       (access.WriteBlockNamespace, "block_uuid"),
     },
     tools.UpdateBlockToolHandler: {
         (access.BlockNamespace, "block_uuid"),
         (access.BlockTag, "block_uuid"),
+       (access.WriteBlockNamespace, "block_uuid"),
     },
     tools.GetBlockToolHandler: {
         (access.BlockNamespace, "block_uuid"),
@@ -55,10 +65,12 @@ EXPECTED_POLICIES = {
     tools.InsertNestedBlockToolHandler: {
         (access.BlockNamespace, "parent_block_uuid"),
         (access.BlockTag, "parent_block_uuid"),
+       (access.WriteBlockNamespace, "parent_block_uuid"),
     },
     tools.SetBlockPropertiesToolHandler: {
         (access.BlockNamespace, "block_uuid"),
         (access.BlockTag, "block_uuid"),
+       (access.WriteBlockNamespace, "block_uuid"),
     },
     # Namespace-tree handlers (name-gated; results filtered in _run) -----------
     tools.GetPagesFromNamespaceToolHandler: {(access.NamespaceName, "namespace")},
@@ -131,3 +143,42 @@ def test_base_choke_point_enforces_before_dispatch():
 
     # Enforcement happened; _run never did.
     assert calls == ["enforced"]
+
+
+_WRITE_GATES = (access.WriteNamespaceName, access.WriteBlockNamespace)
+
+
+def _registered_handlers():
+    from mcp_logseq.server import _register_all_tool_handlers
+
+    handlers: dict = {}
+    _register_all_tool_handlers(handlers)
+    return handlers
+
+
+def test_write_tools_carry_write_gate_after_read_policies():
+    """Every tool in ``_WRITE_TOOL_NAMES`` must declare a write gate, and the
+    gates must come AFTER the read policies so a hidden page is denied with
+    the read message (no existence leak through the read-only message)."""
+    from mcp_logseq.server import _WRITE_TOOL_NAMES
+
+    handlers = _registered_handlers()
+    assert _WRITE_TOOL_NAMES <= set(handlers)
+    for name in _WRITE_TOOL_NAMES:
+        kinds = [isinstance(p, _WRITE_GATES) for p in handlers[name].access_policy]
+        assert any(kinds), f"{name} has no write gate"
+        first_gate = kinds.index(True)
+        assert all(kinds[first_gate:]), f"{name}: read policy after a write gate"
+
+
+def test_only_write_tools_carry_write_gate():
+    """The write set is the single source of truth: a write gate on any other
+    tool means it mutates and belongs in ``_WRITE_TOOL_NAMES`` (so --read-only
+    drops it too)."""
+    from mcp_logseq.server import _WRITE_TOOL_NAMES
+
+    for name, handler in _registered_handlers().items():
+        if name not in _WRITE_TOOL_NAMES:
+            assert not any(
+                isinstance(p, _WRITE_GATES) for p in handler.access_policy
+            ), f"{name} carries a write gate but is not in _WRITE_TOOL_NAMES"
