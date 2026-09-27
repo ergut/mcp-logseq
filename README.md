@@ -158,7 +158,7 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
-| **`list_pages`** | Browse your graph | "Show me all my pages" |
+| **`list_pages`** | Browse your graph; `sort: "updated"` / `updated_since` find recently modified pages | "Which pages did I change this week?" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
 | **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |
 | **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |
@@ -167,7 +167,7 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 | **`update_block`** | Edit block content by UUID | "Update this specific block text" |
 | **`get_block`** | Read a block by UUID with its properties and children | "Show me this specific block" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
-| **`query`** | Execute Logseq DSL queries | "Find all TODO tasks tagged #project" |
+| **`query`** | Execute Logseq DSL queries (raw datalog not supported) | "Find all TODO tasks tagged #project" |
 | **`find_pages_by_property`** | Search pages by property | "Find all pages with status = active" |
 | **`get_pages_from_namespace`** | List pages in a namespace | "Show all pages under Customer/" |
 | **`get_pages_tree_from_namespace`** | Hierarchical namespace view | "Show Projects/ as a tree" |

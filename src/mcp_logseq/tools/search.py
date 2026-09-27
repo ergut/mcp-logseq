@@ -428,7 +428,7 @@ class QueryToolHandler(ToolHandler):
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="Execute a Logseq DSL query to search pages and blocks. Supports property queries, tag queries, task queries, and logical combinations. See https://docs.logseq.com/#/page/queries for query syntax.",
+            description="Execute a Logseq DSL query to search pages and blocks. Supports property queries, tag queries, task queries, and logical combinations. Raw datalog ({:query ...} / [:find ...]) is not supported. See https://docs.logseq.com/#/page/queries for query syntax.",
             input_schema={
                 "type": "object",
                 "properties": {
@@ -576,6 +576,20 @@ class QueryToolHandler(ToolHandler):
                 return [TextContent(
                     type="text",
                     text=f"No results found for query: `{query}`"
+                )]
+
+            # Logseq's DB.q answers a query it cannot run (e.g. raw datalog) with
+            # the literal ["error"]; the real exception is not exposed over HTTP.
+            if any(not isinstance(item, dict) for item in result):
+                return [TextContent(
+                    type="text",
+                    text=(
+                        f"❌ Query failed: Logseq rejected the query `{query}`.\n\n"
+                        "This tool accepts only simple Logseq DSL queries such as "
+                        "`(page-property type customer)`, `(task TODO)` or "
+                        "`(and [[tag]] (task DONE))`. Raw datalog / advanced queries "
+                        "(`{:query ...}`, `[:find ...]`) are not supported."
+                    ),
                 )]
 
             # Filter by result_type if specified
