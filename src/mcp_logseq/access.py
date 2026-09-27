@@ -69,8 +69,6 @@ def load_access_config() -> AccessConfig:
                     f"Write namespace '{ns}' is not covered by the include list; "
                     f"writes there will be denied by the read rules"
                 )
-    else:
-        logger.info("Write namespaces: unrestricted")
     return acl
 
 

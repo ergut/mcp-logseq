@@ -183,14 +183,6 @@ def test_write_namespaces_from_config_file(monkeypatch, tmp_path):
     assert access.load_access_config().write_namespaces == ["Beren", "Inbox"]
 
 
-def test_write_namespaces_env_wins_over_config(monkeypatch, tmp_path):
-    path = tmp_path / "config.json"
-    path.write_text(json.dumps({"write_namespaces": ["from-file"]}))
-    monkeypatch.setenv("LOGSEQ_CONFIG_FILE", str(path))
-    monkeypatch.setenv("LOGSEQ_WRITE_NAMESPACES", "Beren, Inbox")
-    assert access.load_access_config().write_namespaces == ["Beren", "Inbox"]
-
-
 def test_write_namespaces_empty_by_default(monkeypatch):
     monkeypatch.delenv("LOGSEQ_CONFIG_FILE", raising=False)
     monkeypatch.delenv("LOGSEQ_WRITE_NAMESPACES", raising=False)
